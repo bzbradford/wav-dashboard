@@ -84,6 +84,6 @@ ui <- fluidPage(
     a("Ben Bradford", href = "https://github.com/bzbradford", target = "_blank", .noWS = "after"),
     ", UW-Madison Entomology", br(),
     paste("Last updated:", format(file.info(".")$mtime, "%Y-%m-%d")), br(),
-    a("Source code", href = "https://github.com/bzbradford/wav-station-map", target = "_blank")
+    a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
   )
 )
