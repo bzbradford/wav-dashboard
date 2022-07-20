@@ -2,7 +2,23 @@
 
 server <- function(input, output, session) {
 
+  # Logger select ----
+
+  random_stn <- all_pts %>%
+    filter(max_fw_year == max(data_years)) %>%
+    pull(station_id) %>%
+    sample(1)
+
+
+
   # Map ----
+
+  # output$mapUI <- renderUI({
+  #   div(
+  #     style = "max-width: 1000px; margin: auto; border: 1px solid grey;",
+  #     leafletOutput("map", width = "100%", height = "800px")
+  #   )
+  # })
 
   basemaps <- list(
     one = "ESRI Topo",
@@ -16,10 +32,8 @@ server <- function(input, output, session) {
     huc8 = "HUC8 Subbasins (<span style='color: blue;'>blue</span>)",
     huc10 = "HUC10 Watersheds (<span style='color: blue;'>blue</span>)",
     huc12 = "HUC12 Subwatersheds (<span style='color: blue;'>blue</span>)",
-    baseline = "Baseline Stations (<span style='color: green;'>green</span>)",
-    nutrient = "Nutrient Stations (<span style='color: orange;'>orange</span>)",
-    thermistor = "Temperature Loggers (<span style='color: purple;'>purple</span>)",
-    all = "Cluster overlay (groups and pins)"
+    points = "Station points (<span style='color: green;'>green</span>)",
+    pins = "Station clusters (groups and pins)"
   )
 
   create_popup <- function(data, title) {
@@ -103,10 +117,10 @@ server <- function(input, output, session) {
     # Points
     map %>%
       addCircleMarkers(
-        data = baseline_pts,
-        group = layers$baseline,
-        label = ~lapply(paste0("<b>Baseline Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
-        popup = ~create_popup(baseline_stns, "<b>Baseline Monitoring Site</b><br>"),
+        data = all_pts,
+        group = layers$points,
+        label = ~lapply(paste0("<b>WAV Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
+        popup = ~create_popup(baseline_stns, "<b>WAV Monitoring Site</b><br>"),
         radius = 4,
         color = "black",
         weight = 0.5,
@@ -114,33 +128,9 @@ server <- function(input, output, session) {
         fillOpacity = 0.75,
         options = markerOptions(pane = "points", sticky = F)
       ) %>%
-      addCircleMarkers(
-        data = nutrient_pts,
-        group = layers$nutrient,
-        label = ~lapply(paste0("<b>Nutrient Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
-        popup = ~create_popup(nutrient_stns, "<b>Nutrient Monitoring Site</b><br>"),
-        radius = 4,
-        color = "black",
-        weight = 0.5,
-        fillColor = "orange",
-        fillOpacity = 0.75,
-        options = markerOptions(pane = "points", sticky = F)
-      ) %>%
-      addCircleMarkers(
-        data = therm_pts,
-        group = layers$thermistor,
-        label = ~lapply(paste0("<b>Thermistor Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
-        popup = ~create_popup(therm_stns, "<b>Thermistor Site</b><br>"),
-        radius = 4,
-        color = "black",
-        weight = 0.5,
-        fillColor = "purple",
-        fillOpacity = 0.75,
-        options = markerOptions(pane = "points")
-      ) %>%
       addMarkers(
         data = all_pts,
-        group = layers$all,
+        group = layers$pins,
         label = ~lapply(paste0("<b>WAV Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
         popup = ~create_popup(all_stns, "<b>WAV Monitoring Site</b><br>"),
         clusterOptions = markerClusterOptions()
