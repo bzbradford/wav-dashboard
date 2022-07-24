@@ -98,8 +98,16 @@ ui <- fluidPage(
       title = "Station map",
       value = "map",
       div(
-        style = "max-width: 1000px; margin: auto; border: 1px solid grey;",
-        leafletOutput("map", width = "100%", height = "800px")
+        style = "max-width: 1000px; margin: auto; border: 1px solid lightgrey;",
+        leafletOutput("map", width = "100%", height = "700px")
+      ),
+      div(style = "margin: 0.5em 1em; 0.5em 1em;", align = "center",
+        p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize(stn_colors$current), ". Click on any startion to select it, or choose from the list above.")))),
+        p(
+          actionButton("zoom_in", "Zoom to selected site"),
+          actionButton("reset_zoom", "Zoom out to all sites"),
+          actionButton("random_site", "Random site")
+        )
       )
     ),
     open = "map"

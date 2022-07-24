@@ -45,10 +45,10 @@ server <- function(input, output, session) {
   })
 
   cur_stn <- reactive({
-    req(input$stn)
+    req(input$station)
 
     all_pts %>%
-      filter(station_id == input$stn)
+      filter(station_id == input$station)
   })
 
   output$total_stns_ui <- renderUI({
@@ -81,13 +81,15 @@ server <- function(input, output, session) {
 
   layers <- list(
     counties = "Counties/Regions",
-    nkes = "NKE Plans (<span style='color: blue;'>blue</span>)",
-    huc8 = "HUC8 Subbasins (<span style='color: blue;'>blue</span>)",
-    huc10 = "HUC10 Watersheds (<span style='color: blue;'>blue</span>)",
-    huc12 = "HUC12 Subwatersheds (<span style='color: blue;'>blue</span>)",
-    points = "Station points (<span style='color: green;'>green</span>)",
+    nkes = paste0("NKE Plans (", colorize("blue"), ")"),
+    huc8 = paste0("HUC8 Subbasins (", colorize("blue"), ")"),
+    huc10 = paste0("HUC10 Watersheds (", colorize("blue"), ")"),
+    huc12 = paste0("HUC12 Subwatersheds (", colorize("blue"), ")"),
+    points = "Station points",
     pins = "Station clusters (groups and pins)"
   )
+
+  hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$pins)
 
 
 
@@ -110,11 +112,13 @@ server <- function(input, output, session) {
       addMapPane("huc12", 422) %>%
       addMapPane("nkes", 423) %>%
       addMapPane("points", 430) %>%
-      hideGroup(c(layers$huc8, layers$huc10, layers$huc12)) %>%
+      addMapPane("pins", 440) %>%
+      addMapPane("cur_point", 450) %>%
+      hideGroup(hidden_layers) %>%
       addLayersControl(
         baseGroups = unlist(basemaps, use.names = FALSE),
         overlayGroups = unlist(layers, use.names = FALSE),
-        options = layersControlOptions(collapsed = FALSE)
+        options = layersControlOptions(collapsed = TRUE)
       ) %>%
       addFullscreenControl(pseudoFullscreen = TRUE) %>%
       addEasyButtonBar(
@@ -235,18 +239,20 @@ server <- function(input, output, session) {
         options = pathOptions(pane = "huc12")
       )
 
-    # Hide the legend after a delay
-    delay(2000, {
-      map %>%
-        addLayersControl(
-          baseGroups = unlist(basemaps, use.names = FALSE),
-          overlayGroups = unlist(layers, use.names = FALSE),
-          options = layersControlOptions(collapsed = TRUE)
-        )
-    })
+    # # Hide the legend after a delay
+    # delay(3000, {
+    #   map %>%
+    #     addLayersControl(
+    #       baseGroups = unlist(basemaps, use.names = FALSE),
+    #       overlayGroups = unlist(layers, use.names = FALSE),
+    #       options = layersControlOptions(collapsed = TRUE)
+    #     )
+    # })
   })
 
-  # Render map points
+
+  ## Render map points ----
+
   observeEvent(avail_pts(), {
 
     if (nrow(avail_pts()) > 0) {
@@ -266,7 +272,7 @@ server <- function(input, output, session) {
           radius = 4,
           color = "black",
           weight = 0.5,
-          fillColor = "green",
+          fillColor = ~stn_color,
           fillOpacity = 0.75,
           options = markerOptions(pane = "points", sticky = F)
         ) %>%
@@ -285,12 +291,99 @@ server <- function(input, output, session) {
     }
   })
 
-  # get clicked logger location and select it
+
+  ## Get clicked station and select it ----
+
   observe({
-    print(input$map_marker_click)
     updateSelectInput(
       inputId = "station",
       selected = input$map_marker_click
+    )
+  })
+
+
+  ## Handle displaying current station ----
+
+  observeEvent(list(cur_stn(), input$map_collapse), {
+    req(cur_stn())
+
+    label <- all_labels[names(all_labels) == cur_stn()$station_id] %>% setNames(NULL)
+    popup <- all_popups[names(all_popups) == cur_stn()$station_id] %>% setNames(NULL)
+
+    leafletProxy("map") %>%
+      clearGroup("cur_point") %>%
+      addCircleMarkers(
+        data = cur_stn(),
+        lat = ~latitude,
+        lng = ~longitude,
+        label = label,
+        popup = popup,
+        layerId = ~station_id,
+        group = "cur_point",
+        options = pathOptions(pane = "cur_point"),
+        radius = 5,
+        weight = 0.75,
+        color = "black",
+        fillColor = "orange",
+        fillOpacity = 1
+      ) %>%
+      addMarkers(
+        data = cur_stn(),
+        lat = ~latitude,
+        lng = ~longitude,
+        label = label,
+        popup = popup,
+        layerId = ~station_id,
+        group = "cur_point",
+        options = pathOptions(pane = "cur_point")
+      )
+  })
+
+
+  ## Map action buttons ----
+
+  observeEvent(input$zoom_in, {
+    leafletProxy("map") %>%
+      setView(
+        lat = cur_stn()$latitude,
+        lng = cur_stn()$longitude,
+        zoom = 10
+      )
+  })
+
+  observeEvent(input$reset_zoom, {
+    if (nrow(avail_pts()) > 0) {
+      leafletProxy("map") %>%
+        fitBounds(
+          lat1 = min(avail_pts()$latitude),
+          lat2 = max(avail_pts()$latitude),
+          lng1 = min(avail_pts()$longitude),
+          lng2 = max(avail_pts()$longitude)
+        )
+    } else {
+      leafletProxy("map") %>%
+        fitBounds(
+          lat1 = min(all_pts$latitude),
+          lat2 = max(all_pts$latitude),
+          lng1 = min(all_pts$longitude),
+          lng2 = max(all_pts$longitude)
+        )
+    }
+
+  })
+
+  observeEvent(input$random_site, {
+    stn_id <- sample(stn_list(), 1)
+    stn <- all_stns %>% filter(station_id == stn_id)
+    leafletProxy("map") %>%
+      setView(
+        lat = stn$latitude,
+        lng = stn$longitude,
+        zoom = 10
+      )
+    updateSelectInput(
+      inputId = "station",
+      selected = stn_id
     )
   })
 

@@ -6,6 +6,22 @@ library(janitor)
 library(lubridate)
 library(shiny)
 
+
+
+# Functions ---------------------------------------------------------------
+
+c_to_f <- function(c, d = 1) {
+  round(c * 9.0 / 5.0 + 32, d)
+}
+
+f_to_c <- function(f, d = 1) {
+  round((f - 32) * 5.0 / 9.0, d)
+}
+
+colorize <- function(text, color = tolower(text)) {
+  paste0("<span style='color: ", color, "'>", text, "</span>")
+}
+
 create_popup <- function(data, title) {
   data %>% {
     cols <- names(.)
@@ -21,7 +37,19 @@ create_popup <- function(data, title) {
   }
 }
 
-# Map layers
+
+# Defs --------------------------------------------------------------------
+
+stn_colors <- list(
+  "baseline" = "green",
+  "thermistor" = "blue",
+  "nutrient" = "purple",
+  "current" = "orange"
+)
+
+
+# Map layers --------------------------------------------------------------
+
 counties <- read_sf("shp/wi-counties.shp")
 nkes <- read_sf("shp/nke-plans-2022.shp")
 huc8 <- read_sf("shp/wi-huc-8.shp")
@@ -29,8 +57,9 @@ huc10 <- read_sf("shp/wi-huc-10.shp")
 huc12 <- read_sf("shp/wi-huc-12.shp")
 
 
-# Load station list
-station_list <- read_csv("data/station-list.csv")
+# Station lists -----------------------------------------------------------
+
+station_list <- read_csv("data/station-list.csv", show_col_types = F)
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
@@ -55,8 +84,10 @@ make_stn_list <- function(sf) {
 
 }
 
-# Baseline data
-baseline_data <- read_csv("data/baseline-data.csv")
+
+# Baseline data -----------------------------------------------------------
+
+baseline_data <- read_csv("data/baseline-data.csv", show_col_types = F)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -69,10 +100,10 @@ baseline_stns <- baseline_pts %>%
   clean_names(case = "title")
 
 
+# Thermistor data ---------------------------------------------------------
 
-# Thermistor data
-therm_data <- read_csv("data/therm-data.csv.gz")
-therm_info <- read_csv("data/therm-info.csv")
+therm_data <- read_csv("data/therm-data.csv.gz", show_col_types = F)
+therm_info <- read_csv("data/therm-info.csv", show_col_types = F)
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -86,8 +117,10 @@ therm_stns <- therm_pts %>%
 
 
 
-# Nutrient data
-nutrient_data <- read_csv("data/tp-data.csv")
+
+# Nutrient data -----------------------------------------------------------
+
+nutrient_data <- read_csv("data/tp-data.csv", show_col_types = F)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
 nutrient_years <- unique(nutrient_stn_years$year)
@@ -102,7 +135,9 @@ nutrient_years <- unique(nutrient_data$year)
 
 
 
-# Data coverage
+
+# Data coverage -----------------------------------------------------------
+
 all_coverage <- bind_rows(
   mutate(baseline_coverage, source = "Baseline"),
   mutate(therm_coverage, source = "Thermistor"),
@@ -134,7 +169,9 @@ all_stn_years <- bind_rows(
 data_years <- sort(unique(all_stn_years$year))
 
 
-# Finalize list of sites
+
+# Finalize sites ----------------------------------------------------------
+
 all_pts <- station_pts %>%
   mutate(label = paste(station_id, station_name, sep = ": ")) %>%
   mutate(
@@ -144,19 +181,28 @@ all_pts <- station_pts %>%
   ) %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
   select(-c("max_fw_year", "max_fw_date")) %>%
-  left_join(all_coverage, by = "station_id")
+  left_join(all_coverage, by = "station_id") %>%
+  mutate(stn_color = case_when(
+    baseline_stn ~ stn_colors$baseline,
+    therm_stn ~ stn_colors$thermistor,
+    nutrient_stn ~ stn_colors$nutrient
+  ))
 
 all_stns <- all_pts %>%
+  select(-"stn_color") %>%
   st_set_geometry(NULL)
 
-all_labels <- lapply(paste0("<b>WAV Monitoring Site</b><br>Station ID: ", all_pts$station_id, "<br>Name: ", all_pts$station_name), HTML) %>%
+all_labels <- all_pts %>%
+  mutate(title = paste(data_sources, "Monitoring Site")) %>%
+  mutate(label = paste0("<b>", title, "</b><br>Station ID: ", station_id, "<br>Name: ", station_name)) %>%
+  pull(label) %>%
+  lapply(HTML) %>%
   setNames(all_pts$station_id)
 
 all_popups <- all_stns %>%
   clean_names(case = "title") %>%
   create_popup("<b>WAV Monitoring Site</b><br>") %>%
   setNames(all_stns$station_id)
-
 
 all_stn_list <- all_stns %>%
   select(label, station_id) %>%
