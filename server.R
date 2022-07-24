@@ -1,24 +1,77 @@
 # server.R
 
+library(tidyverse)
+library(shiny)
+
 server <- function(input, output, session) {
 
-  # Logger select ----
+  # Station select ----
 
   random_stn <- all_pts %>%
     filter(max_fw_year == max(data_years)) %>%
     pull(station_id) %>%
     sample(1)
 
+  avail_stns <- reactive({
+    all_stn_years %>%
+      filter(year %in% input$years) %>%
+      filter(
+        (baseline_stn & ("baseline" %in% input$stn_types)) |
+          (therm_stn & ("therm" %in% input$stn_types)) |
+          (nutrient_stn & ("nutrient" %in% input$stn_types))
+      )
+  })
+
+  avail_pts <- reactive({
+    if (nrow(avail_stns()) > 0) {
+      stns <- avail_stns()$station_id
+      all_pts %>%
+        filter(station_id %in% stns)
+    } else {
+      tibble()
+    }
+  })
+
+  stn_list <- reactive({
+    if (nrow(avail_stns()) > 0) {
+      all_stns %>%
+        filter(station_id %in% avail_stns()$station_id) %>%
+        select(label, station_id) %>%
+        deframe() %>%
+        as.list()
+    } else {
+      list("No stations available" = NULL)
+    }
+  })
+
+  cur_stn <- reactive({
+    req(input$stn)
+
+    all_pts %>%
+      filter(station_id == input$stn)
+  })
+
+  output$total_stns_ui <- renderUI({
+    p(strong("Selected", nrow(avail_pts()), "out of", nrow(all_pts), "stations."), align = "center")
+  })
+
+  observeEvent(stn_list(), {
+    stations <- stn_list()
+    if (input$station %in% stations) {
+      selected <- input$station
+    } else {
+      selected <- sample(stations, 1)
+    }
+    updateSelectInput(
+      inputId = "station",
+      choices = stations,
+      selected = selected
+    )
+  })
+
 
 
   # Map ----
-
-  # output$mapUI <- renderUI({
-  #   div(
-  #     style = "max-width: 1000px; margin: auto; border: 1px solid grey;",
-  #     leafletOutput("map", width = "100%", height = "800px")
-  #   )
-  # })
 
   basemaps <- list(
     one = "ESRI Topo",
@@ -36,20 +89,6 @@ server <- function(input, output, session) {
     pins = "Station clusters (groups and pins)"
   )
 
-  create_popup <- function(data, title) {
-    data %>% {
-      cols <- names(.)
-      lapply(1:nrow(.), function(r) {
-        row <- .[r,]
-        details <-
-          lapply(1:length(cols), function(c) {
-            paste0("<br><b>", cols[c], ":</b> ", row[c])
-          }) %>%
-          paste0(collapse = "")
-        paste0(title, details)
-      }) %>% paste0()
-    }
-  }
 
 
   ## Render initial map ----
@@ -113,28 +152,6 @@ server <- function(input, output, session) {
     map <- leafletProxy("map")
     color <- "blue"
     fill_color <- "lightblue"
-
-    # Points
-    map %>%
-      addCircleMarkers(
-        data = all_pts,
-        group = layers$points,
-        label = ~lapply(paste0("<b>WAV Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
-        popup = ~create_popup(baseline_stns, "<b>WAV Monitoring Site</b><br>"),
-        radius = 4,
-        color = "black",
-        weight = 0.5,
-        fillColor = "green",
-        fillOpacity = 0.75,
-        options = markerOptions(pane = "points", sticky = F)
-      ) %>%
-      addMarkers(
-        data = all_pts,
-        group = layers$pins,
-        label = ~lapply(paste0("<b>WAV Monitoring Site</b><br>Station ID: ", station_id, "<br>Name: ", station_name), HTML),
-        popup = ~create_popup(all_stns, "<b>WAV Monitoring Site</b><br>"),
-        clusterOptions = markerClusterOptions()
-      )
 
     # Counties
     map %>%
@@ -227,7 +244,54 @@ server <- function(input, output, session) {
           options = layersControlOptions(collapsed = TRUE)
         )
     })
+  })
 
+  # Render map points
+  observeEvent(avail_pts(), {
+
+    if (nrow(avail_pts()) > 0) {
+      pts <- avail_pts()
+      labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
+      popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
+
+      leafletProxy("map") %>%
+        clearGroup(layers$points) %>%
+        clearGroup(layers$pins) %>%
+        addCircleMarkers(
+          data = pts,
+          group = layers$points,
+          label = labels,
+          popup = popups,
+          layerId = ~station_id,
+          radius = 4,
+          color = "black",
+          weight = 0.5,
+          fillColor = "green",
+          fillOpacity = 0.75,
+          options = markerOptions(pane = "points", sticky = F)
+        ) %>%
+        addMarkers(
+          data = pts,
+          group = layers$pins,
+          label = labels,
+          popup = popups,
+          layerId = ~station_id,
+          clusterOptions = markerClusterOptions()
+        )
+    } else {
+      leafletProxy("map") %>%
+        clearGroup(layers$points) %>%
+        clearGroup(layers$pins)
+    }
+  })
+
+  # get clicked logger location and select it
+  observe({
+    print(input$map_marker_click)
+    updateSelectInput(
+      inputId = "station",
+      selected = input$map_marker_click
+    )
   })
 
 

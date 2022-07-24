@@ -53,15 +53,56 @@ ui <- fluidPage(
 
   # station select
 
-  # Map container
+  bsCollapse(
+    bsCollapsePanel(
+      title = "Station criteria",
+      value = "opts",
+      checkboxGroupInput(
+        "years",
+        "Show data from:",
+        choices = data_years,
+        selected = data_years,
+        inline = T
+      ),
+      checkboxGroupInput(
+        "stn_types",
+        "Station type:",
+        choices = station_types,
+        selected = station_types,
+        inline = TRUE
+      ),
+      uiOutput("total_stns_ui")
+    ),
+    open = "opts"
+  ),
 
+  fluidRow(
+    column(12,
+      selectInput(
+        inputId = "station",
+        label = "Select monitoring station:",
+        choices = list("Select a station" = NULL),
+        width = "100%"
+      ),
+      style = "z-index: 1001;"
+    )
+  ),
+
+
+  # Map container
 
   br(),
 
-  #uiOutput("loggerSelectUI", style = "z-index: 1100;"),
-  div(
-    style = "max-width: 1000px; margin: auto; border: 1px solid grey;",
-    leafletOutput("map", width = "100%", height = "800px")
+  bsCollapse(
+    bsCollapsePanel(
+      title = "Station map",
+      value = "map",
+      div(
+        style = "max-width: 1000px; margin: auto; border: 1px solid grey;",
+        leafletOutput("map", width = "100%", height = "800px")
+      )
+    ),
+    open = "map"
   ),
 
   h3("Station Lists:"),
