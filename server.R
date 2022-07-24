@@ -1,7 +1,14 @@
 # server.R
 
 library(tidyverse)
+library(sf)
+library(leaflet)
+library(leaflet.extras)
+library(htmltools)
 library(shiny)
+library(shinyBS)
+library(DT)
+library(shinyjs)
 
 server <- function(input, output, session) {
 
@@ -13,13 +20,37 @@ server <- function(input, output, session) {
     sample(1)
 
   avail_stns <- reactive({
+
+    if (input$year_exact_match) {
+      years <- paste(input$years, collapse = ", ")
+      year_stns <- all_coverage %>%
+        filter(data_years == years) %>%
+        pull(station_id)
+    } else {
+      year_stns <- all_stn_years %>%
+        filter(year %in% input$years) %>%
+        pull(station_id) %>%
+        unique()
+    }
+
+    if (input$stn_exact_match) {
+      types <- str_to_title(paste(input$stn_types, collapse = ", "))
+      type_stns <- all_coverage %>%
+        filter(data_sources == types) %>%
+        pull(station_id)
+    } else {
+      type_stns <- all_stn_years %>%
+        filter(
+          (baseline_stn & ("baseline" %in% input$stn_types)) |
+            (therm_stn & ("thermistor" %in% input$stn_types)) |
+            (nutrient_stn & ("nutrient" %in% input$stn_types))
+        ) %>%
+        pull(station_id) %>%
+        unique()
+    }
+
     all_stn_years %>%
-      filter(year %in% input$years) %>%
-      filter(
-        (baseline_stn & ("baseline" %in% input$stn_types)) |
-          (therm_stn & ("therm" %in% input$stn_types)) |
-          (nutrient_stn & ("nutrient" %in% input$stn_types))
-      )
+      filter((station_id %in% year_stns) & (station_id %in% type_stns))
   })
 
   avail_pts <- reactive({
@@ -89,7 +120,7 @@ server <- function(input, output, session) {
     pins = "Station clusters (groups and pins)"
   )
 
-  hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$pins)
+  hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12)
 
 
 

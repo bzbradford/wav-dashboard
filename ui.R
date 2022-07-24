@@ -57,19 +57,45 @@ ui <- fluidPage(
     bsCollapsePanel(
       title = "Station criteria",
       value = "opts",
-      checkboxGroupInput(
-        "years",
-        "Show data from:",
-        choices = data_years,
-        selected = data_years,
-        inline = T
+      fluidRow(
+        column(6,
+          checkboxGroupInput(
+            "years",
+            "Data from these years:",
+            choices = data_years,
+            selected = data_years,
+            inline = TRUE
+          )
+        ),
+        column(6,
+          radioButtons(
+            "year_exact_match",
+            "Year matching type:",
+            choices = list(
+              "ANY selected year" = FALSE,
+              "ONLY selected years" = TRUE)
+          )
+        )
       ),
-      checkboxGroupInput(
-        "stn_types",
-        "Station type:",
-        choices = station_types,
-        selected = station_types,
-        inline = TRUE
+      hr(),
+      fluidRow(
+        column(6,
+          checkboxGroupInput(
+            "stn_types",
+            "Station data types:",
+            choices = station_types,
+            selected = station_types
+          )
+        ),
+        column(6,
+          radioButtons(
+            "stn_exact_match",
+            "Station matching type:",
+            choices = list(
+              "Stations with ANY of the selected data" = FALSE,
+              "Stations with ONLY the selected data" = TRUE)
+          )
+        )
       ),
       uiOutput("total_stns_ui")
     ),

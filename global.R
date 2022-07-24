@@ -63,7 +63,7 @@ station_list <- read_csv("data/station-list.csv", show_col_types = F)
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
-  "Thermistor (temperature loggers)" = "therm",
+  "Thermistor (temperature loggers)" = "thermistor",
   "Nutrient (total phosphorus)" = "nutrient"
 )
 
@@ -150,7 +150,9 @@ all_coverage <- bind_rows(
     max_fw_year = max(max_fw_year),
     max_fw_date = as.character(max(max_fw_date))
   ) %>%
-  mutate(data_years = paste(unique(as.numeric(strsplit(data_years, ", ")[[1]])), collapse = ", "))
+  rowwise() %>%
+  mutate(data_years = paste(unique(sort(strsplit(data_years, ", ")[[1]])), collapse = ", ")) %>%
+  ungroup()
 
 all_stn_years <- bind_rows(
   baseline_stn_years,
@@ -166,7 +168,7 @@ all_stn_years <- bind_rows(
     therm_stn = station_id %in% therm_pts$station_id,
     nutrient_stn = station_id %in% nutrient_pts$station_id
   )
-data_years <- sort(unique(all_stn_years$year))
+data_years <- as.character(sort(unique(all_stn_years$year)))
 
 
 
@@ -189,7 +191,7 @@ all_pts <- station_pts %>%
   ))
 
 all_stns <- all_pts %>%
-  select(-"stn_color") %>%
+  select(-c(stn_color)) %>%
   st_set_geometry(NULL)
 
 all_labels <- all_pts %>%
@@ -200,6 +202,7 @@ all_labels <- all_pts %>%
   setNames(all_pts$station_id)
 
 all_popups <- all_stns %>%
+  select(-c(baseline_stn, therm_stn, nutrient_stn, label)) %>%
   clean_names(case = "title") %>%
   create_popup("<b>WAV Monitoring Site</b><br>") %>%
   setNames(all_stns$station_id)
