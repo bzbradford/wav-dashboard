@@ -1,14 +1,16 @@
 # ui.R
 
-library(tidyverse)
-library(sf)
-library(leaflet)
-library(leaflet.extras)
-library(htmltools)
-library(shiny)
-library(shinyBS)
-library(DT)
-library(shinyjs)
+suppressMessages({
+  library(tidyverse)
+  library(sf)
+  library(leaflet)
+  library(leaflet.extras)
+  library(htmltools)
+  library(shiny)
+  library(shinyBS)
+  library(DT)
+  library(shinyjs)
+})
 
 ui <- fluidPage(
   title = "WAV Data Dashboard",
@@ -73,7 +75,7 @@ ui <- fluidPage(
             "Year matching type:",
             choices = list(
               "ANY selected year" = FALSE,
-              "ONLY selected years" = TRUE)
+              "ALL selected years" = TRUE)
           )
         )
       ),

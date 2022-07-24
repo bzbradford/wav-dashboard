@@ -1,12 +1,12 @@
 # global.R
 
-library(tidyverse)
-library(sf)
-library(janitor)
-library(lubridate)
-library(shiny)
-
-
+suppressMessages({
+  library(tidyverse)
+  library(sf)
+  library(janitor)
+  library(lubridate)
+  library(shiny)
+})
 
 # Functions ---------------------------------------------------------------
 
@@ -80,8 +80,15 @@ get_coverage <- function(df) {
   left_join(years, dates, by = "station_id")
 }
 
-make_stn_list <- function(sf) {
+check_missing_stns <- function(data, pts, type) {
+  missing <- data %>%
+    distinct(station_id, station_name) %>%
+    filter(!(station_id %in% pts$station_id)) %>%
+    arrange(station_id)
 
+  if (nrow(missing) > 0) {
+    warning(nrow(missing), "/", nrow(pts) + nrow(missing), " ", type, " stations are missing from the station list!", call. = F)
+  }
 }
 
 
@@ -95,9 +102,8 @@ baseline_years <- unique(baseline_stn_years$year)
 baseline_pts <- station_pts %>%
   filter(station_id %in% baseline_data$station_id) %>%
   left_join(baseline_coverage, by = "station_id")
-baseline_stns <- baseline_pts %>%
-  st_set_geometry(NULL) %>%
-  clean_names(case = "title")
+
+check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 
 # Thermistor data ---------------------------------------------------------
@@ -111,10 +117,8 @@ therm_years <- unique(therm_stn_years$year)
 therm_pts <- station_pts %>%
   filter(station_id %in% therm_data$station_id) %>%
   left_join(therm_coverage, by = "station_id")
-therm_stns <- therm_pts %>%
-  st_set_geometry(NULL) %>%
-  clean_names(case = "title")
 
+check_missing_stns(therm_data, therm_pts, "thermistor")
 
 
 
@@ -128,10 +132,8 @@ nutrient_years <- unique(nutrient_stn_years$year)
 nutrient_pts <- station_pts %>%
   filter(station_id %in% nutrient_data$station_id) %>%
   left_join(nutrient_coverage, by = "station_id")
-nutrient_stns <- nutrient_pts %>%
-  st_set_geometry(NULL) %>%
-  clean_names(case = "title")
-nutrient_years <- unique(nutrient_data$year)
+
+check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 
 
@@ -151,7 +153,9 @@ all_coverage <- bind_rows(
     max_fw_date = as.character(max(max_fw_date))
   ) %>%
   rowwise() %>%
-  mutate(data_years = paste(unique(sort(strsplit(data_years, ", ")[[1]])), collapse = ", ")) %>%
+  mutate(
+    data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))),
+    data_years = paste(data_year_list, collapse = ", ")) %>%
   ungroup()
 
 all_stn_years <- bind_rows(
@@ -202,7 +206,7 @@ all_labels <- all_pts %>%
   setNames(all_pts$station_id)
 
 all_popups <- all_stns %>%
-  select(-c(baseline_stn, therm_stn, nutrient_stn, label)) %>%
+  select(-c(baseline_stn, therm_stn, nutrient_stn, label, data_year_list)) %>%
   clean_names(case = "title") %>%
   create_popup("<b>WAV Monitoring Site</b><br>") %>%
   setNames(all_stns$station_id)
@@ -213,11 +217,19 @@ all_stn_list <- all_stns %>%
   as.list()
 
 
+
+# TEST ZONE ---------------------------------------------------------------
+
 # these stations appear in the data but don't have a location
 # all_coverage %>%
 #   filter(!(station_id %in% all_pts$station_id)) %>%
 #   write_csv("stations missing locations.csv")
 
 
+test = c("2019", "2021")
+all_coverage %>%
+  rowwise() %>%
+  filter(setequal(intersect(test, data_year_list), test)) %>%
+  pull(station_id)
 
 

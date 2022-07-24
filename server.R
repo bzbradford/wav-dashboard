@@ -1,14 +1,16 @@
 # server.R
 
-library(tidyverse)
-library(sf)
-library(leaflet)
-library(leaflet.extras)
-library(htmltools)
-library(shiny)
-library(shinyBS)
-library(DT)
-library(shinyjs)
+suppressMessages({
+  library(tidyverse)
+  library(sf)
+  library(leaflet)
+  library(leaflet.extras)
+  library(htmltools)
+  library(shiny)
+  library(shinyBS)
+  library(DT)
+  library(shinyjs)
+})
 
 server <- function(input, output, session) {
 
@@ -22,10 +24,14 @@ server <- function(input, output, session) {
   avail_stns <- reactive({
 
     if (input$year_exact_match) {
-      years <- paste(input$years, collapse = ", ")
-      year_stns <- all_coverage %>%
-        filter(data_years == years) %>%
-        pull(station_id)
+      if (is.null(input$years)) {
+        year_stns <- NULL
+      } else {
+        year_stns <- all_coverage %>%
+          rowwise() %>%
+          filter(setequal(intersect(input$years, data_year_list), input$years)) %>%
+          pull(station_id)
+      }
     } else {
       year_stns <- all_stn_years %>%
         filter(year %in% input$years) %>%
