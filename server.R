@@ -14,7 +14,8 @@ suppressMessages({
 
 server <- function(input, output, session) {
 
-  # Station select ----
+
+# Station select ----------------------------------------------------------
 
   random_stn <- all_pts %>%
     filter(max_fw_year == max(data_years)) %>%
@@ -71,11 +72,8 @@ server <- function(input, output, session) {
 
   stn_list <- reactive({
     if (nrow(avail_stns()) > 0) {
-      all_stns %>%
-        filter(station_id %in% avail_stns()$station_id) %>%
-        select(label, station_id) %>%
-        deframe() %>%
-        as.list()
+      ids <- avail_stns()$station_id
+      all_stn_list[all_stn_list %in% ids]
     } else {
       list("No stations available" = NULL)
     }
@@ -97,7 +95,7 @@ server <- function(input, output, session) {
     if (input$station %in% stations) {
       selected <- input$station
     } else {
-      selected <- sample(stations, 1)
+      selected <- stations[sample(1:length(stations), 1)]
     }
     updateSelectInput(
       inputId = "station",
@@ -108,7 +106,7 @@ server <- function(input, output, session) {
 
 
 
-  # Map ----
+# Map ---------------------------------------------------------------------
 
   basemaps <- list(
     one = "ESRI Topo",
@@ -127,7 +125,6 @@ server <- function(input, output, session) {
   )
 
   hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12)
-
 
 
   ## Render initial map ----
@@ -155,7 +152,7 @@ server <- function(input, output, session) {
       addLayersControl(
         baseGroups = unlist(basemaps, use.names = FALSE),
         overlayGroups = unlist(layers, use.names = FALSE),
-        options = layersControlOptions(collapsed = TRUE)
+        options = layersControlOptions(collapsed = FALSE)
       ) %>%
       addFullscreenControl(pseudoFullscreen = TRUE) %>%
       addEasyButtonBar(
@@ -275,16 +272,18 @@ server <- function(input, output, session) {
         fillOpacity = 0.05,
         options = pathOptions(pane = "huc12")
       )
+  })
 
-    # # Hide the legend after a delay
-    # delay(3000, {
-    #   map %>%
-    #     addLayersControl(
-    #       baseGroups = unlist(basemaps, use.names = FALSE),
-    #       overlayGroups = unlist(layers, use.names = FALSE),
-    #       options = layersControlOptions(collapsed = TRUE)
-    #     )
-    # })
+  observeEvent(TRUE, {
+    # Hide the legend after a delay
+    delay(3000, {
+      leafletProxy("map") %>%
+        addLayersControl(
+          baseGroups = unlist(basemaps, use.names = FALSE),
+          overlayGroups = unlist(layers, use.names = FALSE),
+          options = layersControlOptions(collapsed = TRUE)
+        )
+    })
   })
 
 
@@ -410,8 +409,8 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$random_site, {
-    stn_id <- sample(stn_list(), 1)
-    stn <- all_stns %>% filter(station_id == stn_id)
+    stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
+    stn <- all_pts %>% filter(station_id == stn_id)
     leafletProxy("map") %>%
       setView(
         lat = stn$latitude,
@@ -426,55 +425,185 @@ server <- function(input, output, session) {
 
 
 
-  # Table outputs ----
 
-  output$stnLists <- renderUI({
-    bsCollapse(
-      bsCollapsePanel(
-        title = "Baseline monitoring stations",
-        div(style = "overflow: auto;", renderDataTable(baseline_stns)),
-        downloadButton("baselineDL")
+# Baseline data -----------------------------------------------------------
+
+  cur_baseline_data <- reactive({
+    baseline_data %>%
+      filter(station_id == cur_stn()$station_id)
+  })
+
+  cur_baseline_years <- reactive({
+    unique(cur_baseline_data()$year)
+  })
+
+  output$baseline_tab <- renderUI({
+    validate(
+      need(
+        nrow(cur_baseline_data()) > 0,
+        "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."
+      )
+    )
+
+    list(
+      radioButtons(
+        inputId = "baseline_year",
+        label = "Choose year:",
+        choices = cur_baseline_years(),
+        inline = T
       ),
-      bsCollapsePanel(
-        title = "Nutrient monitoring stations",
-        div(style = "overflow: auto;", renderDataTable(nutrient_stns)),
-        downloadButton("nutrientDL")
-      ),
-      bsCollapsePanel(
-        title = "Temperature logging stations",
-        div(style = "overflow: auto;", renderDataTable(therm_stns)),
-        downloadButton("thermistorDL")
-      ),
-      bsCollapsePanel(
-        title = "All WAV stations",
-        div(style = "overflow: auto;", renderDataTable(all_stns)),
-        downloadButton("allDL")
+      hr(),
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Baseline data table",
+          renderDataTable({
+            req(input$baseline_year)
+
+            cur_baseline_data() %>%
+              filter(year == input$baseline_year) %>%
+              clean_names(case = "title")
+          })
+        )
       )
     )
   })
 
 
 
-  # Download handlers ----
+# Thermistor data ---------------------------------------------------------
 
-  output$baselineDL <- downloadHandler(
+  cur_therm_data <- reactive({
+    therm_data %>%
+      filter(station_id == cur_stn()$station_id)
+  })
+
+  cur_therm_years <- reactive({
+    unique(cur_therm_data()$year)
+  })
+
+  output$thermistor_tab <- renderUI({
+    validate(
+      need(
+        nrow(cur_therm_data()) > 0,
+        "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."
+      )
+    )
+
+    list(
+      radioButtons(
+        inputId = "therm_year",
+        label = "Choose year:",
+        choices = cur_therm_years(),
+        inline = T
+      ),
+      hr(),
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Thermistor data table",
+          renderDataTable({
+            req(input$therm_year)
+
+            cur_therm_data() %>%
+              filter(year == input$therm_year) %>%
+              clean_names(case = "title")
+          })
+        )
+      )
+    )
+  })
+
+
+
+  ## Nutrient data ----
+
+  cur_nutrient_data <- reactive({
+    nutrient_data %>%
+      filter(station_id == cur_stn()$station_id)
+  })
+
+  cur_nutrient_years <- reactive({
+    unique(cur_nutrient_data()$year)
+  })
+
+  output$nutrient_tab <- renderUI({
+    validate(
+      need(
+        nrow(cur_nutrient_data()) > 0,
+        "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."
+      )
+    )
+
+    list(
+      radioButtons(
+        inputId = "nutrient_year",
+        label = "Choose year:",
+        choices = cur_nutrient_years(),
+        inline = T
+      ),
+      hr(),
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Nutrient data table",
+          renderDataTable({
+            req(input$nutrient_year)
+
+            cur_nutrient_data() %>%
+              filter(year == input$nutrient_year) %>%
+              clean_names(case = "title")
+          })
+        )
+      )
+    )
+  })
+
+
+
+
+  ## Station lists ----
+
+  output$station_lists <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Baseline monitoring stations",
+        div(style = "overflow: auto;", renderDataTable(baseline_stns)),
+        downloadButton("baseline_stn_dl")
+      ),
+      bsCollapsePanel(
+        title = "Nutrient monitoring stations",
+        div(style = "overflow: auto;", renderDataTable(nutrient_stns)),
+        downloadButton("nutrient_stn_dl")
+      ),
+      bsCollapsePanel(
+        title = "Temperature logging stations",
+        div(style = "overflow: auto;", renderDataTable(therm_stns)),
+        downloadButton("thermistor_stn_dl")
+      ),
+      bsCollapsePanel(
+        title = "All WAV stations",
+        div(style = "overflow: auto;", renderDataTable(all_stns)),
+        downloadButton("all_stns_dl")
+      )
+    )
+  })
+
+  output$baseline_stn_dl <- downloadHandler(
     filename = "wav-baseline-stations.csv",
     content = function(file) {write_csv(baseline_stns, file)}
   )
 
-  output$nutrientDL <- downloadHandler(
+  output$nutrient_stn_dl <- downloadHandler(
     filename = "wav-nutrient-stations.csv",
     content = function(file) {write_csv(nutrient_stns, file)}
   )
 
-  output$thermistorDL <- downloadHandler(
+  output$thermistor_stn_dl <- downloadHandler(
     filename = "wav-temperature-loggers.csv",
-    content = function(file) {write_csv(thermistor_stns, file)}
+    content = function(file) {write_csv(therm_stns, file)}
   )
 
-  output$allDL <- downloadHandler(
+  output$all_stns_dl <- downloadHandler(
     filename = "wav-station-list.csv",
-    content = function(file) {write_csv(all_pts, stns)}
+    content = function(file) {write_csv(all_stns, file)}
   )
 
 }

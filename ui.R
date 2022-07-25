@@ -12,6 +12,33 @@ suppressMessages({
   library(shinyjs)
 })
 
+head_css <- "
+  body {
+    font-family: 'Lato', sans-serif;
+  }
+
+  .container-fluid {
+    max-width: 1000px;
+    margin: auto;
+  }
+
+  .leaflet-control-layers-list::before {
+    content: 'Basemap:';
+    font-weight: bold;
+  }
+
+  .leaflet-control-layers-overlays::before {
+    content: 'Layers:';
+    font-weight: bold;
+  }
+"
+
+data_tab_css <- "
+  min-height: 300px;
+  margin-top: 1em;
+"
+
+
 ui <- fluidPage(
   title = "WAV Data Dashboard",
   useShinyjs(),
@@ -19,26 +46,7 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
     includeHTML("google-analytics.html"),
-    tags$style(HTML("
-      body {
-        font-family: 'Lato', sans-serif;
-      }
-
-      .container-fluid {
-        max-width: 1000px;
-        margin: auto;
-      }
-
-      .leaflet-control-layers-list::before {
-        content: 'Basemap:';
-        font-weight: bold;
-      }
-
-      .leaflet-control-layers-overlays::before {
-        content: 'Layers:';
-        font-weight: bold;
-      }
-    "))
+    tags$style(HTML(head_css))
   ),
 
   div(
@@ -53,7 +61,8 @@ ui <- fluidPage(
 
   br(),
 
-  # station select
+
+# Station selections ------------------------------------------------------
 
   bsCollapse(
     bsCollapsePanel(
@@ -117,9 +126,7 @@ ui <- fluidPage(
   ),
 
 
-  # Map container
-
-  br(),
+# Map display -------------------------------------------------------------
 
   bsCollapse(
     bsCollapsePanel(
@@ -141,11 +148,46 @@ ui <- fluidPage(
     open = "map"
   ),
 
-  h3("Station Lists:"),
-  uiOutput("stnLists"),
 
-  h3("More Information:"),
-  p("Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>.")),
+# Data tabs ---------------------------------------------------------------
+
+  tabsetPanel(
+    tabPanel(
+      title = "Baseline data",
+      div(
+        style = data_tab_css,
+        uiOutput("baseline_tab")
+      )
+    ),
+    tabPanel(
+      title = "Thermistor data",
+      div(
+        style = data_tab_css,
+        uiOutput("thermistor_tab")
+      )
+    ),
+    tabPanel(
+      title = "Nutrient data",
+      div(
+        style = data_tab_css,
+        uiOutput("nutrient_tab")
+      )
+    ),
+    tabPanel(
+      title = "Station lists",
+      div(
+        style = data_tab_css,
+        uiOutput("station_lists")
+      )
+    ),
+    tabPanel(
+      title = "More information",
+      div(
+        style = data_tab_css,
+        p("Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>."))
+      )
+    )
+  ),
 
   br(),
   hr(),

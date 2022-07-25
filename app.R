@@ -1,6 +1,8 @@
 # app.R
 
-library(shiny)
+suppressMessages({
+  library(shiny)
+})
 
 source("global.R")
 source("ui.R")

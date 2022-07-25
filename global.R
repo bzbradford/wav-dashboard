@@ -196,22 +196,26 @@ all_pts <- station_pts %>%
 
 all_stns <- all_pts %>%
   select(-c(stn_color)) %>%
-  st_set_geometry(NULL)
+  st_set_geometry(NULL) %>%
+  clean_names(case = "title")
 
 all_labels <- all_pts %>%
+  st_set_geometry(NULL) %>%
   mutate(title = paste(data_sources, "Monitoring Site")) %>%
   mutate(label = paste0("<b>", title, "</b><br>Station ID: ", station_id, "<br>Name: ", station_name)) %>%
   pull(label) %>%
   lapply(HTML) %>%
   setNames(all_pts$station_id)
 
-all_popups <- all_stns %>%
+all_popups <- all_pts %>%
+  st_set_geometry(NULL) %>%
   select(-c(baseline_stn, therm_stn, nutrient_stn, label, data_year_list)) %>%
   clean_names(case = "title") %>%
   create_popup("<b>WAV Monitoring Site</b><br>") %>%
-  setNames(all_stns$station_id)
+  setNames(all_pts$station_id)
 
-all_stn_list <- all_stns %>%
+all_stn_list <- all_pts %>%
+  st_set_geometry(NULL) %>%
   select(label, station_id) %>%
   deframe() %>%
   as.list()
@@ -226,10 +230,10 @@ all_stn_list <- all_stns %>%
 #   write_csv("stations missing locations.csv")
 
 
-test = c("2019", "2021")
-all_coverage %>%
-  rowwise() %>%
-  filter(setequal(intersect(test, data_year_list), test)) %>%
-  pull(station_id)
+# test = c("2019", "2021")
+# all_coverage %>%
+#   rowwise() %>%
+#   filter(setequal(intersect(test, data_year_list), test)) %>%
+#   pull(station_id)
 
 
