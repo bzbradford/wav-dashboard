@@ -601,6 +601,8 @@ server <- function(input, output, session) {
 
 # Thermistor data ---------------------------------------------------------
 
+  ## Data ----
+
   cur_therm_data <- reactive({
     therm_data %>%
       filter(station_id == cur_stn()$station_id)
@@ -610,7 +612,35 @@ server <- function(input, output, session) {
     unique(cur_therm_data()$year)
   })
 
-  output$thermistor_tab <- renderUI({
+  selected_therm_data <- reactive({
+    cur_therm_data() %>%
+      filter(year == input$therm_year)
+  })
+
+  # create station daily totals
+  therm_daily <- reactive({
+    df <- selected_therm_data()
+    req(nrow(df) > 0)
+    req(input$therm_temp_units)
+    temp_col <- paste0("temp_", input$therm_temp_units)
+
+    df %>%
+      group_by(date) %>%
+      summarise(
+        n = n(),
+        min = min(!!rlang::sym(temp_col)),
+        max = max(!!rlang::sym(temp_col)),
+        mean = round(mean(!!rlang::sym(temp_col)), 2),
+        lat = latitude[1],
+        long = longitude[1]
+      ) %>%
+      mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
+  })
+
+
+  ## Layout ----
+
+  output$therm_tab <- renderUI({
     validate(
       need(
         nrow(cur_therm_data()) > 0,
@@ -619,6 +649,7 @@ server <- function(input, output, session) {
     )
 
     list(
+      h3("Thermistor data"),
       radioButtons(
         inputId = "therm_year",
         label = "Choose year:",
@@ -626,20 +657,213 @@ server <- function(input, output, session) {
         inline = T
       ),
       hr(),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Thermistor data table",
-          renderDataTable({
-            req(input$therm_year)
+      uiOutput("therm_plot_ui"),
+      uiOutput("therm_info"),
+      uiOutput("therm_data_table")
+    )
+  })
 
-            cur_therm_data() %>%
-              filter(year == input$therm_year) %>%
-              clean_names(case = "title")
-          })
+
+  ## Plot UI
+
+  output$therm_plot_ui <- renderUI({
+    list(
+      plotlyOutput("therm_plot"),
+      div(
+        style = "margin: 0.5em 1em; 0.5em 1em;",
+        uiOutput("therm_annotation_text"),
+        p(em("High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")),
+        hr(),
+        p(
+          div(
+            style = "float: left; margin-right: 1em;",
+            strong("Temperature units:")
+          ),
+          radioButtons(
+            inputId = "therm_temp_units",
+            label = NULL,
+            inline = T,
+            choices = list("Fahrenheit" = "f", "Celsius" = "c")
+          ),
+          div(
+            style = "float: left; margin-right: 1em;",
+            strong("Optional plot annotations:")
+          ),
+          radioButtons(
+            inputId = "therm_plot_annotations",
+            label = NULL,
+            inline = T,
+            choices = list(
+              "Brook trout temperature range" = "btrout",
+              "Warm/cool/coldwater classification" = "wtemp",
+              "None"
+            )
+          )
         )
       )
     )
   })
+
+
+  ## Plot ----
+
+  output$therm_plot <- renderPlotly({
+    req(input$therm_temp_units)
+    req(input$therm_plot_annotations)
+
+    units <- input$therm_temp_units
+    annotation <- input$therm_plot_annotations
+
+    df_daily <- therm_daily()
+    df_hourly <- selected_therm_data()
+    plot_title <- paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name) %>%
+      str_trunc(width = 80) %>%
+      str_to_title()
+
+    req(nrow(df_daily) > 0)
+    req(nrow(df_hourly) > 0)
+
+    # handle units
+    temp_col <- paste0("temp_", units)
+    ytitle <- paste0("Temperature (°", toupper(units), ")")
+    if (units == "f") {
+      yrange <- c(30, 100)
+    } else {
+      yrange <- c(0, 37)
+    }
+
+    plt <- plot_ly() %>%
+      add_ribbons(
+        data = df_daily,
+        x = ~ date_time,
+        ymin = ~ min,
+        ymax = ~ max,
+        line = list(
+          color = "lightblue",
+          width = 0.5,
+          opacity = 0),
+        fillcolor = "lightblue",
+        opacity = 0.5,
+        name = "Daily Range",
+        hovertemplate = "Daily Range<extra></extra>"
+      ) %>%
+      add_lines(
+        data = df_daily,
+        x = ~ date_time,
+        y = ~ min,
+        line = list(
+          color = "lightblue",
+          width = 1,
+          opacity = 0.5),
+        name = "Daily Min",
+        showlegend = F
+      ) %>%
+      add_lines(
+        data = df_daily,
+        x = ~ date_time,
+        y = ~ max,
+        line = list(
+          color = "lightblue",
+          width = 1,
+          opacity = 0.5),
+        name = "Daily Max",
+        showlegend = F
+      ) %>%
+      add_trace(
+        x = df_hourly$date_time,
+        y = df_hourly[[temp_col]],
+        name = "Hourly Temperature",
+        type = "scatter",
+        mode = "lines",
+        line = list(
+          color = "#1f77b4",
+          width = 0.5,
+          opacity = 0.8
+        )) %>%
+      add_trace(
+        data = df_daily,
+        x = ~ date_time,
+        y = ~ mean,
+        name = "Mean Daily Temp.",
+        type = "scatter",
+        mode = "lines",
+        line = list(
+          color = "orange"
+        )) %>%
+      layout(
+        title = plot_title,
+        showlegend = TRUE,
+        xaxis = list(title = "Date and Time"),
+        yaxis = list(
+          title = ytitle,
+          range = yrange,
+          zerolinecolor = "lightgrey"),
+        hovermode = "x unified",
+        legend = list(
+          orientation = "h",
+          x = 0.25,
+          y = 1
+        ),
+        margin = list(t = 50)
+      )
+
+    # add annotation color bands
+    if (annotation != "None") {
+      if (annotation == "btrout") {
+        temps <- c(32, 52, 61, 72, 100) # F
+        if (units == "c") temps <- f_to_c(temps)
+        colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
+      } else if (annotation == "wtemp") {
+        temps <- c(0, 72, 77, 100) # F
+        if (units == "c") temps <- f_to_c(temps)
+        colors <- c("blue", "cornflowerblue", "darkorange")
+      }
+
+      plt <- plt %>%
+        layout(
+          shapes = lapply(1:length(colors), function(i) {
+            rect(temps[i], temps[i + 1], colors[i])
+          })
+        )
+    }
+
+    plt
+  })
+
+
+  output$therm_info <- renderUI({
+    list(
+      p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state."),
+      p("Tips for understanding and interacting with the temperature plot:"),
+      tags$ul(
+        tags$li("Hover over the chart to see hourly and daily temperature measurement details."),
+        tags$li("Click on the legend to show / hide the time series of hourly or daily temperature."),
+        tags$li("Drag the mouse over a time period to zoom in, and double click to return to the original view."),
+        tags$li("While hovering over the plot, click the camera icon along the top to download a picture of the plot."),
+        tags$li("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped.")
+      )
+    )
+  })
+
+
+
+  output$therm_data_table <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Thermistor data table",
+        renderDataTable({
+          selected_therm_data() %>%
+            clean_names(case = "title")
+        })
+      )
+    )
+  })
+
+
+
+
+
+
 
 
 
@@ -657,8 +881,13 @@ server <- function(input, output, session) {
     unique(cur_nutrient_data()$year)
   })
 
+  selected_nutrient_data <- reactive({
+    cur_nutrient_data() %>%
+      filter(year == input$nutrient_year)
+  })
+
   phos_estimate <- reactive({
-    vals <- na.omit(cur_nutrient_data()$tp)
+    vals <- na.omit(selected_nutrient_data()$tp)
     log_vals <- log(vals)
     n <- length(vals)
     meanp <- mean(log_vals)
@@ -717,7 +946,7 @@ server <- function(input, output, session) {
   output$nutrient_plot <- renderPlotly({
     nutrient_year <- input$nutrient_year
     plot_title <- str_trunc(paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name), width = 80)
-    df <- cur_nutrient_data() %>%
+    df <- selected_nutrient_data() %>%
       mutate(exceedance = factor(
         ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "High", "OK")),
         levels = c("OK", "High", "No data"))) %>%

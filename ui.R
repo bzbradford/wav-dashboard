@@ -197,7 +197,7 @@ ui <- fluidPage(
       title = "Thermistor data",
       div(
         style = data_tab_css,
-        uiOutput("thermistor_tab")
+        uiOutput("therm_tab")
       )
     ),
     tabPanel(
