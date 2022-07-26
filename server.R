@@ -10,6 +10,7 @@ suppressMessages({
   library(shinyBS)
   library(DT)
   library(shinyjs)
+  library(shinythemes)
   library(plotly)
 })
 
@@ -18,10 +19,15 @@ server <- function(input, output, session) {
 
 # Station select ----------------------------------------------------------
 
+  ## Random station on load ----
+
   random_stn <- all_pts %>%
     filter(max_fw_year == max(data_years)) %>%
     pull(station_id) %>%
     sample(1)
+
+
+  ## Available stations ----
 
   avail_stns <- reactive({
 
@@ -54,6 +60,9 @@ server <- function(input, output, session) {
       filter((station_id %in% year_stns) & (station_id %in% type_stns))
   })
 
+
+  ## Station list for selector ----
+
   stn_list <- reactive({
     if (nrow(avail_stns()) > 0) {
       ids <- avail_stns()$station_id
@@ -63,12 +72,18 @@ server <- function(input, output, session) {
     }
   })
 
+
+  ## Current station ----
+
   cur_stn <- reactive({
     req(input$station)
 
     all_pts %>%
       filter(station_id == input$station)
   })
+
+
+  ## Available points (sf) ----
 
   avail_pts <- reactive({
     all_pts %>%
@@ -90,22 +105,43 @@ server <- function(input, output, session) {
       filter(station_id %in% avail_stns()$station_id)
   })
 
+
+  ## Total stations text ----
+
   output$total_stns_text <- renderText({
     paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
   })
 
+
+  ## When list changes ----
   observeEvent(stn_list(), {
     stations <- stn_list()
+
     if (input$station %in% stations) {
       selected <- input$station
     } else {
       selected <- stations[sample(1:length(stations), 1)]
     }
+
     updateSelectInput(
       inputId = "station",
       choices = stations,
       selected = selected
     )
+  })
+
+  ## Center map when station changes ----
+  observeEvent(cur_stn(), {
+    if (!is.null(input$map_zoom)) {
+      if (input$map_zoom > 7) {
+        leafletProxy("map") %>%
+          setView(
+            lat = cur_stn()$latitude,
+            lng = cur_stn()$longitude,
+            zoom = input$map_zoom
+          )
+      }
+    }
   })
 
 
@@ -188,19 +224,7 @@ server <- function(input, output, session) {
             }
           ")
         )
-      )
-  })
-
-
-  ## Render additional map layers ----
-
-  observeEvent(TRUE, {
-    map <- leafletProxy("map")
-    color <- "blue"
-    fill_color <- "lightblue"
-
-    # Counties
-    map %>%
+      ) %>%
       addPolygons(
         data = counties,
         group = layers$counties,
@@ -212,86 +236,104 @@ server <- function(input, output, session) {
         weight = 1,
         options = pathOptions(pane = "counties")
       )
-
-    # Nine Key Elements
-    map %>%
-      addPolygons(
-        data = nkes,
-        group = layers$nkes,
-        label = ~ lapply(paste0("<b>", PlanName, "</b><br>Ends: ", EndDate, "<br>Objective: ", Objective), HTML),
-        weight = 1,
-        color = "blue",
-        fillColor = "blue",
-        fillOpacity = 0.1,
-        options = pathOptions(pane = "nkes"),
-        labelOptions = labelOptions(style = list("width" = "300px", "white-space" = "normal"))
-      )
-
-    # HUC8
-    map %>%
-      addPolygons(
-        data = huc8,
-        group = layers$huc8,
-        label = ~ lapply(
-          paste0(
-            "<b>", Huc8Name, " Subbasin</b>",
-            "<br>HUC8 Code: ", Huc8Code,
-            "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-          HTML),
-        weight = 1.5,
-        color = color,
-        fillColor = fill_color,
-        fillOpacity = 0.15,
-        options = pathOptions(pane = "huc8")
-      )
-
-    # HUC10
-    map %>%
-      addPolygons(
-        data = huc10,
-        group = layers$huc10,
-        label = ~ lapply(
-          paste0(
-            "<b>", Huc10Name, " Watershed</b>",
-            "<br>HUC10 Code: ", Huc10Code,
-            "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-          HTML),
-        weight = 1,
-        color = color,
-        fillColor = fill_color,
-        fillOpacity = 0.1,
-        options = pathOptions(pane = "huc10")
-      )
-
-    # HUC12
-    map %>%
-      addPolygons(
-        data = huc12,
-        group = layers$huc12,
-        label = ~ lapply(
-          paste0(
-            "<b>", Huc12Name, " Subwatershed</b>",
-            "<br>HUC12 Code: ", Huc12Code,
-            "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-          HTML),
-        weight = 0.5,
-        color = color,
-        fillColor = fill_color,
-        fillOpacity = 0.05,
-        options = pathOptions(pane = "huc12")
-      )
   })
 
+
+  ## Render additional map layers ----
+
   observeEvent(TRUE, {
+
+    map <- leafletProxy("map")
+    color <- "blue"
+    fill_color <- "lightblue"
+
+    # Nine Key Elements
+    delay(500, {
+      map %>%
+        addPolygons(
+          data = nkes,
+          group = layers$nkes,
+          label = ~ lapply(paste0("<b>", PlanName, "</b><br>Ends: ", EndDate, "<br>Objective: ", Objective), HTML),
+          weight = 1,
+          color = "blue",
+          fillColor = "blue",
+          fillOpacity = 0.1,
+          options = pathOptions(pane = "nkes"),
+          labelOptions = labelOptions(style = list("width" = "300px", "white-space" = "normal"))
+        )
+    })
+
+    # HUC8
+    delay(750, {
+      map %>%
+        addPolygons(
+          data = huc8,
+          group = layers$huc8,
+          label = ~ lapply(
+            paste0(
+              "<b>", Huc8Name, " Subbasin</b>",
+              "<br>HUC8 Code: ", Huc8Code,
+              "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
+            HTML),
+          weight = 1.5,
+          color = color,
+          fillColor = fill_color,
+          fillOpacity = 0.15,
+          options = pathOptions(pane = "huc8")
+        )
+    })
+
+    # HUC10
+    delay(1000, {
+      map %>%
+        addPolygons(
+          data = huc10,
+          group = layers$huc10,
+          label = ~ lapply(
+            paste0(
+              "<b>", Huc10Name, " Watershed</b>",
+              "<br>HUC10 Code: ", Huc10Code,
+              "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
+            HTML),
+          weight = 1,
+          color = color,
+          fillColor = fill_color,
+          fillOpacity = 0.1,
+          options = pathOptions(pane = "huc10")
+        )
+    })
+
+
+    # HUC12
+    delay(1250, {
+      map %>%
+        addPolygons(
+          data = huc12,
+          group = layers$huc12,
+          label = ~ lapply(
+            paste0(
+              "<b>", Huc12Name, " Subwatershed</b>",
+              "<br>HUC12 Code: ", Huc12Code,
+              "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
+            HTML),
+          weight = 0.5,
+          color = color,
+          fillColor = fill_color,
+          fillOpacity = 0.05,
+          options = pathOptions(pane = "huc12")
+        )
+    })
+
     # Hide the legend after a delay
     delay(3000, {
-      leafletProxy("map") %>%
+      map %>%
         addLayersControl(
           baseGroups = unlist(basemaps, use.names = FALSE),
           overlayGroups = unlist(layers, use.names = FALSE),
           options = layersControlOptions(collapsed = TRUE)
         )
     })
+
   })
 
 
@@ -419,6 +461,8 @@ server <- function(input, output, session) {
 
   ## Map action buttons ----
 
+  ### Zoom in button ----
+
   observeEvent(input$zoom_in, {
     leafletProxy("map") %>%
       setView(
@@ -427,6 +471,9 @@ server <- function(input, output, session) {
         zoom = 10
       )
   })
+
+
+  ### Reset zoom button ----
 
   observeEvent(input$reset_zoom, {
     if (nrow(avail_pts()) > 0) {
@@ -449,6 +496,9 @@ server <- function(input, output, session) {
 
   })
 
+
+  ### Random site button ----
+
   observeEvent(input$random_site, {
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
     stn <- all_pts %>% filter(station_id == stn_id)
@@ -456,7 +506,7 @@ server <- function(input, output, session) {
       setView(
         lat = stn$latitude,
         lng = stn$longitude,
-        zoom = 11
+        zoom = input$map_zoom
       )
     updateSelectInput(
       inputId = "station",
@@ -469,55 +519,37 @@ server <- function(input, output, session) {
 
 # Station info ---------------------------------------------------------------
 
-  output$stn_info_ui <- renderUI({
-    bsCollapse(
-      bsCollapsePanel(
-        title = "Station Information",
-        value = "info",
-        uiOutput("stn_info")
+  output$stn_info <- renderUI({
+    list(
+      h4("Station Information"),
+      renderTable(
+        {
+          cur_stn() %>%
+            st_set_geometry(NULL) %>%
+            select(station_id:longitude) %>%
+            mutate(across(everything(), as.character)) %>%
+            clean_names(case = "title") %>%
+            pivot_longer(
+              cols = everything(),
+              names_to = "Property",
+              values_to = "Value") %>%
+            clean_names(case = "title")
+        }
       )
     )
   })
 
-  output$stn_info <- renderUI({
-    validate(
-      need(
-        nrow(cur_stn()) > 0,
-        "Select a station in the list or map above."
-      )
-    )
-
+  output$stn_coverage <- renderUI({
     list(
-      fluidRow(
-        column(7,
-          h4("Station Information"),
-          renderTable(
-            {
-              cur_stn() %>%
-                st_set_geometry(NULL) %>%
-                select(station_id:longitude) %>%
-                mutate(across(everything(), as.character)) %>%
-                clean_names(case = "title") %>%
-                pivot_longer(
-                  cols = everything(),
-                  names_to = "Property",
-                  values_to = "Value") %>%
-                clean_names(case = "title")
-            }
-          )
-        ),
-        column(5,
-          h4("Station Data Coverage"),
-          renderTable(
-            {
-              all_stn_data %>%
-                filter(station_id == cur_stn()$station_id) %>%
-                select(-station_id) %>%
-                clean_names(case = "title")
-            },
-            align = "c"
-          )
-        )
+      h4("Station Data Coverage"),
+      renderTable(
+        {
+          all_stn_data %>%
+            filter(station_id == cur_stn()$station_id) %>%
+            select(-station_id) %>%
+            clean_names(case = "title")
+        },
+        align = "c"
       )
     )
   })
@@ -631,7 +663,9 @@ server <- function(input, output, session) {
     n <- length(vals)
     meanp <- mean(log_vals)
     se <- sd(log_vals) / sqrt(n)
-    tval <- qt(p = 0.90, df = n - 1)
+    suppressWarnings({
+      tval <- qt(p = 0.90, df = n - 1)
+    })
 
     params <- list(
       mean = meanp,
@@ -655,6 +689,7 @@ server <- function(input, output, session) {
     )
 
     list(
+      h3("Nutrient Data"),
       radioButtons(
         inputId = "nutrient_year",
         label = "Choose year:",

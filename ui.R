@@ -10,6 +10,8 @@ suppressMessages({
   library(shinyBS)
   library(DT)
   library(shinyjs)
+  library(shinythemes)
+  library(plotly)
 })
 
 
@@ -41,11 +43,27 @@ data_tab_css <- "
   margin-top: 1em;
 "
 
+flex_row <- "
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+"
+
+flex_col <- "
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+"
+
 
 # UI ----------------------------------------------------------------------
 
 ui <- fluidPage(
+
   title = "WAV Data Dashboard",
+  theme = shinytheme("flatly"),
   useShinyjs(),
 
   tags$head(
@@ -62,7 +80,7 @@ ui <- fluidPage(
 
   br(),
 
-  h2("Water Action Volunteers - Data Dashboard", align = "center"),
+  h2("Stream Monitoring Data Dashboard", align = "center"),
 
   br(),
   br(),
@@ -70,7 +88,7 @@ ui <- fluidPage(
 # Map caption -----------------------------------------------------------
 
   div(style = "margin: 0.5em 1em; 0.5em 1em;", align = "center",
-    p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map"))))
+    p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
   ),
 
 
@@ -99,7 +117,6 @@ ui <- fluidPage(
           )
         )
       ),
-      hr(),
       checkboxGroupInput(
         inputId = "stn_types",
         label = "Station data types:",
@@ -113,7 +130,7 @@ ui <- fluidPage(
       ),
       hr(),
       div(
-        style = "text-align: center; line-height: 3em;",
+        style = "line-height: 3em;",
         actionButton("zoom_in", "Zoom to selected site"), br(),
         actionButton("reset_zoom", "Zoom out to all sites"), br(),
         actionButton("random_site", "Random site")
@@ -129,25 +146,41 @@ ui <- fluidPage(
     position = "right"
   ),
 
-
+  br(),
 
 
 
 
 # Station dropdown --------------------------------------------------------
 
-  h4("Current station:"),
-  selectInput(
-    inputId = "station",
-    label = NULL,
-    choices = list("Select a station" = NULL),
-    width = "100%"
+  div(
+    class = "well",
+    style = "padding-top: 0.5em;",
+    h4("Current station:"),
+    selectInput(
+      inputId = "station",
+      label = NULL,
+      choices = list("Select a station" = NULL),
+      width = "100%"
+    ),
+    em("To search for a station by name, delete the text above and start typing.")
+  ),
+
+  bsCollapse(
+    bsCollapsePanel(
+      title = "Station information",
+      div(
+        style = flex_row,
+        div(style = flex_col, uiOutput("stn_info")),
+        div(style = flex_col, uiOutput("stn_coverage"))
+      )
+    )
   ),
 
 
 # Station info ------------------------------------------------------------
 
-  uiOutput("stn_info_ui"),
+
 
 
 # Data tabs ---------------------------------------------------------------
