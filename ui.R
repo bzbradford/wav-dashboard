@@ -65,22 +65,30 @@ ui <- fluidPage(
   h2("Water Action Volunteers - Data Dashboard", align = "center"),
 
   br(),
+  br(),
+
+# Map caption -----------------------------------------------------------
+
+  div(style = "margin: 0.5em 1em; 0.5em 1em;", align = "center",
+    p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map"))))
+  ),
 
 
 # Map sidebar layout ------------------------------------------------------
 
   sidebarLayout(
     sidebarPanel(
+      p(strong("Stations with data from:")),
       fluidRow(
-        column(6,
+        column(5,
           checkboxGroupInput(
             inputId = "years",
-            label = "Stations with data from:",
+            label = NULL,
             choices = data_years,
             selected = data_years
           )
         ),
-        column(6,
+        column(7,
           radioButtons(
             inputId = "year_exact_match",
             label = NULL,
@@ -92,25 +100,11 @@ ui <- fluidPage(
         )
       ),
       hr(),
-      fluidRow(
-        column(6,
-          checkboxGroupInput(
-            inputId = "stn_types",
-            label = "Station data types:",
-            choices = station_types,
-            selected = station_types
-          )
-        ),
-        column(6,
-          radioButtons(
-            inputId = "stn_exact_match",
-            label = NULL,
-            choices = list(
-              "Stations with ANY of the selected data" = FALSE,
-              "Stations with ONLY the selected data" = TRUE
-            )
-          )
-        )
+      checkboxGroupInput(
+        inputId = "stn_types",
+        label = "Station data types:",
+        choices = station_types,
+        selected = station_types
       ),
       hr(),
       div(
@@ -136,12 +130,7 @@ ui <- fluidPage(
   ),
 
 
-# Map caption -----------------------------------------------------------
 
-  div(style = "margin: 0.5em 1em; 0.5em 1em;", align = "center",
-    p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize(stn_colors$current), ". Click on any startion to select it, or choose from the list above."))))
-  ),
-  hr(),
 
 
 

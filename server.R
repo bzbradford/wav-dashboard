@@ -41,34 +41,17 @@ server <- function(input, output, session) {
         unique()
     }
 
-    if (input$stn_exact_match) {
-      types <- str_to_title(paste(input$stn_types, collapse = ", "))
-      type_stns <- all_coverage %>%
-        filter(data_sources == types) %>%
-        pull(station_id)
-    } else {
-      type_stns <- all_stn_years %>%
-        filter(
-          (baseline_stn & ("baseline" %in% input$stn_types)) |
-            (therm_stn & ("thermistor" %in% input$stn_types)) |
-            (nutrient_stn & ("nutrient" %in% input$stn_types))
-        ) %>%
-        pull(station_id) %>%
-        unique()
-    }
+    type_stns <- all_stn_years %>%
+      filter(
+        (baseline_stn & ("baseline" %in% input$stn_types)) |
+          (therm_stn & ("thermistor" %in% input$stn_types)) |
+          (nutrient_stn & ("nutrient" %in% input$stn_types))
+      ) %>%
+      pull(station_id) %>%
+      unique()
 
     all_stn_years %>%
       filter((station_id %in% year_stns) & (station_id %in% type_stns))
-  })
-
-  avail_pts <- reactive({
-    if (nrow(avail_stns()) > 0) {
-      stns <- avail_stns()$station_id
-      all_pts %>%
-        filter(station_id %in% stns)
-    } else {
-      tibble()
-    }
   })
 
   stn_list <- reactive({
@@ -85,6 +68,26 @@ server <- function(input, output, session) {
 
     all_pts %>%
       filter(station_id == input$station)
+  })
+
+  avail_pts <- reactive({
+    all_pts %>%
+      filter(station_id %in% avail_stns()$station_id)
+  })
+
+  avail_baseline_pts <- reactive({
+    baseline_pts %>%
+      filter(station_id %in% avail_stns()$station_id)
+  })
+
+  avail_therm_pts <- reactive({
+    therm_pts %>%
+      filter(station_id %in% avail_stns()$station_id)
+  })
+
+  avail_nutrient_pts <- reactive({
+    nutrient_pts %>%
+      filter(station_id %in% avail_stns()$station_id)
   })
 
   output$total_stns_text <- renderText({
@@ -117,15 +120,17 @@ server <- function(input, output, session) {
 
   layers <- list(
     counties = "Counties/Regions",
-    nkes = paste0("NKE Plans (", colorize("blue"), ")"),
-    huc8 = paste0("HUC8 Subbasins (", colorize("blue"), ")"),
-    huc10 = paste0("HUC10 Watersheds (", colorize("blue"), ")"),
-    huc12 = paste0("HUC12 Subwatersheds (", colorize("blue"), ")"),
-    points = "Station points",
+    nkes = paste0("NKE Plans"),
+    huc8 = paste0("HUC8 Subbasins"),
+    huc10 = paste0("HUC10 Watersheds"),
+    huc12 = paste0("HUC12 Subwatersheds"),
+    baseline = paste0("Baseline stations (", colorize(stn_colors$baseline), ")"),
+    therm = paste0("Thermistor stations (", colorize(stn_colors$thermistor), ")"),
+    nutrient = paste0("Nutrient stations (", colorize(stn_colors$nutrient), ")"),
     pins = "Station clusters (groups and pins)"
   )
 
-  hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12)
+  hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$pins)
 
 
   ## Render initial map ----
@@ -146,7 +151,9 @@ server <- function(input, output, session) {
       addMapPane("huc10", 421) %>%
       addMapPane("huc12", 422) %>%
       addMapPane("nkes", 423) %>%
-      addMapPane("points", 430) %>%
+      addMapPane("baseline", 430) %>%
+      addMapPane("thermistor", 431) %>%
+      addMapPane("nutrient", 432) %>%
       addMapPane("pins", 440) %>%
       addMapPane("cur_point", 450) %>%
       hideGroup(hidden_layers) %>%
@@ -292,26 +299,60 @@ server <- function(input, output, session) {
 
   observeEvent(avail_pts(), {
 
+    leafletProxy("map") %>%
+      clearGroup(layers$baseline) %>%
+      clearGroup(layers$therm) %>%
+      clearGroup(layers$nutrient) %>%
+      clearGroup(layers$pins)
+
     if (nrow(avail_pts()) > 0) {
       pts <- avail_pts()
       labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
       popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
 
+      baseline <- avail_baseline_pts()
+      therm <- avail_therm_pts()
+      nutrient <- avail_nutrient_pts()
+
       leafletProxy("map") %>%
-        clearGroup(layers$points) %>%
-        clearGroup(layers$pins) %>%
         addCircleMarkers(
-          data = pts,
-          group = layers$points,
-          label = labels,
-          popup = popups,
+          data = baseline,
+          group = layers$baseline,
+          label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
+          popup = setNames(all_popups[names(all_popups) %in% baseline$station_id], NULL),
           layerId = ~station_id,
           radius = 4,
           color = "black",
           weight = 0.5,
-          fillColor = ~stn_color,
+          fillColor = stn_colors$baseline,
           fillOpacity = 0.75,
-          options = markerOptions(pane = "points", sticky = F)
+          options = markerOptions(pane = "baseline", sticky = F)
+        ) %>%
+        addCircleMarkers(
+          data = therm,
+          group = layers$therm,
+          label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
+          popup = setNames(all_popups[names(all_popups) %in% therm$station_id], NULL),
+          layerId = ~station_id,
+          radius = 4,
+          color = "black",
+          weight = 0.5,
+          fillColor = stn_colors$thermistor,
+          fillOpacity = 0.75,
+          options = markerOptions(pane = "thermistor", sticky = F)
+        ) %>%
+        addCircleMarkers(
+          data = nutrient,
+          group = layers$nutrient,
+          label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
+          popup = setNames(all_popups[names(all_popups) %in% nutrient$station_id], NULL),
+          layerId = ~station_id,
+          radius = 4,
+          color = "black",
+          weight = 0.5,
+          fillColor = stn_colors$nutrient,
+          fillOpacity = 0.75,
+          options = markerOptions(pane = "nutrient", sticky = F)
         ) %>%
         addMarkers(
           data = pts,
@@ -323,8 +364,7 @@ server <- function(input, output, session) {
         )
     } else {
       leafletProxy("map") %>%
-        clearGroup(layers$points) %>%
-        clearGroup(layers$pins)
+        clearGroup("cur_point")
     }
   })
 
@@ -361,7 +401,7 @@ server <- function(input, output, session) {
         radius = 5,
         weight = 0.75,
         color = "black",
-        fillColor = "orange",
+        fillColor = stn_colors$current,
         fillOpacity = 1
       ) %>%
       addMarkers(
@@ -427,7 +467,7 @@ server <- function(input, output, session) {
 
 
 
-# Site info ---------------------------------------------------------------
+# Station info ---------------------------------------------------------------
 
   output$stn_info_ui <- renderUI({
     bsCollapse(
@@ -435,8 +475,7 @@ server <- function(input, output, session) {
         title = "Station Information",
         value = "info",
         uiOutput("stn_info")
-      ),
-      open = "info"
+      )
     )
   })
 
@@ -449,35 +488,38 @@ server <- function(input, output, session) {
     )
 
     list(
-      h4("Station Data Coverage"),
-      renderTable(
-        {
-          all_stn_data %>%
-            filter(station_id == cur_stn()$station_id) %>%
-            select(-station_id) %>%
-            clean_names(case = "title")
-        },
-        align = "c"
-      ),
-      hr(),
-      h4("Station Information"),
-      renderTable(
-        {
-          cur_stn() %>%
-            st_set_geometry(NULL) %>%
-            select(station_id:longitude) %>%
-            mutate(across(everything(), as.character)) %>%
-            clean_names(case = "title") %>%
-            pivot_longer(
-              cols = everything(),
-              names_to = "Property",
-              values_to = "Value") %>%
-            clean_names(case = "title")
-        },
-        width = "100%"
+      fluidRow(
+        column(7,
+          h4("Station Information"),
+          renderTable(
+            {
+              cur_stn() %>%
+                st_set_geometry(NULL) %>%
+                select(station_id:longitude) %>%
+                mutate(across(everything(), as.character)) %>%
+                clean_names(case = "title") %>%
+                pivot_longer(
+                  cols = everything(),
+                  names_to = "Property",
+                  values_to = "Value") %>%
+                clean_names(case = "title")
+            }
+          )
+        ),
+        column(5,
+          h4("Station Data Coverage"),
+          renderTable(
+            {
+              all_stn_data %>%
+                filter(station_id == cur_stn()$station_id) %>%
+                select(-station_id) %>%
+                clean_names(case = "title")
+            },
+            align = "c"
+          )
+        )
       )
     )
-
   })
 
 

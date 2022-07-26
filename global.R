@@ -93,9 +93,9 @@ check_missing_stns <- function(data, pts, type) {
 
 stn_colors <- list(
   "baseline" = "green",
-  "thermistor" = "blue",
-  "nutrient" = "purple",
-  "current" = "orange"
+  "thermistor" = "purple",
+  "nutrient" = "orange",
+  "current" = "deepskyblue"
 )
 
 
@@ -214,27 +214,8 @@ all_stn_data <- all_stn_years %>%
     "thermistor" = F,
     "nutrient" = F
   )) %>%
-  mutate(across(where(is_logical), ~ ifelse(.x, "Yes", "No"))) %>%
-  mutate(across(everything(), as.character))
-
-
-bind_rows(
-  {
-    baseline_data %>%
-      distinct(station_id, year) %>%
-      mutate(source = "baseline")
-  },
-  {
-    therm_data %>%
-      distinct(station_id, year) %>%
-      mutate(source = "thermistor")
-  },
-  {
-    nutrient_data %>%
-      distinct(station_id, year) %>%
-      mutate(source = "nutrient")
-  }
-)
+  mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
+  mutate(year = as.character(year))
 
 
 # Finalize sites ----------------------------------------------------------
