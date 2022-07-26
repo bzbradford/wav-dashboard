@@ -37,6 +37,57 @@ create_popup <- function(data, title) {
   }
 }
 
+hline <- function(y = 0, color = "black") {
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = y,
+    y1 = y,
+    line = list(color = color, dash = "dash")
+  )
+}
+
+rect <- function(ymin, ymax, color = "red") {
+  list(
+    type = "rect",
+    fillcolor = color,
+    line = list(color = color),
+    opacity = 0.1,
+    y0 = ymin,
+    y1 = ymax,
+    xref = "paper",
+    x0 = 0,
+    x1 = 1,
+    layer = "below"
+  )
+}
+
+get_coverage <- function(df) {
+  years <- df %>%
+    distinct(station_id, year) %>%
+    group_by(station_id) %>%
+    summarise(
+      data_years = paste(year, collapse = ", "),
+      max_fw_year = max(year, na.rm = T))
+  dates <- df %>%
+    group_by(station_id) %>%
+    summarise(max_fw_date = max(date, na.rm = T))
+  left_join(years, dates, by = "station_id")
+}
+
+check_missing_stns <- function(data, pts, type) {
+  missing <- data %>%
+    distinct(station_id, station_name) %>%
+    filter(!(station_id %in% pts$station_id)) %>%
+    arrange(station_id)
+
+  if (nrow(missing) > 0) {
+    warning(nrow(missing), "/", nrow(pts) + nrow(missing), " ", type, " stations are missing from the station list!", call. = F)
+  }
+}
+
 
 # Defs --------------------------------------------------------------------
 
@@ -66,30 +117,6 @@ station_types <- list(
   "Thermistor (temperature loggers)" = "thermistor",
   "Nutrient (total phosphorus)" = "nutrient"
 )
-
-get_coverage <- function(df) {
-  years <- df %>%
-    distinct(station_id, year) %>%
-    group_by(station_id) %>%
-    summarise(
-      data_years = paste(year, collapse = ", "),
-      max_fw_year = max(year, na.rm = T))
-  dates <- df %>%
-    group_by(station_id) %>%
-    summarise(max_fw_date = max(date, na.rm = T))
-  left_join(years, dates, by = "station_id")
-}
-
-check_missing_stns <- function(data, pts, type) {
-  missing <- data %>%
-    distinct(station_id, station_name) %>%
-    filter(!(station_id %in% pts$station_id)) %>%
-    arrange(station_id)
-
-  if (nrow(missing) > 0) {
-    warning(nrow(missing), "/", nrow(pts) + nrow(missing), " ", type, " stations are missing from the station list!", call. = F)
-  }
-}
 
 
 # Baseline data -----------------------------------------------------------
@@ -174,6 +201,40 @@ all_stn_years <- bind_rows(
   )
 data_years <- as.character(sort(unique(all_stn_years$year)))
 
+all_stn_data <- all_stn_years %>%
+  select(
+    station_id,
+    year,
+    baseline = baseline_stn,
+    thermistor = therm_stn,
+    nutrient = nutrient_stn
+  ) %>%
+  complete(station_id, nesting(year), fill = list(
+    "baseline" = F,
+    "thermistor" = F,
+    "nutrient" = F
+  )) %>%
+  mutate(across(where(is_logical), ~ ifelse(.x, "Yes", "No"))) %>%
+  mutate(across(everything(), as.character))
+
+
+bind_rows(
+  {
+    baseline_data %>%
+      distinct(station_id, year) %>%
+      mutate(source = "baseline")
+  },
+  {
+    therm_data %>%
+      distinct(station_id, year) %>%
+      mutate(source = "thermistor")
+  },
+  {
+    nutrient_data %>%
+      distinct(station_id, year) %>%
+      mutate(source = "nutrient")
+  }
+)
 
 
 # Finalize sites ----------------------------------------------------------
