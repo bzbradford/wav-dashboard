@@ -1,0 +1,13 @@
+name: wav_dashboard
+title: WAV Dashboard
+username: bbradford
+account: bbradford
+server: data-viz.it.wisc.edu
+hostUrl: https://data-viz.it.wisc.edu/__api__
+appId: 385
+bundleId: 2046
+url: https://data-viz.it.wisc.edu/content/f1f261f2-1a5d-4fb4-b408-2f66ab6e36be/
+when: 1658881748.62921
+lastSyncTime: 1658881748.62922
+asMultiple: FALSE
+asStatic: FALSE

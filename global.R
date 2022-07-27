@@ -89,6 +89,48 @@ check_missing_stns <- function(data, pts, type) {
 }
 
 
+# CSS Styles --------------------------------------------------------------
+
+head_css <- "
+  body {
+    font-family: 'Lato', sans-serif;
+  }
+
+  .container-fluid {
+    max-width: 1000px;
+    margin: auto;
+  }
+
+  .leaflet-control-layers-list::before {
+    content: 'Basemap:';
+    font-weight: bold;
+  }
+
+  .leaflet-control-layers-overlays::before {
+    content: 'Layers:';
+    font-weight: bold;
+  }
+"
+
+tab_css <- "
+  min-height: 300px;
+  margin-top: 1em;
+"
+
+flex_row <- "
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+"
+
+flex_col <- "
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+"
+
 # Defs --------------------------------------------------------------------
 
 stn_colors <- list(
@@ -237,9 +279,8 @@ all_pts <- station_pts %>%
   ))
 
 all_stns <- all_pts %>%
-  select(-c(stn_color)) %>%
-  st_set_geometry(NULL) %>%
-  clean_names(case = "title")
+  select(-c(data_year_list, stn_color)) %>%
+  st_set_geometry(NULL)
 
 all_labels <- all_pts %>%
   st_set_geometry(NULL) %>%
@@ -278,4 +319,15 @@ all_stn_list <- all_pts %>%
 #   filter(setequal(intersect(test, data_year_list), test)) %>%
 #   pull(station_id)
 
-
+#
+# baseline_data %>%
+#   filter(station_id == station_id[1]) %>%
+#   clean_names(case = "title") %>%
+#   rownames_to_column() %>%
+#   mutate(rowname = paste("Obs", rowname)) %>%
+#   mutate(across(everything(), as.character)) %>%
+#   pivot_longer(cols = -rowname, names_to = "Parameter") %>%
+#   pivot_wider(names_from = rowname)
+#
+#
+# names(df) <- paste("Obs", ncol(df))

@@ -557,6 +557,8 @@ server <- function(input, output, session) {
 
 # Baseline data -----------------------------------------------------------
 
+  ## Vars ----
+
   cur_baseline_data <- reactive({
     baseline_data %>%
       filter(station_id == cur_stn()$station_id)
@@ -565,6 +567,14 @@ server <- function(input, output, session) {
   cur_baseline_years <- reactive({
     unique(cur_baseline_data()$year)
   })
+
+  selected_baseline_data <- reactive({
+    cur_baseline_data() %>%
+      filter(year == input$baseline_year)
+  })
+
+
+  ## Layout ----
 
   output$baseline_tab <- renderUI({
     validate(
@@ -575,33 +585,61 @@ server <- function(input, output, session) {
     )
 
     list(
-      radioButtons(
-        inputId = "baseline_year",
-        label = "Choose year:",
-        choices = cur_baseline_years(),
-        inline = T
-      ),
-      hr(),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Baseline data table",
-          renderDataTable({
-            req(input$baseline_year)
-
-            cur_baseline_data() %>%
-              filter(year == input$baseline_year) %>%
-              clean_names(case = "title")
-          })
+      div(
+        style = paste(flex_row, "align-items: center;"),
+        div(
+          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
+          p(em("Choose year:"))
+        ),
+        div(
+          style = flex_col,
+          radioGroupButtons(
+            inputId = "baseline_year",
+            label = NULL,
+            choices = cur_baseline_years()
+          )
         )
-      )
+      ),
+      uiOutput("baseline_data")
+
     )
   })
+
+  output$baseline_data <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Baseline data table",
+        value = "data",
+        div(
+          style = "overflow: auto;",
+          renderDataTable({
+            df <- selected_baseline_data() %>%
+              clean_names(case = "title") %>%
+              rownames_to_column() %>%
+              mutate(rowname = paste("Obs", rowname)) %>%
+              mutate(across(everything(), as.character)) %>%
+              pivot_longer(cols = -rowname, names_to = "Parameter") %>%
+              pivot_wider(names_from = rowname)
+            datatable(df, options = list(paging = F))
+          },
+            server = F)
+        ),
+        downloadButton("baseline_data_dl")
+      ),
+      open = "data"
+    )
+  })
+
+  output$baseline_data_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$baseline_year, ".csv"),
+    function(file) {write_csv(selected_baseline_data(), file)}
+  )
 
 
 
 # Thermistor data ---------------------------------------------------------
 
-  ## Data ----
+  ## Vars ----
 
   cur_therm_data <- reactive({
     therm_data %>%
@@ -622,19 +660,24 @@ server <- function(input, output, session) {
     df <- selected_therm_data()
     req(nrow(df) > 0)
     req(input$therm_temp_units)
-    temp_col <- paste0("temp_", input$therm_temp_units)
+    temp_col <- paste0("temp_", tolower(input$therm_temp_units))
 
     df %>%
       group_by(date) %>%
       summarise(
-        n = n(),
+        hours = n(),
         min = min(!!rlang::sym(temp_col)),
         max = max(!!rlang::sym(temp_col)),
         mean = round(mean(!!rlang::sym(temp_col)), 2),
+        units = input$therm_temp_units,
         lat = latitude[1],
         long = longitude[1]
       ) %>%
-      mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
+      mutate(
+        station_id = cur_stn()$station_id,
+        station_name = cur_stn()$station_name,
+        .before = everything()
+      )
   })
 
 
@@ -649,17 +692,26 @@ server <- function(input, output, session) {
     )
 
     list(
-      h3("Thermistor data"),
-      radioButtons(
-        inputId = "therm_year",
-        label = "Choose year:",
-        choices = cur_therm_years(),
-        inline = T
+      div(
+        style = paste(flex_row, "align-items: center;"),
+        div(
+          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
+          p(em("Choose year:"))
+        ),
+        div(
+          style = flex_col,
+          radioGroupButtons(
+            inputId = "therm_year",
+            label = NULL,
+            choices = cur_therm_years()
+          )
+        )
       ),
-      hr(),
       uiOutput("therm_plot_ui"),
+      br(),
       uiOutput("therm_info"),
-      uiOutput("therm_data_table")
+      br(),
+      uiOutput("therm_data")
     )
   })
 
@@ -683,7 +735,7 @@ server <- function(input, output, session) {
             inputId = "therm_temp_units",
             label = NULL,
             inline = T,
-            choices = list("Fahrenheit" = "f", "Celsius" = "c")
+            choices = list("Fahrenheit" = "F", "Celsius" = "C")
           ),
           div(
             style = "float: left; margin-right: 1em;",
@@ -714,7 +766,8 @@ server <- function(input, output, session) {
     units <- input$therm_temp_units
     annotation <- input$therm_plot_annotations
 
-    df_daily <- therm_daily()
+    df_daily <- therm_daily() %>%
+      mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
     df_hourly <- selected_therm_data()
     plot_title <- paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name) %>%
       str_trunc(width = 80) %>%
@@ -724,13 +777,9 @@ server <- function(input, output, session) {
     req(nrow(df_hourly) > 0)
 
     # handle units
-    temp_col <- paste0("temp_", units)
-    ytitle <- paste0("Temperature (°", toupper(units), ")")
-    if (units == "f") {
-      yrange <- c(30, 100)
-    } else {
-      yrange <- c(0, 37)
-    }
+    temp_col <- paste0("temp_", tolower(units))
+    ytitle <- paste0("Temperature (°", units, ")")
+    yrange <- ifelse(units == "F", c(30, 100), c(0, 37))
 
     plt <- plot_ly() %>%
       add_ribbons(
@@ -811,11 +860,11 @@ server <- function(input, output, session) {
     if (annotation != "None") {
       if (annotation == "btrout") {
         temps <- c(32, 52, 61, 72, 100) # F
-        if (units == "c") temps <- f_to_c(temps)
+        if (units == "C") temps <- f_to_c(temps)
         colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
       } else if (annotation == "wtemp") {
         temps <- c(0, 72, 77, 100) # F
-        if (units == "c") temps <- f_to_c(temps)
+        if (units == "C") temps <- f_to_c(temps)
         colors <- c("blue", "cornflowerblue", "darkorange")
       }
 
@@ -830,6 +879,8 @@ server <- function(input, output, session) {
     plt
   })
 
+
+  ## Info ----
 
   output$therm_info <- renderUI({
     list(
@@ -846,29 +897,50 @@ server <- function(input, output, session) {
   })
 
 
+  ## Data ----
 
-  output$therm_data_table <- renderUI({
+  output$therm_data <- renderUI({
     bsCollapse(
       bsCollapsePanel(
-        title = "Thermistor data table",
-        renderDataTable({
-          selected_therm_data() %>%
-            clean_names(case = "title")
-        })
+        title = "Daily average data",
+        div(
+          style = "overflow: auto;",
+          renderDataTable({
+            therm_daily() %>%
+              clean_names(case = "big_camel")
+          })
+        ),
+        downloadButton("therm_daily_dl")
+      ),
+      bsCollapsePanel(
+        title = "Hourly logger data",
+        div(
+          style = "overflow: auto;",
+          renderDataTable({
+            selected_therm_data() %>%
+              clean_names(case = "big_camel")
+          })
+        ),
+        downloadButton("therm_hourly_dl")
       )
     )
   })
 
+  output$therm_daily_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-therm-daily-data-", input$therm_year, ".csv"),
+    function(file) {write_csv(therm_daily(), file)}
+  )
 
-
-
-
-
-
+  output$therm_hourly_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$therm_year, ".csv"),
+    function(file) {write_csv(selected_therm_data(), file)}
+  )
 
 
 
 # Nutrient data -----------------------------------------------------------
+
+  ## Vars ----
 
   phoslimit <- 0.075 # mg/L, ppm
 
@@ -909,6 +981,9 @@ server <- function(input, output, session) {
     params
   })
 
+
+  ## Layout ----
+
   output$nutrient_tab <- renderUI({
     validate(
       need(
@@ -918,19 +993,31 @@ server <- function(input, output, session) {
     )
 
     list(
-      h3("Nutrient Data"),
-      radioButtons(
-        inputId = "nutrient_year",
-        label = "Choose year:",
-        choices = cur_nutrient_years(),
-        inline = T
+      div(
+        style = paste(flex_row, "align-items: center;"),
+        div(
+          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
+          p(em("Choose year:"))
+        ),
+        div(
+          style = flex_col,
+          radioGroupButtons(
+            inputId = "nutrient_year",
+            label = NULL,
+            choices = cur_nutrient_years()
+          )
+        )
       ),
-      hr(),
       uiOutput("nutrient_plot_ui"),
+      br(),
       uiOutput("nutrient_info"),
-      uiOutput("nutrient_data_table")
+      br(),
+      uiOutput("nutrient_data")
     )
   })
+
+
+  ## Plot UI ----
 
   output$nutrient_plot_ui <- renderUI({
     list(
@@ -942,6 +1029,9 @@ server <- function(input, output, session) {
       )
     )
   })
+
+
+  ## Plot ----
 
   output$nutrient_plot <- renderPlotly({
     nutrient_year <- input$nutrient_year
@@ -1051,21 +1141,8 @@ server <- function(input, output, session) {
     plt
   })
 
-  output$nutrient_data <- renderUI({
-    list(
-      h4("Nutrient data access:"),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Nutrient data table",
-          renderDataTable({
-            cur_nutrient_data() %>%
-              filter(year == input$nutrient_year) %>%
-              clean_names(case = "title")
-          })
-        )
-      )
-    )
-  })
+
+  ## Info ----
 
   output$nutrient_info <- renderUI({
     fluidRow(
@@ -1084,55 +1161,135 @@ server <- function(input, output, session) {
   })
 
 
+  ## Data ----
+
+  output$nutrient_data <- renderUI({
+    list(
+      bsCollapse(
+        bsCollapsePanel(
+          title = "View/download raw data:",
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              selected_nutrient_data() %>%
+                clean_names(case = "big_camel")
+            })
+          ),
+          downloadButton("nutrient_data_dl")
+        )
+      )
+    )
+  })
+
+  output$nutrient_data_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$nutrient_year, ".csv"),
+    function(file) {write_csv(selected_nutrient_data(), file)}
+  )
+
+
 
 
 
 # Station lists -----------------------------------------------------------
 
+  ## Layout ----
 
   output$station_lists <- renderUI({
-    bsCollapse(
-      bsCollapsePanel(
-        title = "Baseline monitoring stations",
-        div(style = "overflow: auto;", renderDataTable(baseline_stns)),
-        downloadButton("baseline_stn_dl")
+    list(
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Baseline monitoring stations",
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              all_stns %>%
+                filter(baseline_stn) %>%
+                clean_names(case = "big_camel")
+            })
+          ),
+          downloadButton("baseline_stn_dl")
+        )
       ),
-      bsCollapsePanel(
-        title = "Nutrient monitoring stations",
-        div(style = "overflow: auto;", renderDataTable(nutrient_stns)),
-        downloadButton("nutrient_stn_dl")
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Thermistor station locations",
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              all_stns %>%
+                filter(therm_stn) %>%
+                clean_names(case = "big_camel")
+            })
+          ),
+          downloadButton("thermistor_stn_dl")
+        )
       ),
-      bsCollapsePanel(
-        title = "Temperature logging stations",
-        div(style = "overflow: auto;", renderDataTable(therm_stns)),
-        downloadButton("thermistor_stn_dl")
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Nutrient monitoring locations",
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              all_stns %>%
+                filter(nutrient_stn) %>%
+                clean_names(case = "big_camel")
+            })
+          ),
+          downloadButton("nutrient_stn_dl")
+        )
       ),
-      bsCollapsePanel(
-        title = "All WAV stations",
-        div(style = "overflow: auto;", renderDataTable(all_stns)),
-        downloadButton("all_stns_dl")
+
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Complete station list",
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              all_stns %>%
+                clean_names(case = "big_camel")
+            })
+          ),
+          downloadButton("all_stns_dl")
+        )
       )
     )
   })
 
+
+  ## Download handlers ----
+
   output$baseline_stn_dl <- downloadHandler(
-    filename = "wav-baseline-stations.csv",
-    content = function(file) {write_csv(baseline_stns, file)}
+    "wav-baseline-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(baseline_stn) %>%
+        write_csv(file)
+      }
+  )
+
+  output$therm_stn_dl <- downloadHandler(
+    "wav-thermistor-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(therm_stn) %>%
+        write_csv(file)
+    }
   )
 
   output$nutrient_stn_dl <- downloadHandler(
-    filename = "wav-nutrient-stations.csv",
-    content = function(file) {write_csv(nutrient_stns, file)}
-  )
-
-  output$thermistor_stn_dl <- downloadHandler(
-    filename = "wav-temperature-loggers.csv",
-    content = function(file) {write_csv(therm_stns, file)}
+    "wav-nutrient-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(nutrient_stn) %>%
+        write_csv(file)
+    }
   )
 
   output$all_stns_dl <- downloadHandler(
-    filename = "wav-station-list.csv",
-    content = function(file) {write_csv(all_stns, file)}
+    "wav-station-list.csv",
+    function(file) {
+      all_stns %>%
+        write_csv(file)
+      }
   )
-
 }
