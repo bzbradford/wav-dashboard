@@ -171,8 +171,8 @@ station_list <- read_csv("data/station-list.csv", show_col_types = F)
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
-  "Thermistor (temperature loggers)" = "thermistor",
-  "Nutrient (total phosphorus)" = "nutrient"
+  "Nutrient (total phosphorus)" = "nutrient",
+  "Thermistor (temperature loggers)" = "thermistor"
 )
 
 

@@ -127,13 +127,13 @@ ui <- fluidPage(
       title = "Baseline data",
       div(style = tab_css, uiOutput("baseline_tab"))
     ),
+        tabPanel(
+      title = "Nutrient data",
+      div(style = tab_css, uiOutput("nutrient_tab"))
+    ),
     tabPanel(
       title = "Thermistor data",
       div(style = tab_css, uiOutput("therm_tab"))
-    ),
-    tabPanel(
-      title = "Nutrient data",
-      div(style = tab_css, uiOutput("nutrient_tab"))
     ),
     tabPanel(
       title = "Station lists",
