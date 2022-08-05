@@ -586,33 +586,37 @@ server <- function(input, output, session) {
           )
         )
       ),
-      uiOutput("baseline_data")
-
+      bsCollapse(
+        bsCollapsePanel(
+          title = "Baseline data table",
+          value = "data",
+          div(
+            style = "overflow: auto;",
+            dataTableOutput("baseline_data")
+          ),
+          downloadButton("baseline_data_dl")
+        ),
+        open = "data"
+      )
     )
   })
 
-  output$baseline_data <- renderUI({
-    bsCollapse(
-      bsCollapsePanel(
-        title = "Baseline data table",
-        value = "data",
-        div(
-          style = "overflow: auto;",
-          renderDataTable({
-            df <- selected_baseline_data() %>%
-              clean_names(case = "title") %>%
-              rownames_to_column() %>%
-              mutate(rowname = paste("Obs", rowname)) %>%
-              mutate(across(everything(), as.character)) %>%
-              pivot_longer(cols = -rowname, names_to = "Parameter") %>%
-              pivot_wider(names_from = rowname)
-            datatable(df, options = list(paging = F))
-          })
-        ),
-        downloadButton("baseline_data_dl")
-      ),
-      open = "data"
-    )
+
+  ## Data table ----
+
+  output$baseline_data <- renderDataTable({
+
+    df <- selected_baseline_data() %>%
+      clean_names(case = "title") %>%
+      rownames_to_column() %>%
+      mutate(rowname = paste("Obs", rowname)) %>%
+      mutate(across(everything(), as.character)) %>%
+      pivot_longer(cols = -rowname, names_to = "Parameter") %>%
+      pivot_wider(names_from = rowname) %>%
+      mutate(Parameter = gsub("D o", "D.O.", Parameter)) %>%
+      mutate(Parameter = gsub("P h", "pH", Parameter))
+
+    datatable(df, options = list(paging = F))
   })
 
   output$baseline_data_dl <- downloadHandler(
@@ -883,7 +887,7 @@ server <- function(input, output, session) {
   })
 
 
-  ## Data ----
+  ## Data table ----
 
   output$therm_data <- renderUI({
     bsCollapse(
@@ -1148,7 +1152,7 @@ server <- function(input, output, session) {
   })
 
 
-  ## Data ----
+  ## Data table ----
 
   output$nutrient_data <- renderUI({
     list(
