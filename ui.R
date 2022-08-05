@@ -1,21 +1,5 @@
 # ui.R
 
-suppressMessages({
-  library(tidyverse)
-  library(sf)
-  library(leaflet)
-  library(leaflet.extras)
-  library(htmltools)
-  library(shiny)
-  library(shinyBS)
-  library(DT)
-  library(shinyjs)
-  library(shinythemes)
-  library(plotly)
-  library(shinyWidgets)
-})
-
-
 # UI ----------------------------------------------------------------------
 
 ui <- fluidPage(
@@ -61,7 +45,7 @@ ui <- fluidPage(
             inputId = "years",
             label = NULL,
             choices = data_years,
-            selected = data_years
+            selected = data_years[1]
           )
         ),
         column(7,

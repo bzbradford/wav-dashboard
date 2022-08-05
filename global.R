@@ -1,11 +1,26 @@
 # global.R
 
 suppressMessages({
+  # core
   library(tidyverse)
-  library(sf)
-  library(janitor)
   library(lubridate)
+  library(janitor)
+  library(sf)
+  library(rlang)
+
+  # shiny
   library(shiny)
+  library(shinyBS)
+  library(shinyjs)
+  library(shinythemes)
+  library(shinyWidgets)
+  library(htmltools)
+
+  # display
+  library(DT)
+  library(leaflet)
+  library(leaflet.extras)
+  library(plotly)
 })
 
 # Functions ---------------------------------------------------------------
@@ -241,7 +256,7 @@ all_stn_years <- bind_rows(
     therm_stn = station_id %in% therm_pts$station_id,
     nutrient_stn = station_id %in% nutrient_pts$station_id
   )
-data_years <- as.character(sort(unique(all_stn_years$year)))
+data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 
 all_stn_data <- all_stn_years %>%
   select(

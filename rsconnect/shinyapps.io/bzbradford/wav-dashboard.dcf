@@ -1,0 +1,14 @@
+name: wav-dashboard
+title: wav-dashboard
+username:
+account: bzbradford
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6744773
+bundleId: 6172618
+url: https://bzbradford.shinyapps.io/wav-dashboard/
+when: 1659723433.26412
+lastSyncTime: 1659723433.26412
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|test.R

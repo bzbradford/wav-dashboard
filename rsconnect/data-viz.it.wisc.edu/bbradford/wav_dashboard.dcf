@@ -4,10 +4,11 @@ username: bbradford
 account: bbradford
 server: data-viz.it.wisc.edu
 hostUrl: https://data-viz.it.wisc.edu/__api__
-appId: 385
-bundleId: 2046
-url: https://data-viz.it.wisc.edu/content/f1f261f2-1a5d-4fb4-b408-2f66ab6e36be/
-when: 1658881748.62921
-lastSyncTime: 1658881748.62922
+appId: 395
+bundleId: 2089
+url: https://data-viz.it.wisc.edu/wav-dashboard/
+when: 1659731933.3608
+lastSyncTime: 1659731933.36081
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: .RData|test.R

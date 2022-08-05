@@ -1,11 +1,11 @@
 # app.R
 
-suppressMessages({
-  library(shiny)
-})
-
 source("global.R")
 source("ui.R")
 source("server.R")
 
-shinyApp(ui, server)
+shiny::shinyApp(ui, server)
+
+#- RENV -#
+
+# renv::snapshot()

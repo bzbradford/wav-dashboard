@@ -1,21 +1,6 @@
 # server.R
 
-suppressMessages({
-  library(tidyverse)
-  library(sf)
-  library(leaflet)
-  library(leaflet.extras)
-  library(htmltools)
-  library(shiny)
-  library(shinyBS)
-  library(DT)
-  library(shinyjs)
-  library(shinythemes)
-  library(plotly)
-})
-
 server <- function(input, output, session) {
-
 
 # Station select ----------------------------------------------------------
 
@@ -596,7 +581,8 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "baseline_year",
             label = NULL,
-            choices = cur_baseline_years()
+            choices = cur_baseline_years(),
+            selected = last(cur_baseline_years())
           )
         )
       ),
@@ -621,8 +607,7 @@ server <- function(input, output, session) {
               pivot_longer(cols = -rowname, names_to = "Parameter") %>%
               pivot_wider(names_from = rowname)
             datatable(df, options = list(paging = F))
-          },
-            server = F)
+          })
         ),
         downloadButton("baseline_data_dl")
       ),
@@ -666,9 +651,9 @@ server <- function(input, output, session) {
       group_by(date) %>%
       summarise(
         hours = n(),
-        min = min(!!rlang::sym(temp_col)),
-        max = max(!!rlang::sym(temp_col)),
-        mean = round(mean(!!rlang::sym(temp_col)), 2),
+        min = min(!!sym(temp_col)),
+        max = max(!!sym(temp_col)),
+        mean = round(mean(!!sym(temp_col)), 2),
         units = input$therm_temp_units,
         lat = latitude[1],
         long = longitude[1]
@@ -703,7 +688,8 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "therm_year",
             label = NULL,
-            choices = cur_therm_years()
+            choices = cur_therm_years(),
+            selected = last(cur_therm_years())
           )
         )
       ),
@@ -1004,7 +990,8 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "nutrient_year",
             label = NULL,
-            choices = cur_nutrient_years()
+            choices = cur_nutrient_years(),
+            selected = last(cur_nutrient_years())
           )
         )
       ),
