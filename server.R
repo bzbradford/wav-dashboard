@@ -607,17 +607,18 @@ server <- function(input, output, session) {
   output$baseline_data <- renderDataTable({
 
     df <- selected_baseline_data() %>%
+      arrange(date) %>%
       clean_names(case = "title") %>%
-      rownames_to_column() %>%
-      mutate(rowname = paste("Obs", rowname)) %>%
+      mutate(label = format(Date, "%b %d")) %>%
       mutate(across(everything(), as.character)) %>%
-      pivot_longer(cols = -rowname, names_to = "Parameter") %>%
-      pivot_wider(names_from = rowname) %>%
+      pivot_longer(cols = -label, names_to = "Parameter") %>%
+      pivot_wider(names_from = label) %>%
       mutate(Parameter = gsub("D o", "D.O.", Parameter)) %>%
       mutate(Parameter = gsub("P h", "pH", Parameter))
 
     datatable(df, options = list(paging = F))
-  })
+  },
+    server = F)
 
   output$baseline_data_dl <- downloadHandler(
     paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$baseline_year, ".csv"),
