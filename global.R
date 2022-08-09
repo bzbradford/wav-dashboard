@@ -285,7 +285,6 @@ all_pts <- station_pts %>%
     nutrient_stn = station_id %in% nutrient_pts$station_id
   ) %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
-  select(-c("max_fw_year", "max_fw_date")) %>%
   left_join(all_coverage, by = "station_id") %>%
   mutate(stn_color = case_when(
     baseline_stn ~ stn_colors$baseline,

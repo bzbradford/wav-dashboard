@@ -73,6 +73,7 @@ ui <- fluidPage(
       hr(),
       div(
         style = "line-height: 3em;",
+        align = "center",
         actionButton("zoom_in", "Zoom to selected site"), br(),
         actionButton("reset_zoom", "Zoom out to all sites"), br(),
         actionButton("random_site", "Random site")
@@ -137,17 +138,52 @@ ui <- fluidPage(
     ),
     tabPanel(
       title = "Station lists",
-      div(style = tab_css, uiOutput("station_lists"))
+      div(
+        style = tab_css,
+        bsCollapse(
+          bsCollapsePanel(
+            title = "Baseline monitoring stations",
+            p(downloadButton("baseline_stn_dl", "Download this list")),
+            div(
+              style = "overflow: auto;",
+              dataTableOutput("baseline_stn_tbl")
+            )
+          ),
+          bsCollapsePanel(
+            title = "Nutrient monitoring locations",
+            p(downloadButton("nutrient_stn_dl", "Download this list")),
+            div(
+              style = "overflow: auto;",
+              dataTableOutput("nutrient_stn_tbl")
+            )
+          ),
+          bsCollapsePanel(
+            title = "Thermistor station locations",
+            p(downloadButton("therm_stn_dl", "Download this list")),
+            div(
+              style = "overflow: auto;",
+              dataTableOutput("therm_stn_tbl")
+            )
+          ),
+          bsCollapsePanel(
+            title = "Complete station list",
+            p(downloadButton("all_stns_dl", "Download this list")),
+            div(
+              style = "overflow: auto;",
+              dataTableOutput("all_stn_tbl")
+            )
+          )
+        ))
     ),
     tabPanel(
       title = "More information",
       div(
         style = tab_css,
         h3("Monitoring Stations"),
-        p("The sites on the map above show where in the state Water Action Volunteers made water quality monitoring measurements during the 2021 season."),
-        p(strong("Baseline monitoring:"), "Volunteers enter the WAV program by training to do baseline stream monitoring. Each year, baseline volunteers journey to their monitoring sites once per month from May to October to collect four baseline parameters: dissolved oxygen, instantaneous temperature, transparency and streamflow. During at least two of these months (May/June and September/October), volunteers also collect macroinvertebrates to calculate a biotic index score. Once per season, some advanced volunteers also conduct a habitat assessment. In 2020, volunteers collected this baseline data at 284 unique monitoring sites. In 2021, these data were collected at 279 unique sites."),
+        p("The sites on the map above show established sites where Water Action Volunteers made water quality monitoring measurements. Stations are only shown if we have data available for that station."),
+        p(strong("Baseline monitoring:"), "Volunteers enter the WAV program by training to do baseline stream monitoring. Each year, baseline volunteers journey to their monitoring sites once per month from May to October to collect four baseline parameters: dissolved oxygen, instantaneous temperature, transparency and streamflow. During at least two of these months (May/June and September/October), volunteers also collect macroinvertebrates to calculate a biotic index score. Once per season, some advanced volunteers also conduct a habitat assessment."),
         p(strong("Nutrient monitoring:"), "After at least one season of baseline monitoring, some WAV volunteers will support special projects monitoring. Special projects monitoring is designed to either use the same methods as DNR professionals for data collection or to meet specific data needs. Recently these special projects have included monitoring with meters, aquatic invasive species monitoring, nutrient monitoring, and deploying continuous temperature monitors. Nutrient monitoring is the most widespread of the special projects. Volunteers sample for total phosphorus concentrations in rivers and streams. In some instances, volunteers also collect suspended solids samples and/or nitrogen panels."),
-        p(strong("Temperature loggers:"), "Across the state there are a number of automatic, deployed temperature loggers that continuously monitor water temperature in streams. This data can be useful for understanding seasonal stream dynamics, as lower temperatures can indicate higher flow rates, more oxygen-rich water, and overall healther stream systems. You can see more detailed stream temperature data from these stations on our ", HTML("<a href='https://data-viz.it.wisc.edu/wav-temp-loggers/' target = '_blank'>temperature logger data dashboard</a>.")),
+        p(strong("Temperature loggers:"), "Across the state there are a number of automatic, deployed temperature loggers that continuously monitor water temperature in streams. This data can be useful for understanding seasonal stream dynamics, as lower temperatures can indicate higher flow rates, more oxygen-rich water, and overall healther stream systems."),
 
         h3("Map Layers"),
         p(strong("DNR Regions:"), "The Department of Natural Resources has grouped Wisconsin's 72 counties into five different regions, which are shown on the map as a light color fill."),

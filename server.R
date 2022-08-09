@@ -146,8 +146,8 @@ server <- function(input, output, session) {
     huc10 = paste0("HUC10 Watersheds"),
     huc12 = paste0("HUC12 Subwatersheds"),
     baseline = paste0("Baseline stations (", colorize(stn_colors$baseline), ")"),
-    therm = paste0("Thermistor stations (", colorize(stn_colors$thermistor), ")"),
     nutrient = paste0("Nutrient stations (", colorize(stn_colors$nutrient), ")"),
+    therm = paste0("Thermistor stations (", colorize(stn_colors$thermistor), ")"),
     pins = "Station clusters (groups and pins)"
   )
 
@@ -550,7 +550,7 @@ server <- function(input, output, session) {
   })
 
   cur_baseline_years <- reactive({
-    unique(cur_baseline_data()$year)
+    sort(unique(cur_baseline_data()$year))
   })
 
   selected_baseline_data <- reactive({
@@ -590,11 +590,11 @@ server <- function(input, output, session) {
         bsCollapsePanel(
           title = "Baseline data table",
           value = "data",
+          downloadButton("baseline_data_dl", label = "Download this data", class = "btn-default"),
           div(
             style = "overflow: auto;",
             dataTableOutput("baseline_data")
-          ),
-          downloadButton("baseline_data_dl")
+          )
         ),
         open = "data"
       )
@@ -608,6 +608,7 @@ server <- function(input, output, session) {
 
     df <- selected_baseline_data() %>%
       arrange(date) %>%
+      distinct(date, .keep_all = TRUE) %>%
       clean_names(case = "title") %>%
       mutate(label = format(Date, "%b %d")) %>%
       mutate(across(everything(), as.character)) %>%
@@ -627,6 +628,257 @@ server <- function(input, output, session) {
 
 
 
+  # Nutrient data -----------------------------------------------------------
+
+  ## Vars ----
+
+  phoslimit <- 0.075 # mg/L, ppm
+
+  cur_nutrient_data <- reactive({
+    nutrient_data %>%
+      filter(station_id == cur_stn()$station_id)
+  })
+
+  cur_nutrient_years <- reactive({
+    sort(unique(cur_nutrient_data()$year))
+  })
+
+  selected_nutrient_data <- reactive({
+    cur_nutrient_data() %>%
+      filter(year == input$nutrient_year)
+  })
+
+  phos_estimate <- reactive({
+    vals <- na.omit(selected_nutrient_data()$tp)
+    log_vals <- log(vals)
+    n <- length(vals)
+    meanp <- mean(log_vals)
+    se <- sd(log_vals) / sqrt(n)
+    suppressWarnings({
+      tval <- qt(p = 0.90, df = n - 1)
+    })
+
+    params <- list(
+      mean = meanp,
+      median = median(log_vals),
+      lower = meanp - tval * se,
+      upper = meanp + tval * se
+    )
+
+    params <- lapply(params, exp)
+    params <- lapply(params, round, 3)
+    params["n"] <- n
+    params
+  })
+
+
+  ## Layout ----
+
+  output$nutrient_tab <- renderUI({
+    validate(
+      need(
+        nrow(cur_nutrient_data()) > 0,
+        "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."
+      )
+    )
+
+    list(
+      div(
+        style = paste(flex_row, "align-items: center;"),
+        div(
+          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
+          p(em("Choose year:"))
+        ),
+        div(
+          style = flex_col,
+          radioGroupButtons(
+            inputId = "nutrient_year",
+            label = NULL,
+            choices = cur_nutrient_years(),
+            selected = last(cur_nutrient_years())
+          )
+        )
+      ),
+      uiOutput("nutrient_plot_ui"),
+      br(),
+      uiOutput("nutrient_info"),
+      br(),
+      uiOutput("nutrient_data")
+    )
+  })
+
+
+  ## Plot UI ----
+
+  output$nutrient_plot_ui <- renderUI({
+    list(
+      plotlyOutput("nutrient_plot"),
+      div(
+        style = "margin: 0.5em 1em;",
+        align = "center",
+        p(em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."))
+      )
+    )
+  })
+
+
+  ## Plot ----
+
+  output$nutrient_plot <- renderPlotly({
+    nutrient_year <- input$nutrient_year
+    plot_title <- str_trunc(paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name), width = 80)
+    df <- selected_nutrient_data() %>%
+      mutate(exceedance = factor(
+        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "High", "OK")),
+        levels = c("OK", "High", "No data"))) %>%
+      drop_na(tp)
+    date_range <- as.Date(paste0(nutrient_year, c("-05-01", "-10-31")))
+    outer_months <- as.Date(paste0(nutrient_year, c("-04-30", "-11-1")))
+    data_dates <-  as.Date(paste(nutrient_year, 5:10, 15, sep = "-"))
+    all_dates <-  c(outer_months, data_dates)
+    yrange <- suppressWarnings(c(0, max(0.25, max(df$tp, na.rm = T))))
+
+    phos_params <- tibble(
+      date = all_dates,
+      lower = phos_estimate()$lower,
+      upper = phos_estimate()$upper,
+      median = phos_estimate()$median
+    )
+
+
+    # no confidence invervals if only one month of data
+    if (phos_estimate()$n > 1) {
+      ci_color <- ifelse(phos_estimate()$upper >= phoslimit, "red", "teal")
+
+      plt <- plot_ly(phos_params) %>%
+        add_lines(
+          x = ~date,
+          y = ~upper,
+          name = "Upper 90% CI",
+          xperiod = "M1",
+          xperiodalignment = "middle",
+          opacity = 0.5,
+          line = list(color = ci_color, width = 0.5)
+        ) %>%
+        add_lines(
+          x = ~date,
+          y = ~median,
+          name = "Median",
+          xperiod = "M1",
+          xperiodalignment = "middle",
+          opacity = 0.5,
+          line = list(color = "darkblue", width = 2)
+        ) %>%
+        add_lines(
+          x = ~date,
+          y = ~lower,
+          name = "Lower 90% CI",
+          xperiod = "M1",
+          xperiodalignment = "middle",
+          opacity = 0.5,
+          line = list(color = ci_color, width = 0.5)
+        )
+
+      shapes <- list(
+        rect(phos_estimate()$lower, phos_estimate()$upper, ci_color),
+        hline(phoslimit)
+      )
+    } else {
+      plt <- plot_ly()
+      shapes <- hline(phoslimit)
+    }
+
+    plt <- plt %>%
+      add_trace(
+        data = df,
+        x = ~date,
+        y = ~tp,
+        type = "bar",
+        text = ~tp,
+        textposition = "auto",
+        color = ~exceedance,
+        colors = "Set2",
+        width = 0.5 * 1000 * 60 * 60 * 24 * 30,
+        xperiod = "M1",
+        xperiodalignment = "middle",
+        marker = list(
+          line = list(color = "rgb(8,48,107)", width = 1)
+        ),
+        textfont = list(color = "black"),
+        hovertemplate = "Measured TP: %{y:.3f}<extra></extra>"
+      ) %>%
+      layout(
+        title = plot_title,
+        showlegend = F,
+        xaxis = list(
+          title = "",
+          type = "date",
+          tickformat = "%B<br>%Y",
+          dtick = "M1",
+          ticklabelmode = "period",
+          range = date_range),
+        yaxis = list(
+          title = "Total phosphorus (ppm)",
+          zerolinecolor = "lightgrey",
+          range = yrange),
+        legend = list(
+          traceorder = "reversed"
+        ),
+        hovermode = "x unified",
+        margin = list(t = 50),
+        shapes = shapes
+      )
+
+    plt
+  })
+
+
+  ## Info ----
+
+  output$nutrient_info <- renderUI({
+    fluidRow(
+      column(12,
+        h4("Exceedance criteria"),
+        p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
+        p("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded", colorize("red"), "if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of", phoslimit, "mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be", HTML(paste0(colorize("teal"), ").")), "This year, many sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."),
+        br(),
+        h4("Why Phosphorus?"),
+        p("Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
+        br(),
+        h4("Volunteer Monitoring Protocol"),
+        p("To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, four to six phosphorus water samples were collected at each monitoring site - one per month for up to each of the six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another. Samples at several sites were collected every two weeks. The monthly values are an average of the biweekly sample results.")
+      )
+    )
+  })
+
+
+  ## Data table ----
+
+  output$nutrient_data <- renderUI({
+    list(
+      bsCollapse(
+        bsCollapsePanel(
+          title = "View/download raw data:",
+          p(downloadButton("nutrient_data_dl", "Download this data")),
+          div(
+            style = "overflow: auto;",
+            renderDataTable({
+              selected_nutrient_data() %>%
+                clean_names(case = "big_camel")
+            })
+          )
+        )
+      )
+    )
+  })
+
+  output$nutrient_data_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$nutrient_year, ".csv"),
+    function(file) {write_csv(selected_nutrient_data(), file)}
+  )
+
+
+
 # Thermistor data ---------------------------------------------------------
 
   ## Vars ----
@@ -637,7 +889,7 @@ server <- function(input, output, session) {
   })
 
   cur_therm_years <- reactive({
-    unique(cur_therm_data()$year)
+    sort(unique(cur_therm_data()$year))
   })
 
   selected_therm_data <- reactive({
@@ -894,25 +1146,25 @@ server <- function(input, output, session) {
     bsCollapse(
       bsCollapsePanel(
         title = "Daily average data",
+        p(downloadButton("therm_daily_dl", "Download this data")),
         div(
           style = "overflow: auto;",
           renderDataTable({
             therm_daily() %>%
               clean_names(case = "big_camel")
           })
-        ),
-        downloadButton("therm_daily_dl")
+        )
       ),
       bsCollapsePanel(
         title = "Hourly logger data",
+        p(downloadButton("therm_hourly_dl", "Download this data")),
         div(
           style = "overflow: auto;",
           renderDataTable({
             selected_therm_data() %>%
               clean_names(case = "big_camel")
           })
-        ),
-        downloadButton("therm_hourly_dl")
+        )
       )
     )
   })
@@ -929,254 +1181,7 @@ server <- function(input, output, session) {
 
 
 
-# Nutrient data -----------------------------------------------------------
 
-  ## Vars ----
-
-  phoslimit <- 0.075 # mg/L, ppm
-
-  cur_nutrient_data <- reactive({
-    nutrient_data %>%
-      filter(station_id == cur_stn()$station_id)
-  })
-
-  cur_nutrient_years <- reactive({
-    unique(cur_nutrient_data()$year)
-  })
-
-  selected_nutrient_data <- reactive({
-    cur_nutrient_data() %>%
-      filter(year == input$nutrient_year)
-  })
-
-  phos_estimate <- reactive({
-    vals <- na.omit(selected_nutrient_data()$tp)
-    log_vals <- log(vals)
-    n <- length(vals)
-    meanp <- mean(log_vals)
-    se <- sd(log_vals) / sqrt(n)
-    suppressWarnings({
-      tval <- qt(p = 0.90, df = n - 1)
-    })
-
-    params <- list(
-      mean = meanp,
-      median = median(log_vals),
-      lower = meanp - tval * se,
-      upper = meanp + tval * se
-    )
-
-    params <- lapply(params, exp)
-    params <- lapply(params, round, 3)
-    params["n"] <- n
-    params
-  })
-
-
-  ## Layout ----
-
-  output$nutrient_tab <- renderUI({
-    validate(
-      need(
-        nrow(cur_nutrient_data()) > 0,
-        "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."
-      )
-    )
-
-    list(
-      div(
-        style = paste(flex_row, "align-items: center;"),
-        div(
-          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"))
-        ),
-        div(
-          style = flex_col,
-          radioGroupButtons(
-            inputId = "nutrient_year",
-            label = NULL,
-            choices = cur_nutrient_years(),
-            selected = last(cur_nutrient_years())
-          )
-        )
-      ),
-      uiOutput("nutrient_plot_ui"),
-      br(),
-      uiOutput("nutrient_info"),
-      br(),
-      uiOutput("nutrient_data")
-    )
-  })
-
-
-  ## Plot UI ----
-
-  output$nutrient_plot_ui <- renderUI({
-    list(
-      plotlyOutput("nutrient_plot"),
-      div(
-        style = "margin: 0.5em 1em;",
-        align = "center",
-        p(em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."))
-      )
-    )
-  })
-
-
-  ## Plot ----
-
-  output$nutrient_plot <- renderPlotly({
-    nutrient_year <- input$nutrient_year
-    plot_title <- str_trunc(paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name), width = 80)
-    df <- selected_nutrient_data() %>%
-      mutate(exceedance = factor(
-        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "High", "OK")),
-        levels = c("OK", "High", "No data"))) %>%
-      drop_na(tp)
-    date_range <- as.Date(paste0(nutrient_year, c("-05-01", "-10-31")))
-    outer_months <- as.Date(paste0(nutrient_year, c("-04-30", "-11-1")))
-    data_dates <-  as.Date(paste(nutrient_year, 5:10, 15, sep = "-"))
-    all_dates <-  c(outer_months, data_dates)
-    yrange <- c(0, max(0.25, max(df$tp, na.rm = T)))
-
-    phos_params <- tibble(
-      date = all_dates,
-      lower = phos_estimate()$lower,
-      upper = phos_estimate()$upper,
-      median = phos_estimate()$median
-    )
-
-
-    # no confidence invervals if only one month of data
-    if (phos_estimate()$n > 1) {
-      ci_color <- ifelse(phos_estimate()$upper >= phoslimit, "red", "teal")
-
-      plt <- plot_ly(phos_params) %>%
-        add_lines(
-          x = ~date,
-          y = ~upper,
-          name = "Upper 90% CI",
-          xperiod = "M1",
-          xperiodalignment = "middle",
-          opacity = 0.5,
-          line = list(color = ci_color, width = 0.5)
-        ) %>%
-        add_lines(
-          x = ~date,
-          y = ~median,
-          name = "Median",
-          xperiod = "M1",
-          xperiodalignment = "middle",
-          opacity = 0.5,
-          line = list(color = "darkblue", width = 2)
-        ) %>%
-        add_lines(
-          x = ~date,
-          y = ~lower,
-          name = "Lower 90% CI",
-          xperiod = "M1",
-          xperiodalignment = "middle",
-          opacity = 0.5,
-          line = list(color = ci_color, width = 0.5)
-        )
-
-      shapes <- list(
-        rect(phos_estimate()$lower, phos_estimate()$upper, ci_color),
-        hline(phoslimit)
-      )
-    } else {
-      plt <- plot_ly()
-      shapes <- hline(phoslimit)
-    }
-
-    plt <- plt %>%
-      add_trace(
-        data = df,
-        x = ~date,
-        y = ~tp,
-        type = "bar",
-        text = ~tp,
-        textposition = "auto",
-        color = ~exceedance,
-        colors = "Set2",
-        width = 0.5 * 1000 * 60 * 60 * 24 * 30,
-        xperiod = "M1",
-        xperiodalignment = "middle",
-        marker = list(
-          line = list(color = "rgb(8,48,107)", width = 1)
-        ),
-        textfont = list(color = "black"),
-        hovertemplate = "Measured TP: %{y:.3f}<extra></extra>"
-      ) %>%
-      layout(
-        title = plot_title,
-        showlegend = F,
-        xaxis = list(
-          title = "",
-          type = "date",
-          tickformat = "%B<br>%Y",
-          dtick = "M1",
-          ticklabelmode = "period",
-          range = date_range),
-        yaxis = list(
-          title = "Total phosphorus (ppm)",
-          zerolinecolor = "lightgrey",
-          range = yrange),
-        legend = list(
-          traceorder = "reversed"
-        ),
-        hovermode = "x unified",
-        margin = list(t = 50),
-        shapes = shapes
-      )
-
-    plt
-  })
-
-
-  ## Info ----
-
-  output$nutrient_info <- renderUI({
-    fluidRow(
-      column(12,
-        h4("Exceedance criteria"),
-        p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
-        p("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded", colorize("red"), "if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of", phoslimit, "mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be", HTML(paste0(colorize("teal"), ").")), "This year, many sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."),
-        br(),
-        h4("Why Phosphorus?"),
-        p("Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
-        br(),
-        h4("Volunteer Monitoring Protocol"),
-        p("To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, four to six phosphorus water samples were collected at each monitoring site - one per month for up to each of the six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another. Samples at several sites were collected every two weeks. The monthly values are an average of the biweekly sample results.")
-      )
-    )
-  })
-
-
-  ## Data table ----
-
-  output$nutrient_data <- renderUI({
-    list(
-      bsCollapse(
-        bsCollapsePanel(
-          title = "View/download raw data:",
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              selected_nutrient_data() %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          downloadButton("nutrient_data_dl")
-        )
-      )
-    )
-  })
-
-  output$nutrient_data_dl <- downloadHandler(
-    paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$nutrient_year, ".csv"),
-    function(file) {write_csv(selected_nutrient_data(), file)}
-  )
 
 
 
@@ -1186,65 +1191,27 @@ server <- function(input, output, session) {
 
   ## Layout ----
 
-  output$station_lists <- renderUI({
-    list(
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Baseline monitoring stations",
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              all_stns %>%
-                filter(baseline_stn) %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          downloadButton("baseline_stn_dl")
-        )
-      ),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Thermistor station locations",
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              all_stns %>%
-                filter(therm_stn) %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          downloadButton("thermistor_stn_dl")
-        )
-      ),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Nutrient monitoring locations",
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              all_stns %>%
-                filter(nutrient_stn) %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          downloadButton("nutrient_stn_dl")
-        )
-      ),
+  output$baseline_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(baseline_stn) %>%
+      clean_names(case = "big_camel")
+  })
 
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Complete station list",
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              all_stns %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          downloadButton("all_stns_dl")
-        )
-      )
-    )
+  output$nutrient_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(nutrient_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$therm_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(therm_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$all_stn_tbl <- renderDataTable({
+    all_stns %>%
+      clean_names(case = "big_camel")
   })
 
 
