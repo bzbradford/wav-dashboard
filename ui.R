@@ -38,11 +38,17 @@ ui <- fluidPage(
 
   sidebarLayout(
     sidebarPanel(
+      checkboxGroupInput(
+        inputId = "stn_types",
+        label = "Station data types:",
+        choices = station_types,
+        selected = station_types
+      ),
       p(strong("Stations with data from:")),
       fluidRow(
         column(5,
           checkboxGroupInput(
-            inputId = "years",
+            inputId = "stn_years",
             label = NULL,
             choices = data_years,
             selected = data_years[1]
@@ -59,17 +65,8 @@ ui <- fluidPage(
           )
         )
       ),
-      checkboxGroupInput(
-        inputId = "stn_types",
-        label = "Station data types:",
-        choices = station_types,
-        selected = station_types
-      ),
       hr(),
-      div(
-        style = "text-align: center; font-weight: bold;",
-        textOutput("total_stns_text")
-      ),
+      uiOutput("total_stns_text"),
       hr(),
       div(
         style = "line-height: 3em;",
@@ -103,7 +100,7 @@ ui <- fluidPage(
     selectInput(
       inputId = "station",
       label = NULL,
-      choices = list("Select a station" = NULL),
+      choices = list(),
       width = "100%"
     ),
     em("To search for a station by name, delete the text above and start typing.")
@@ -126,9 +123,12 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel(
       title = "Baseline data",
-      div(style = tab_css, uiOutput("baseline_tab"))
+      div(
+        style = tab_css,
+        uiOutput("baseline_tab")
+      )
     ),
-        tabPanel(
+    tabPanel(
       title = "Nutrient data",
       div(style = tab_css, uiOutput("nutrient_tab"))
     ),

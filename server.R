@@ -16,33 +16,29 @@ server <- function(input, output, session) {
 
   avail_stns <- reactive({
 
-    if (input$year_exact_match) {
-      if (is.null(input$years)) {
-        year_stns <- NULL
+    ids <- list(0)
+    coverage = list(
+      "baseline" = baseline_coverage,
+      "nutrient" = nutrient_coverage,
+      "thermistor" = therm_coverage
+    )
+
+    for (stn_type in input$stn_types) {
+      if (input$year_exact_match) {
+        ids[[stn_type]] <- coverage[[stn_type]] %>%
+          filter(all(input$stn_years %in% data_year_list)) %>%
+          pull(station_id)
       } else {
-        year_stns <- all_coverage %>%
-          rowwise() %>%
-          filter(setequal(intersect(input$years, data_year_list), input$years)) %>%
+        ids[[stn_type]] <- coverage[[stn_type]] %>%
+          filter(any(input$stn_years %in% data_year_list)) %>%
           pull(station_id)
       }
-    } else {
-      year_stns <- all_stn_years %>%
-        filter(year %in% input$years) %>%
-        pull(station_id) %>%
-        unique()
     }
 
-    type_stns <- all_stn_years %>%
-      filter(
-        (baseline_stn & ("baseline" %in% input$stn_types)) |
-          (therm_stn & ("thermistor" %in% input$stn_types)) |
-          (nutrient_stn & ("nutrient" %in% input$stn_types))
-      ) %>%
-      pull(station_id) %>%
-      unique()
+    avail_ids <- sort(reduce(ids, union))
 
     all_stn_years %>%
-      filter((station_id %in% year_stns) & (station_id %in% type_stns))
+      filter(station_id %in% avail_ids)
   })
 
 
@@ -62,10 +58,12 @@ server <- function(input, output, session) {
 
   cur_stn <- reactive({
     req(input$station)
+    req(nrow(avail_stns()) > 0)
 
-    all_pts %>%
-      filter(station_id == input$station)
+    filter(all_pts, station_id == input$station)
   })
+
+  # observe({print(cur_stn())})
 
 
   ## Available points (sf) ----
@@ -93,13 +91,17 @@ server <- function(input, output, session) {
 
   ## Total stations text ----
 
-  output$total_stns_text <- renderText({
-    paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
+  output$total_stns_text <- renderUI({
+    div(
+      style = "text-align: center; font-weight: bold; padding: 5px; border: 2px solid grey; border-radius: 5px; width: 100%;",
+      paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
+    )
   })
 
 
   ## When list changes ----
   observeEvent(stn_list(), {
+
     stations <- stn_list()
 
     if (input$station %in% stations) {
@@ -330,7 +332,8 @@ server <- function(input, output, session) {
       clearGroup(layers$baseline) %>%
       clearGroup(layers$therm) %>%
       clearGroup(layers$nutrient) %>%
-      clearGroup(layers$pins)
+      clearGroup(layers$pins) %>%
+      clearGroup("cur_point")
 
     if (nrow(avail_pts()) > 0) {
       pts <- avail_pts()
@@ -408,14 +411,16 @@ server <- function(input, output, session) {
 
   ## Handle displaying current station ----
 
-  observeEvent(list(cur_stn(), input$map_collapse), {
-    req(cur_stn())
+  observeEvent(list(avail_stns(), cur_stn()), {
+    leafletProxy("map") %>%
+      clearGroup("cur_point")
+
+    if (nrow(avail_stns()) == 0) return()
 
     label <- all_labels[names(all_labels) == cur_stn()$station_id] %>% setNames(NULL)
     popup <- all_popups[names(all_popups) == cur_stn()$station_id] %>% setNames(NULL)
 
     leafletProxy("map") %>%
-      clearGroup("cur_point") %>%
       addCircleMarkers(
         data = cur_stn(),
         lat = ~latitude,
@@ -485,14 +490,20 @@ server <- function(input, output, session) {
   ### Random site button ----
 
   observeEvent(input$random_site, {
+    req(length(stn_list()) > 0)
+
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
     stn <- all_pts %>% filter(station_id == stn_id)
-    leafletProxy("map") %>%
-      setView(
-        lat = stn$latitude,
-        lng = stn$longitude,
-        zoom = input$map_zoom
-      )
+
+    if (input$map_zoom > 8) {
+      leafletProxy("map") %>%
+        setView(
+          lat = stn$latitude,
+          lng = stn$longitude,
+          zoom = input$map_zoom
+        )
+    }
+
     updateSelectInput(
       inputId = "station",
       selected = stn_id
@@ -951,7 +962,6 @@ server <- function(input, output, session) {
         )
       ),
       uiOutput("therm_plot_ui"),
-      br(),
       uiOutput("therm_info"),
       br(),
       uiOutput("therm_data")
@@ -959,43 +969,43 @@ server <- function(input, output, session) {
   })
 
 
-  ## Plot UI
+  ## Plot UI ----
 
   output$therm_plot_ui <- renderUI({
     list(
       plotlyOutput("therm_plot"),
       div(
         style = "margin: 0.5em 1em; 0.5em 1em;",
-        uiOutput("therm_annotation_text"),
-        p(em("High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")),
-        hr(),
-        p(
-          div(
-            style = "float: left; margin-right: 1em;",
-            strong("Temperature units:")
-          ),
-          radioButtons(
-            inputId = "therm_temp_units",
-            label = NULL,
-            inline = T,
-            choices = list("Fahrenheit" = "F", "Celsius" = "C")
-          ),
-          div(
-            style = "float: left; margin-right: 1em;",
-            strong("Optional plot annotations:")
-          ),
-          radioButtons(
-            inputId = "therm_plot_annotations",
-            label = NULL,
-            inline = T,
-            choices = list(
-              "Brook trout temperature range" = "btrout",
-              "Warm/cool/coldwater classification" = "wtemp",
-              "None"
-            )
+        uiOutput("therm_plot_caption")
+      ),
+      hr(),
+      p(
+        div(
+          style = "float: left; margin-right: 1em;",
+          strong("Temperature units:")
+        ),
+        radioButtons(
+          inputId = "therm_temp_units",
+          label = NULL,
+          inline = T,
+          choices = list("Fahrenheit" = "F", "Celsius" = "C")
+        ),
+        div(
+          style = "float: left; margin-right: 1em;",
+          strong("Optional plot annotations:")
+        ),
+        radioButtons(
+          inputId = "therm_plot_annotations",
+          label = NULL,
+          inline = T,
+          choices = list(
+            "Brook trout temperature range" = "btrout",
+            "Warm/cool/coldwater classification" = "wtemp",
+            "None"
           )
         )
-      )
+      ),
+      hr()
     )
   })
 
@@ -1123,10 +1133,50 @@ server <- function(input, output, session) {
   })
 
 
+  ## Plot caption ----
+
+  output$therm_plot_caption <- renderUI({
+    req(input$therm_temp_units)
+    req(input$therm_plot_annotations)
+
+    units <- input$therm_temp_units
+    unit_text <- paste0("°", units)
+    annotation <- input$therm_plot_annotations
+
+    overlay_caption <- ""
+
+    if (annotation == "btrout") {
+      temps <- c(52, 61, 72)
+      if (units == "C") temps <- f_to_c(temps)
+
+      overlay_caption <- paste0(
+        "Optimal brook trout temperatures are shown shaded ", colorize("dark green", "darkgreen"),
+        " (", temps[1], "-", temps[2], unit_text, "), acceptable temperatures in ", colorize("light green", "darkseagreen"),
+        " (", temps[2], "-", temps[3], unit_text, "), too hot in ", colorize("orange", "orange"),
+        " and too cold in ", colorize("blue", "blue"), ".")
+
+    } else if (annotation == "wtemp") {
+      temps <- c(72, 77)
+      if (units == "C") temps <- f_to_c(temps)
+
+      overlay_caption <- paste0(
+        "The DNR classifies streams as ", colorize("coldwater", "blue"), " when maximum summer temperatures are below ",
+        temps[1], unit_text, ", as ", colorize("coolwater", "deepskyblue"), " streams when maximum temperatures are between ",
+        temps[1], " and ", temps[2], unit_text, ", and as ", colorize("warmwater", "orange"),
+        " streams when maximum temperatures are above ", temps[2], unit_text, ".")
+    }
+
+    p(em(HTML(
+      paste(overlay_caption, "High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")
+    )))
+  })
+
+
   ## Info ----
 
   output$therm_info <- renderUI({
     list(
+      h4("What does water temperature tell us?"),
       p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state."),
       p("Tips for understanding and interacting with the temperature plot:"),
       tags$ul(
@@ -1143,27 +1193,50 @@ server <- function(input, output, session) {
   ## Data table ----
 
   output$therm_data <- renderUI({
+    req(nrow(selected_therm_data()) > 0)
+
+    min_date <- min(selected_therm_data()$date)
+    max_date <- max(selected_therm_data()$date)
+
     bsCollapse(
       bsCollapsePanel(
-        title = "Daily average data",
-        p(downloadButton("therm_daily_dl", "Download this data")),
-        div(
-          style = "overflow: auto;",
-          renderDataTable({
-            therm_daily() %>%
-              clean_names(case = "big_camel")
-          })
-        )
-      ),
-      bsCollapsePanel(
-        title = "Hourly logger data",
-        p(downloadButton("therm_hourly_dl", "Download this data")),
-        div(
-          style = "overflow: auto;",
-          renderDataTable({
-            selected_therm_data() %>%
-              clean_names(case = "big_camel")
-          })
+        title = "View or download stream temperature data",
+        p(
+          strong("Station ID:"), cur_stn()$station_id, br(),
+          strong("Station Name:"), cur_stn()$station_name, br(),
+          strong("Waterbody:"), cur_stn()$waterbody, br(),
+          strong("Date range:"),
+          paste0(
+            format(min_date, "%B %d"), " - ",
+            format(max_date, "%B %d, %Y"),
+            " (", max_date - min_date, " days)"
+          )
+        ),
+        tabsetPanel(
+          tabPanel(
+            title = "Daily temperature data",
+            style = tab_css,
+            p(downloadButton("therm_daily_dl", "Download this data")),
+            div(
+              style = "overflow: auto;",
+              renderDataTable({
+                therm_daily() %>%
+                  clean_names(case = "big_camel")
+              })
+            )
+          ),
+          tabPanel(
+            title = "Hourly temperature data",
+            style = tab_css,
+            p(downloadButton("therm_hourly_dl", "Download this data")),
+            div(
+              style = "overflow: auto;",
+              renderDataTable({
+                selected_therm_data() %>%
+                  clean_names(case = "big_camel")
+              })
+            )
+          )
         )
       )
     )

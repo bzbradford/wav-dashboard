@@ -8,4 +8,5 @@ shiny::shinyApp(ui, server)
 
 #- RENV -#
 
+# renv::update()
 # renv::snapshot()

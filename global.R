@@ -85,7 +85,9 @@ get_coverage <- function(df) {
     group_by(station_id) %>%
     summarise(
       data_years = paste(year, collapse = ", "),
-      max_fw_year = max(year, na.rm = T))
+      max_fw_year = max(year, na.rm = T)) %>%
+    rowwise() %>%
+    mutate(data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))))
   dates <- df %>%
     group_by(station_id) %>%
     summarise(max_fw_date = max(date, na.rm = T))
@@ -178,7 +180,8 @@ station_types <- list(
 
 # Baseline data -----------------------------------------------------------
 
-baseline_data <- read_csv("data/baseline-data.csv", show_col_types = F)
+baseline_data <- read_csv("data/baseline-data.csv", show_col_types = F) %>%
+  arrange(station_id, date)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -263,13 +266,13 @@ all_stn_data <- all_stn_years %>%
     station_id,
     year,
     baseline = baseline_stn,
-    thermistor = therm_stn,
-    nutrient = nutrient_stn
+    nutrient = nutrient_stn,
+    thermistor = therm_stn
   ) %>%
   complete(station_id, nesting(year), fill = list(
     "baseline" = F,
-    "thermistor" = F,
-    "nutrient" = F
+    "nutrient" = F,
+    "thermistor" = F
   )) %>%
   mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
   mutate(year = as.character(year))
