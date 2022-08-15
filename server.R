@@ -869,15 +869,17 @@ server <- function(input, output, session) {
     list(
       bsCollapse(
         bsCollapsePanel(
-          title = "View/download raw data:",
+          title = "View or download nutrient data data",
           p(downloadButton("nutrient_data_dl", "Download this data")),
           div(
             style = "overflow: auto;",
             renderDataTable({
               selected_nutrient_data() %>%
+                drop_na(tp) %>%
                 clean_names(case = "big_camel")
             })
-          )
+          ),
+          p(em("Total phosphorus is shown in units of mg/L (ppm)."))
         )
       )
     )
