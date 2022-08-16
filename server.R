@@ -1118,7 +1118,7 @@ server <- function(input, output, session) {
         if (units == "C") temps <- f_to_c(temps)
         colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
       } else if (annotation == "wtemp") {
-        temps <- c(0, 72, 77, 100) # F
+        temps <- c(32, 72, 77, 100) # F
         if (units == "C") temps <- f_to_c(temps)
         colors <- c("blue", "cornflowerblue", "darkorange")
       }

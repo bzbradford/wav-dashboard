@@ -127,6 +127,10 @@ head_css <- "
     content: 'Layers:';
     font-weight: bold;
   }
+
+  .leaflet-container {
+    max-height: calc(90vh);
+  }
 "
 
 tab_css <- "
