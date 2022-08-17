@@ -332,8 +332,7 @@ server <- function(input, output, session) {
       clearGroup(layers$baseline) %>%
       clearGroup(layers$therm) %>%
       clearGroup(layers$nutrient) %>%
-      clearGroup(layers$pins) %>%
-      clearGroup("cur_point")
+      clearGroup(layers$pins)
 
     if (nrow(avail_pts()) > 0) {
       pts <- avail_pts()
