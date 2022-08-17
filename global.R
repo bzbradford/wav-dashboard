@@ -34,7 +34,7 @@ f_to_c <- function(f, d = 1) {
 }
 
 colorize <- function(text, color = tolower(text)) {
-  paste0("<span style='color: ", color, "'>", text, "</span>")
+  shiny::HTML(paste0("<span style='color: ", color, "'>", text, "</span>"))
 }
 
 create_popup <- function(data, title) {
