@@ -140,9 +140,8 @@ head_css <- "
     color: #48a67b;
   }
 
-  #data-tabs tab-pane {
-    margin-left: 15px;
-    margin-right: 15px;
+  .form-group {
+    margin-bottom: 0px;
   }
 "
 
