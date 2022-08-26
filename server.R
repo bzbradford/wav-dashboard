@@ -550,6 +550,110 @@ server <- function(input, output, session) {
   })
 
 
+  # Station lists -----------------------------------------------------------
+
+  ## Layout ----
+
+  output$station_lists <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Baseline monitoring stations",
+        p(downloadButton("baseline_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("baseline_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Nutrient monitoring locations",
+        p(downloadButton("nutrient_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("nutrient_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Thermistor station locations",
+        p(downloadButton("therm_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("therm_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Complete station list",
+        p(downloadButton("all_stns_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("all_stn_tbl")
+        )
+      )
+    )
+  })
+
+  output$baseline_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(baseline_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$nutrient_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(nutrient_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$therm_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(therm_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$all_stn_tbl <- renderDataTable({
+    all_stns %>%
+      clean_names(case = "big_camel")
+  })
+
+
+  ## Download handlers ----
+
+  output$baseline_stn_dl <- downloadHandler(
+    "wav-baseline-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(baseline_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$therm_stn_dl <- downloadHandler(
+    "wav-thermistor-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(therm_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$nutrient_stn_dl <- downloadHandler(
+    "wav-nutrient-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(nutrient_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$all_stns_dl <- downloadHandler(
+    "wav-station-list.csv",
+    function(file) {
+      all_stns %>%
+        write_csv(file)
+    }
+  )
+
+
+
 # Baseline data -----------------------------------------------------------
 
   ## Vars ----
@@ -581,10 +685,11 @@ server <- function(input, output, session) {
 
     list(
       div(
-        style = paste(flex_row, "align-items: center;"),
+        class = "well",
+        style = paste(flex_row, "align-items: center; padding: 10px;"),
         div(
           style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"))
+          p(em("Choose year:"), style = "margin-bottom: 0px;")
         ),
         div(
           style = flex_col,
@@ -596,25 +701,185 @@ server <- function(input, output, session) {
           )
         )
       ),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Baseline data table",
-          value = "data",
-          downloadButton("baseline_data_dl", label = "Download this data", class = "btn-default"),
-          div(
-            style = "overflow: auto;",
-            dataTableOutput("baseline_data")
-          )
-        ),
-        open = "data"
-      )
+      h3(cur_stn()$label, align = "center"),
+      plotlyOutput("baseline_plot"),
+      p(style = "margin-left: 2em; margin-right: 2em; font-size: smaller;", em("Click on any of the plot legend items to show or hide it in the plot."), align = "center"),
+      p(strong("Dissolved Oxygen."), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
+      p(strong("Temperature."), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
+      p(strong("Transparency."), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
+      p(strong("Stream flow."), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
+      br(),
+      uiOutput("baseline_data")
     )
   })
 
 
-  ## Data table ----
+  ## Plot ----
 
-  output$baseline_data <- renderDataTable({
+  output$baseline_plot <- renderPlotly({
+    req(input$baseline_year)
+    req(nrow(selected_baseline_data()) > 0)
+
+    df <- selected_baseline_data() %>%
+      distinct(date, .keep_all = T) %>%
+      rowwise() %>%
+      mutate(do_color = brewer.pal(11, "RdBu")[floor(min(d_o, 11))])
+
+    do_data <- df %>%
+      filter(!is.na(d_o)) %>%
+      mutate(label = ifelse(
+        is.na(d_o_percent_saturation),
+        paste0(d_o, " mg/L"),
+        paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")))
+    temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
+    trans_data <- df %>% filter(!is.na(transparency_average))
+    flow_data <- df %>% filter(!is.na(corrected_streamflow))
+
+
+    plot_ly() %>%
+      add_trace(
+        data = do_data,
+        name = "D.O.",
+        x = ~date,
+        y = ~d_o,
+        text = ~label,
+        marker = list(
+          color = ~do_color,
+          line = list(color = "black", width = 0.5)),
+        type = "bar",
+        width = 1000 * 60 * 60 * 24 * 15,
+        hovertemplate = "%{y}"
+      ) %>%
+      add_trace(
+        data = temp_data,
+        name = "Water temp",
+        x = ~date,
+        y = ~water_temperature,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y2",
+        marker = list(
+          color = "lightblue",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(
+          color = "lightblue",
+          width = 3
+        )
+      ) %>%
+      add_trace(
+        data = temp_data,
+        name = "Air temp",
+        x = ~date,
+        y = ~ambient_air_temp_field,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y2",
+        marker = list(
+          color = "orange",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "orange", width = 3)
+      ) %>%
+      add_trace(
+        data = trans_data,
+        name = "Transparency",
+        x = ~date,
+        y = ~transparency_average,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y3",
+        marker = list(
+          color = "brown",
+          size = 10,
+          symbol = "square",
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "brown", width = 3)
+      ) %>%
+      add_trace(
+        data = flow_data,
+        name = "Stream flow",
+        x = ~date,
+        y = ~corrected_streamflow,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y4",
+        marker = list(
+          color = "#48a67b",
+          size = 10,
+          symbol = "triangle-right",
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "#48a67b", width = 3)
+      ) %>%
+      layout(
+        title = "Baseline Measurements",
+        xaxis = list(
+          title = "",
+          type = "date",
+          range = c(min(df$date) - 15, max(df$date) + 15),
+          fixedrange = T,
+          dtick = "M1",
+          ticklabelmode = "period",
+          hoverformat = "%b %d, %Y",
+          domain = c(.1, .9)
+        ),
+        yaxis = list(
+          title = "Dissolved oxygen",
+          ticksuffix = " mg/L",
+          fixedrange = T),
+        yaxis2 = list(
+          title = "Temperature",
+          overlaying = "y",
+          side = "left",
+          ticksuffix = "&deg;C",
+          position = 0,
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
+        yaxis3 = list(
+          title = "Transparency",
+          overlaying = "y",
+          side = "right",
+          ticksuffix = " cm",
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
+        yaxis4 = list(
+          title = "Stream flow",
+          overlaying = "y",
+          side = "right",
+          ticksuffix = " cfs",
+          position = 1,
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
+        hovermode = "x unified",
+        margin = list(t = 50, r = 50),
+        legend = list(orientation = "h")
+      )
+  })
+
+
+  ## Data ----
+
+  output$baseline_data <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "View/download baseline data",
+        p(
+          downloadButton("baseline_data_dl", paste("Download", input$baseline_year, "data")),
+          downloadButton("baseline_data_all_dl", "Download all years of baseline data for this site")
+        ),
+        div(style = "overflow: auto;", dataTableOutput("baseline_data_table"))
+      )
+    )
+  })
+
+  output$baseline_data_table <- renderDataTable({
 
     df <- selected_baseline_data() %>%
       arrange(date) %>%
@@ -634,6 +899,11 @@ server <- function(input, output, session) {
   output$baseline_data_dl <- downloadHandler(
     paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$baseline_year, ".csv"),
     function(file) {write_csv(selected_baseline_data(), file)}
+  )
+
+  output$baseline_data_all_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-baseline-data.csv"),
+    function(file) {write_csv(cur_baseline_data(), file)}
   )
 
 
@@ -694,10 +964,11 @@ server <- function(input, output, session) {
 
     list(
       div(
-        style = paste(flex_row, "align-items: center;"),
+        class = "well",
+        style = paste(flex_row, "align-items: center; padding: 10px;"),
         div(
           style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"))
+          p(em("Choose year:"), style = "margin-bottom: 0px;")
         ),
         div(
           style = flex_col,
@@ -709,25 +980,16 @@ server <- function(input, output, session) {
           )
         )
       ),
-      uiOutput("nutrient_plot_ui"),
+      h3(cur_stn()$label, align = "center"),
+      plotlyOutput("nutrient_plot"),
+      p(style = "margin: 0.5em 1em;", align = "center", em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band.")),
       br(),
-      uiOutput("nutrient_info"),
+      p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
+      p(strong("Exceedance criteria."), HTML(paste0("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded ", strong(colorize("red")), " if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of ", phoslimit, " mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be ", strong(colorize("teal")), "). Some sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."))),
+      p(strong("Why phosphorus?"), "Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
+      p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, four to six phosphorus water samples were collected at each monitoring site - one per month for up to each of the six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another. Samples at several sites were collected every two weeks. The monthly values are an average of the biweekly sample results."),
       br(),
       uiOutput("nutrient_data")
-    )
-  })
-
-
-  ## Plot UI ----
-
-  output$nutrient_plot_ui <- renderUI({
-    list(
-      plotlyOutput("nutrient_plot"),
-      div(
-        style = "margin: 0.5em 1em;",
-        align = "center",
-        p(em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."))
-      )
     )
   })
 
@@ -736,7 +998,6 @@ server <- function(input, output, session) {
 
   output$nutrient_plot <- renderPlotly({
     nutrient_year <- input$nutrient_year
-    plot_title <- str_trunc(paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name), width = 80)
     df <- selected_nutrient_data() %>%
       mutate(exceedance = factor(
         ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "High", "OK")),
@@ -818,7 +1079,7 @@ server <- function(input, output, session) {
         hovertemplate = "Measured TP: %{y:.3f}<extra></extra>"
       ) %>%
       layout(
-        title = plot_title,
+        title = "Total Phosphorus",
         showlegend = F,
         xaxis = list(
           title = "",
@@ -843,50 +1104,37 @@ server <- function(input, output, session) {
   })
 
 
-  ## Info ----
+  ## Data ----
 
-  output$nutrient_info <- renderUI({
-    fluidRow(
-      column(12,
-        h4("Exceedance criteria"),
-        p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
-        p(HTML(paste0("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded ", strong(colorize("red")), " if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of ", phoslimit, " mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be ", strong(colorize("teal")), "). Some sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."))),
-        br(),
-        h4("Why Phosphorus?"),
-        p("Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
-        br(),
-        h4("Volunteer Monitoring Protocol"),
-        p("To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, four to six phosphorus water samples were collected at each monitoring site - one per month for up to each of the six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another. Samples at several sites were collected every two weeks. The monthly values are an average of the biweekly sample results.")
+  output$nutrient_data <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "View or download nutrient data data",
+
+        p(
+          downloadButton("nutrient_data_dl", paste("Download", input$nutrient_year, "data")),
+          downloadButton("nutrient_data_all_dl", paste("Download all years of nutrient data for this site"))
+        ),
+        div(style = "overflow: auto;", dataTableOutput("nutrient_data_table")),
+        p(em("Total phosphorus is shown in units of mg/L (ppm)."))
       )
     )
   })
 
-
-  ## Data table ----
-
-  output$nutrient_data <- renderUI({
-    list(
-      bsCollapse(
-        bsCollapsePanel(
-          title = "View or download nutrient data data",
-          p(downloadButton("nutrient_data_dl", "Download this data")),
-          div(
-            style = "overflow: auto;",
-            renderDataTable({
-              selected_nutrient_data() %>%
-                drop_na(tp) %>%
-                clean_names(case = "big_camel")
-            })
-          ),
-          p(em("Total phosphorus is shown in units of mg/L (ppm)."))
-        )
-      )
-    )
+  output$nutrient_data_table <- renderDataTable({
+    selected_nutrient_data() %>%
+      drop_na(tp) %>%
+      clean_names(case = "big_camel")
   })
 
   output$nutrient_data_dl <- downloadHandler(
     paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$nutrient_year, ".csv"),
     function(file) {write_csv(selected_nutrient_data(), file)}
+  )
+
+  output$nutrient_data_all_dl <- downloadHandler(
+    paste0("stn-", cur_stn()$station_id, "-nutrient-data.csv"),
+    function(file) {write_csv(cur_nutrient_data(), file)}
   )
 
 
@@ -947,10 +1195,11 @@ server <- function(input, output, session) {
 
     list(
       div(
-        style = paste(flex_row, "align-items: center;"),
+        class = "well",
+        style = paste(flex_row, "align-items: center; padding: 10px;"),
         div(
           style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"))
+          p(em("Choose year:"), style = "margin-bottom: 0px;")
         ),
         div(
           style = flex_col,
@@ -962,6 +1211,7 @@ server <- function(input, output, session) {
           )
         )
       ),
+      h3(cur_stn()$label, align = "center"),
       uiOutput("therm_plot_ui"),
       uiOutput("therm_info"),
       br(),
@@ -1023,9 +1273,6 @@ server <- function(input, output, session) {
     df_daily <- therm_daily() %>%
       mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
     df_hourly <- selected_therm_data()
-    plot_title <- paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name) %>%
-      str_trunc(width = 80) %>%
-      str_to_title()
 
     req(nrow(df_daily) > 0)
     req(nrow(df_hourly) > 0)
@@ -1094,7 +1341,7 @@ server <- function(input, output, session) {
           color = "orange"
         )) %>%
       layout(
-        title = plot_title,
+        title = "Stream Temperature",
         showlegend = TRUE,
         xaxis = list(title = "Date and Time"),
         yaxis = list(
@@ -1261,68 +1508,5 @@ server <- function(input, output, session) {
 
 
 
-# Station lists -----------------------------------------------------------
 
-  ## Layout ----
-
-  output$baseline_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(baseline_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$nutrient_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(nutrient_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$therm_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(therm_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$all_stn_tbl <- renderDataTable({
-    all_stns %>%
-      clean_names(case = "big_camel")
-  })
-
-
-  ## Download handlers ----
-
-  output$baseline_stn_dl <- downloadHandler(
-    "wav-baseline-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(baseline_stn) %>%
-        write_csv(file)
-      }
-  )
-
-  output$therm_stn_dl <- downloadHandler(
-    "wav-thermistor-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(therm_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$nutrient_stn_dl <- downloadHandler(
-    "wav-nutrient-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(nutrient_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$all_stns_dl <- downloadHandler(
-    "wav-station-list.csv",
-    function(file) {
-      all_stns %>%
-        write_csv(file)
-      }
-  )
 }

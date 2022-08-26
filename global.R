@@ -21,6 +21,7 @@ suppressMessages({
   library(leaflet)
   library(leaflet.extras)
   library(plotly)
+  library(RColorBrewer)
 })
 
 # Functions ---------------------------------------------------------------
@@ -130,6 +131,18 @@ head_css <- "
 
   .leaflet-container {
     max-height: calc(90vh);
+  }
+
+  .tab-pane {
+    margin-top: 1em;
+  }
+
+  a, a:hover, a:focus {
+    color: #48a67b;
+  }
+
+  .form-group {
+    margin-bottom: 0px;
   }
 "
 

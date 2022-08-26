@@ -80,8 +80,7 @@ ui <- fluidPage(
       div(
         style = "max-width: 1000px; margin: auto; border: 1px solid lightgrey;",
         leafletOutput("map", width = "100%", height = "700px")
-      ),
-
+      )
     ),
     position = "right"
   ),
@@ -95,24 +94,30 @@ ui <- fluidPage(
 
   div(
     class = "well",
-    style = "padding-top: 0.5em;",
-    h4("Current station:"),
-    selectInput(
-      inputId = "station",
-      label = NULL,
-      choices = list(),
-      width = "100%"
-    ),
-    em("To search for a station by name, delete the text above and start typing.")
-  ),
-
-  bsCollapse(
-    bsCollapsePanel(
-      title = "Station information",
-      div(
-        style = flex_row,
-        div(style = flex_col, uiOutput("stn_info")),
-        div(style = flex_col, uiOutput("stn_coverage"))
+    style = "padding: 15px;",
+    tabsetPanel(
+      type = "pills",
+      tabPanel(
+        title = "Current Station",
+        selectInput(
+          inputId = "station",
+          label = NULL,
+          choices = list(),
+          width = "100%"
+        ),
+        em("To search for a station by name, delete the text above and start typing.")
+      ),
+      tabPanel(
+        title = "Station Details",
+        div(
+          style = flex_row,
+          div(style = flex_col, uiOutput("stn_info")),
+          div(style = flex_col, uiOutput("stn_coverage"))
+        )
+      ),
+      tabPanel(
+        title = "Station Lists",
+        uiOutput("station_lists")
       )
     )
   ),
@@ -121,12 +126,11 @@ ui <- fluidPage(
 # Data tabs ---------------------------------------------------------------
 
   tabsetPanel(
+    id = "data_tabs",
+    type = "pills",
     tabPanel(
       title = "Baseline data",
-      div(
-        style = tab_css,
-        uiOutput("baseline_tab")
-      )
+      uiOutput("baseline_tab")
     ),
     tabPanel(
       title = "Nutrient data",
@@ -135,45 +139,6 @@ ui <- fluidPage(
     tabPanel(
       title = "Thermistor data",
       div(style = tab_css, uiOutput("therm_tab"))
-    ),
-    tabPanel(
-      title = "Station lists",
-      div(
-        style = tab_css,
-        bsCollapse(
-          bsCollapsePanel(
-            title = "Baseline monitoring stations",
-            p(downloadButton("baseline_stn_dl", "Download this list")),
-            div(
-              style = "overflow: auto;",
-              dataTableOutput("baseline_stn_tbl")
-            )
-          ),
-          bsCollapsePanel(
-            title = "Nutrient monitoring locations",
-            p(downloadButton("nutrient_stn_dl", "Download this list")),
-            div(
-              style = "overflow: auto;",
-              dataTableOutput("nutrient_stn_tbl")
-            )
-          ),
-          bsCollapsePanel(
-            title = "Thermistor station locations",
-            p(downloadButton("therm_stn_dl", "Download this list")),
-            div(
-              style = "overflow: auto;",
-              dataTableOutput("therm_stn_tbl")
-            )
-          ),
-          bsCollapsePanel(
-            title = "Complete station list",
-            p(downloadButton("all_stns_dl", "Download this list")),
-            div(
-              style = "overflow: auto;",
-              dataTableOutput("all_stn_tbl")
-            )
-          )
-        ))
     ),
     tabPanel(
       title = "More information",
