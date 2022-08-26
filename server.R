@@ -550,6 +550,110 @@ server <- function(input, output, session) {
   })
 
 
+  # Station lists -----------------------------------------------------------
+
+  ## Layout ----
+
+  output$station_lists <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Baseline monitoring stations",
+        p(downloadButton("baseline_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("baseline_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Nutrient monitoring locations",
+        p(downloadButton("nutrient_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("nutrient_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Thermistor station locations",
+        p(downloadButton("therm_stn_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("therm_stn_tbl")
+        )
+      ),
+      bsCollapsePanel(
+        title = "Complete station list",
+        p(downloadButton("all_stns_dl", "Download this list")),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("all_stn_tbl")
+        )
+      )
+    )
+  })
+
+  output$baseline_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(baseline_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$nutrient_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(nutrient_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$therm_stn_tbl <- renderDataTable({
+    all_stns %>%
+      filter(therm_stn) %>%
+      clean_names(case = "big_camel")
+  })
+
+  output$all_stn_tbl <- renderDataTable({
+    all_stns %>%
+      clean_names(case = "big_camel")
+  })
+
+
+  ## Download handlers ----
+
+  output$baseline_stn_dl <- downloadHandler(
+    "wav-baseline-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(baseline_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$therm_stn_dl <- downloadHandler(
+    "wav-thermistor-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(therm_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$nutrient_stn_dl <- downloadHandler(
+    "wav-nutrient-stations.csv",
+    function(file) {
+      all_stns %>%
+        filter(nutrient_stn) %>%
+        write_csv(file)
+    }
+  )
+
+  output$all_stns_dl <- downloadHandler(
+    "wav-station-list.csv",
+    function(file) {
+      all_stns %>%
+        write_csv(file)
+    }
+  )
+
+
+
 # Baseline data -----------------------------------------------------------
 
   ## Vars ----
@@ -580,41 +684,256 @@ server <- function(input, output, session) {
     )
 
     list(
+      uiOutput("baseline_year_select"),
+      plotlyOutput("baseline_plot"),
+      uiOutput("baseline_data")
+    )
+  })
+
+
+  ## Year selector ----
+
+  output$baseline_year_select <- renderUI({
+    div(
+      style = paste(flex_row, "align-items: center;"),
       div(
-        style = paste(flex_row, "align-items: center;"),
-        div(
-          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"))
-        ),
-        div(
-          style = flex_col,
-          radioGroupButtons(
-            inputId = "baseline_year",
-            label = NULL,
-            choices = cur_baseline_years(),
-            selected = last(cur_baseline_years())
-          )
-        )
+        style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
+        p(em("Choose year:"), style = "margin-bottom: 0px;")
       ),
-      bsCollapse(
-        bsCollapsePanel(
-          title = "Baseline data table",
-          value = "data",
-          downloadButton("baseline_data_dl", label = "Download this data", class = "btn-default"),
-          div(
-            style = "overflow: auto;",
-            dataTableOutput("baseline_data")
-          )
-        ),
-        open = "data"
+      div(
+        style = flex_col,
+        radioGroupButtons(
+          inputId = "baseline_year",
+          label = NULL,
+          choices = cur_baseline_years(),
+          selected = last(cur_baseline_years())
+        )
       )
     )
   })
 
 
+  ## Plot ----
+
+  output$baseline_plot <- renderPlotly({
+    req(input$baseline_year)
+
+    plot_title <- str_trunc(paste0("Station ", cur_stn()$station_id, ": ", cur_stn()$station_name), width = 80)
+
+    selected_baseline_data() %>%
+      rowwise() %>%
+      mutate(do_color = brewer.pal(11, "RdBu")[min(d_o, 11)]) %>%
+      plot_ly() %>%
+      add_trace(
+        name = "D.O.",
+        x = ~date,
+        y = ~d_o,
+        text = ~paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
+        marker = list(
+          color = ~do_color,
+          line = list(color = "black", width = 0.5)),
+        type = "bar",
+        hovertemplate = "%{y}",
+        showlegend = F
+      ) %>%
+      add_trace(
+        x = ~date,
+        y = ~water_temperature,
+        type = "scatter",
+        mode = "lines+markers",
+        name = "Water",
+        yaxis = "y2",
+        marker = list(
+          color = "lightblue",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(
+          color = "lightblue",
+          width = 3
+        ),
+        showlegend = F
+      ) %>%
+      add_trace(
+        x = ~date,
+        y = ~ambient_air_temp_field,
+        type = "scatter",
+        mode = "lines+markers",
+        name = "Air",
+        yaxis = "y2",
+        marker = list(
+          color = "orange",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "orange", width = 3),
+        showlegend = F
+      ) %>%
+      layout(
+        title = plot_title,
+        xaxis = list(
+          title = "",
+          type = "date",
+          range = ~c(min(date) - 15, max(date) + 15),
+          fixedrange = T,
+          dtick = "M1",
+          ticklabelmode = "period",
+          hoverformat = "%b %d, %Y"
+        ),
+        yaxis = list(
+          title = "Dissolved oxygen",
+          ticksuffix = " mg/L",
+          fixedrange = T),
+        yaxis2 = list(
+          title = "Temperature",
+          overlaying = "y",
+          side = "right",
+          ticksuffix = "&deg;C",
+          showgrid = F,
+          fixedrange = T),
+        hovermode = "x unified",
+        margin = list(t = 50, r = 50)
+      )
+  })
+
+
+
+  output$baseline_data_tabs <- renderUI({
+    tabsetPanel(
+      id = "baseline_tabs",
+      tabPanel(
+        title = "Data Table",
+        uiOutput("baseline_data")
+      ),
+            tabPanel(
+        title = "Dissolved Oxygen",
+        uiOutput("baseline_do")
+      ),
+      tabPanel(
+        title = "Temperature",
+        uiOutput("baseline_temp")
+      ),
+      tabPanel(
+        title = "Transparency",
+        uiOutput("baseline_transparency")
+      ),
+      tabPanel(
+        title = "Streamflow",
+        uiOutput("baseline_streamflow")
+      ),
+      selected = input$baseline_tabs
+    )
+  })
+
+
+
+
+  ## Temperature ----
+
+
+  ## DO ----
+
+  output$baseline_do <- renderUI({
+    do_data <- selected_baseline_data() %>%
+      drop_na(d_o)
+    validate(need(nrow(do_data) > 0, "There isn't any DO data to show."))
+
+    list(
+      plotlyOutput("baseline_do_plot"),
+      br(),
+      h4("What is Dissolved Oxygen?"),
+      p("Dissolved oxygen is really cool.")
+    )
+  })
+
+  output$baseline_do_plot <- renderPlotly({
+    year <- input$baseline_year
+    xrange <- c(
+      as.Date(paste(year, 5, 1, sep = "-")),
+      as.Date(paste(year, 11, 30, sep = "-"))
+      )
+    selected_baseline_data() %>%
+      distinct(date, .keep_all = T) %>%
+      drop_na(d_o) %>%
+      rowwise() %>%
+      mutate(do_color = brewer.pal(11, "RdBu")[min(d_o, 11)]) %>%
+      plot_ly() %>%
+      add_trace(
+        x = ~date,
+        y = ~d_o,
+        text = ~paste(d_o, "mg/L"),
+        marker = list(
+          color = ~do_color,
+          line = list(
+            color = "black",
+            width = 1
+          )),
+        type = "bar",
+        hovertemplate = "%{y} mg/L<extra></extra>",
+        showlegend = F
+      ) %>%
+      add_trace(
+        x = ~date,
+        y = ~d_o_percent_saturation,
+        mode = "lines+markers",
+        type = "scatter",
+        yaxis = "y2",
+        hovertemplate = "%{y} saturation<extra></extra>",
+        showlegend = F
+      ) %>%
+      layout(
+        title = "Dissolved Oxygen",
+        xaxis = list(
+          title = "",
+          type = "date",
+          range = ~c(min(date) - 15, max(date) + 15),
+          fixedrange = T,
+          dtick = "M1",
+          ticklabelmode = "period",
+          hoverformat = "%b %d, %Y"
+        ),
+        yaxis = list(
+          title = "Dissolved oxygen (mg/L)",
+          fixedrange = T),
+        yaxis2 = list(
+          title = "D.O. saturation",
+          overlaying = "y",
+          side = "right",
+          range = ~c(0, max(100, d_o_percent_saturation) + 10),
+          ticksuffix = "%",
+          showgrid = F,
+          fixedrange = T),
+        hovermode = "x unified",
+        margin = list(
+          t = 50,
+          r = 50
+        )
+      )
+  })
+
+
+  ## Transparency ----
+
+
+  ## Streamflow ----
+
+
   ## Data table ----
 
-  output$baseline_data <- renderDataTable({
+  output$baseline_data <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "View/download baseline data",
+        downloadButton("baseline_data_dl", label = "Download this data", class = "btn-default"),
+        div(
+          style = "overflow: auto;",
+          dataTableOutput("baseline_data_table")
+        )
+      )
+    )
+  })
+
+  output$baseline_data_table <- renderDataTable({
 
     df <- selected_baseline_data() %>%
       arrange(date) %>%
@@ -1261,68 +1580,5 @@ server <- function(input, output, session) {
 
 
 
-# Station lists -----------------------------------------------------------
 
-  ## Layout ----
-
-  output$baseline_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(baseline_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$nutrient_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(nutrient_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$therm_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(therm_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$all_stn_tbl <- renderDataTable({
-    all_stns %>%
-      clean_names(case = "big_camel")
-  })
-
-
-  ## Download handlers ----
-
-  output$baseline_stn_dl <- downloadHandler(
-    "wav-baseline-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(baseline_stn) %>%
-        write_csv(file)
-      }
-  )
-
-  output$therm_stn_dl <- downloadHandler(
-    "wav-thermistor-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(therm_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$nutrient_stn_dl <- downloadHandler(
-    "wav-nutrient-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(nutrient_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$all_stns_dl <- downloadHandler(
-    "wav-station-list.csv",
-    function(file) {
-      all_stns %>%
-        write_csv(file)
-      }
-  )
 }

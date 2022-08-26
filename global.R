@@ -131,6 +131,19 @@ head_css <- "
   .leaflet-container {
     max-height: calc(90vh);
   }
+
+  .tab-pane {
+    margin-top: 1em;
+  }
+
+  a, a:hover, a:focus {
+    color: #48a67b;
+  }
+
+  #data-tabs tab-pane {
+    margin-left: 15px;
+    margin-right: 15px;
+  }
 "
 
 tab_css <- "
