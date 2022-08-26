@@ -21,6 +21,7 @@ suppressMessages({
   library(leaflet)
   library(leaflet.extras)
   library(plotly)
+  library(RColorBrewer)
 })
 
 # Functions ---------------------------------------------------------------
