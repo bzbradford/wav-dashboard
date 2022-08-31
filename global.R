@@ -130,7 +130,7 @@ head_css <- "
   }
 
   .leaflet-container {
-    max-height: calc(90vh);
+    max-height: min(90vh, 120vw);
   }
 
   .tab-pane {
