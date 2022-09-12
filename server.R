@@ -701,15 +701,39 @@ server <- function(input, output, session) {
           )
         )
       ),
-      h3(cur_stn()$label, align = "center"),
-      plotlyOutput("baseline_plot"),
-      p(style = "margin-left: 2em; margin-right: 2em; font-size: smaller;", em("Click on any of the plot legend items to show or hide it in the plot."), align = "center"),
+      div(
+        id = "baseline-plot-container",
+        h3(cur_stn()$label, align = "center"),
+        plotlyOutput("baseline_plot")
+      ),
+      uiOutput("baseline_plot_export"),
       p(strong("Dissolved Oxygen."), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
       p(strong("Temperature."), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
       p(strong("Transparency."), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
       p(strong("Stream flow."), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
       br(),
       uiOutput("baseline_data")
+    )
+  })
+
+  ## Plot export ----
+
+  output$baseline_plot_export <- renderUI({
+    p(
+      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+      align = "center",
+      em("Click on any of the plot legend items to show or hide it in the plot.",
+        a("Click here to download this plot as a PNG.",
+          style = "cursor: pointer;",
+          onclick = paste0(
+            "html2canvas(document.querySelector('",
+            "#baseline-plot-container",
+            "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+            paste("baseline-plot", cur_stn()$station_id, input$baseline_year, sep = "-"),
+            ".png",
+            "')})")
+        )
+      )
     )
   })
 
@@ -860,7 +884,8 @@ server <- function(input, output, session) {
         hovermode = "x unified",
         margin = list(t = 50, r = 50),
         legend = list(orientation = "h")
-      )
+      ) %>%
+      config(displayModeBar = F)
   })
 
 
@@ -980,9 +1005,17 @@ server <- function(input, output, session) {
           )
         )
       ),
-      h3(cur_stn()$label, align = "center"),
-      plotlyOutput("nutrient_plot"),
-      p(style = "margin: 0.5em 1em;", align = "center", em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band.")),
+      div(
+        id = "nutrient-plot-container",
+        h3(cur_stn()$label, align = "center"),
+        plotlyOutput("nutrient_plot"),
+        p(
+          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+          align = "center",
+          em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band.")
+        ),
+      ),
+      uiOutput("nutrient_plot_export"),
       br(),
       p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
       p(strong("Exceedance criteria."), HTML(paste0("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded ", strong(colorize("red")), " if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of ", phoslimit, " mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be ", strong(colorize("teal")), "). Some sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."))),
@@ -994,14 +1027,37 @@ server <- function(input, output, session) {
   })
 
 
+  ## Plot export ----
+
+  output$nutrient_plot_export <- renderUI({
+    p(
+      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+      align = "center",
+      em(
+        a("Click here to download this plot as a PNG.",
+          style = "cursor: pointer;",
+          onclick = paste0(
+            "html2canvas(document.querySelector('",
+            "#nutrient-plot-container",
+            "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+            paste("nutrient-plot", cur_stn()$station_id, input$nutrient_year, sep = "-"),
+            ".png",
+            "')})"
+          )
+        )
+      )
+    )
+  })
+
+
   ## Plot ----
 
   output$nutrient_plot <- renderPlotly({
     nutrient_year <- input$nutrient_year
     df <- selected_nutrient_data() %>%
       mutate(exceedance = factor(
-        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "High", "OK")),
-        levels = c("OK", "High", "No data"))) %>%
+        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
+        levels = c("TP OK", "TP High", "No data"))) %>%
       drop_na(tp)
     date_range <- as.Date(paste0(nutrient_year, c("-05-01", "-10-31")))
     outer_months <- as.Date(paste0(nutrient_year, c("-04-30", "-11-1")))
@@ -1080,7 +1136,7 @@ server <- function(input, output, session) {
       ) %>%
       layout(
         title = "Total Phosphorus",
-        showlegend = F,
+        # showlegend = F,
         xaxis = list(
           title = "",
           type = "date",
@@ -1093,12 +1149,14 @@ server <- function(input, output, session) {
           zerolinecolor = "lightgrey",
           range = yrange),
         legend = list(
-          traceorder = "reversed"
+          traceorder = "reversed",
+          orientation = "h"
         ),
         hovermode = "x unified",
         margin = list(t = 50),
         shapes = shapes
-      )
+      ) %>%
+      config(displayModeBar = F)
 
     plt
   })
@@ -1211,25 +1269,58 @@ server <- function(input, output, session) {
           )
         )
       ),
-      h3(cur_stn()$label, align = "center"),
-      uiOutput("therm_plot_ui"),
-      uiOutput("therm_info"),
+      uiOutput("therm_plot_opts"),
+      div(
+        id = "therm-plot-container",
+        h3(cur_stn()$label, align = "center"),
+        plotlyOutput("therm_plot"),
+        uiOutput("therm_plot_caption")
+      ),
+      uiOutput("therm_plot_export"),
+      br(),
+      h4("What does water temperature tell us?"),
+      p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state."),
+      p("Tips for understanding and interacting with the temperature plot:"),
+      tags$ul(
+        tags$li("Hover over the chart to see hourly and daily temperature measurement details."),
+        tags$li("Click on the legend to show / hide the time series of hourly or daily temperature."),
+        tags$li("Drag the mouse over a time period to zoom in, and double click to return to the original view."),
+        tags$li("While hovering over the plot, click the camera icon along the top to download a picture of the plot."),
+        tags$li("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped.")
+      ),
       br(),
       uiOutput("therm_data")
     )
   })
 
 
-  ## Plot UI ----
+  ## Plot export ----
 
-  output$therm_plot_ui <- renderUI({
+  output$therm_plot_export <- renderUI({
+    p(
+      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+      align = "center",
+      em(
+        a("Click here to download this plot as a PNG.",
+          style = "cursor: pointer;",
+          onclick = paste0(
+            "html2canvas(document.querySelector('",
+            "#therm-plot-container",
+            "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+            paste("thermistor-plot", cur_stn()$station_id, input$therm_year, sep = "-"),
+            ".png",
+            "')})"
+          )
+        )
+      )
+    )
+  })
+
+
+  ## Plot options ----
+
+  output$therm_plot_opts <- renderUI({
     list(
-      plotlyOutput("therm_plot"),
-      div(
-        style = "margin: 0.5em 1em; 0.5em 1em;",
-        uiOutput("therm_plot_caption")
-      ),
-      hr(),
       p(
         div(
           style = "float: left; margin-right: 1em;",
@@ -1355,7 +1446,8 @@ server <- function(input, output, session) {
           y = 1
         ),
         margin = list(t = 50)
-      )
+      ) %>%
+      config(displayModeBar = F)
 
     # add annotation color bands
     if (annotation != "None") {
@@ -1414,26 +1506,9 @@ server <- function(input, output, session) {
         " streams when maximum temperatures are above ", temps[2], unit_text, ".")
     }
 
-    p(em(HTML(
-      paste(overlay_caption, "High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")
-    )))
-  })
-
-
-  ## Info ----
-
-  output$therm_info <- renderUI({
-    list(
-      h4("What does water temperature tell us?"),
-      p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state."),
-      p("Tips for understanding and interacting with the temperature plot:"),
-      tags$ul(
-        tags$li("Hover over the chart to see hourly and daily temperature measurement details."),
-        tags$li("Click on the legend to show / hide the time series of hourly or daily temperature."),
-        tags$li("Drag the mouse over a time period to zoom in, and double click to return to the original view."),
-        tags$li("While hovering over the plot, click the camera icon along the top to download a picture of the plot."),
-        tags$li("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped.")
-      )
+    p(
+      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+      em(HTML(paste(overlay_caption, "High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")))
     )
   })
 

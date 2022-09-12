@@ -11,7 +11,9 @@ ui <- fluidPage(
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
     includeHTML("google-analytics.html"),
-    tags$style(HTML(head_css))
+    tags$style(HTML(head_css)),
+    tags$script(src = "html2canvas.js"),
+    tags$script(src = "saveAs.js")
   ),
 
   div(
