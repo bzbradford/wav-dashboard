@@ -1063,7 +1063,7 @@ server <- function(input, output, session) {
     outer_months <- as.Date(paste0(nutrient_year, c("-04-30", "-11-1")))
     data_dates <-  as.Date(paste(nutrient_year, 5:10, 15, sep = "-"))
     all_dates <-  c(outer_months, data_dates)
-    yrange <- suppressWarnings(c(0, max(0.25, max(df$tp, na.rm = T))))
+    yrange <- suppressWarnings(c(0, max(phoslimit * 1.1, max(df$tp, na.rm = T) * 1.1)))
 
     phos_params <- tibble(
       date = all_dates,
