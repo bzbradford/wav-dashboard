@@ -2,6 +2,11 @@
 
 server <- function(input, output, session) {
 
+
+# Reactive values ---------------------------------------------------------
+
+  recent_stns <- reactiveVal(value = c())
+
 # Station select ----------------------------------------------------------
 
   ## Random station on load ----
@@ -63,7 +68,18 @@ server <- function(input, output, session) {
     filter(all_pts, station_id == input$station)
   })
 
-  # observe({print(cur_stn())})
+
+  ## Recent stations ----
+
+  observeEvent(cur_stn(), {
+    cur_id <- cur_stn()$station_id
+
+    if (!(cur_id %in% recent_stns())) {
+      new_list <- c(cur_id, recent_stns())
+      if (length(new_list) > 5) new_list <- new_list[1:5]
+      recent_stns(new_list)
+    }
+  })
 
 
   ## Available points (sf) ----
@@ -558,6 +574,7 @@ server <- function(input, output, session) {
     bsCollapse(
       bsCollapsePanel(
         title = "Baseline monitoring stations",
+        style = "primary",
         p(downloadButton("baseline_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -566,6 +583,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Nutrient monitoring locations",
+        style = "primary",
         p(downloadButton("nutrient_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -574,6 +592,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Thermistor station locations",
+        style = "primary",
         p(downloadButton("therm_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -582,6 +601,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Complete station list",
+        style = "primary",
         p(downloadButton("all_stns_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -652,6 +672,48 @@ server <- function(input, output, session) {
     }
   )
 
+
+
+# Recent stations ---------------------------------------------------------
+
+  output$recent_stn_ui <- renderUI({
+    dataTableOutput("recent_stn_tbl")
+
+    # ids <- recent_stns()
+    # tags$ol(
+    #   lapply(ids, function(id) {
+    #     tags$li(
+    #       HTML(paste0(
+    #         "<button class='btn btn-default action-btn' id=", id,
+    #         " onclick=\"Shiny.setInputValue('station', this.id, {priority: 'event'});\"",
+    #         ">", names(all_stn_list[all_stn_list == id]), "</button>"
+    #       ))
+    #     )
+    #   })
+    # )
+  })
+
+  output$recent_stn_tbl <- renderDataTable({
+    ids <- recent_stns()
+
+    tibble(station_id = recent_stns()) %>%
+      left_join(all_stns, by = "station_id") %>%
+      select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
+      mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
+      mutate(button = lapply(ids, function(id) {
+        paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('station', this.id, {priority: 'event'});\">Select</a>")
+      })) %>%
+      clean_names("title")
+    },
+    server = F,
+    rownames = F,
+    selection = "none",
+    options = list(paging = F, bFilter = F, bSort = F)
+  )
+
+  observeEvent(input$recent_stn, {
+    print(input$recent_stn)
+  })
 
 
 # Baseline data -----------------------------------------------------------
