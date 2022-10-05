@@ -687,7 +687,7 @@ server <- function(input, output, session) {
       left_join(all_stns, by = "station_id") %>%
       select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
       mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
-      mutate(button = lapply(ids, function(id) {
+      mutate(action = lapply(ids, function(id) {
         paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
       })) %>%
       clean_names("title")
@@ -695,7 +695,12 @@ server <- function(input, output, session) {
     server = F,
     rownames = F,
     selection = "none",
-    options = list(paging = F, bFilter = F, bSort = F)
+    options = list(
+      paging = F,
+      bFilter = F,
+      bSort = F,
+      bInfo = F,
+      columnDefs = list(list(targets = 2:5, className = "dt-center")))
   )
 
   observeEvent(input$recent_stn, {

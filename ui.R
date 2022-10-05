@@ -122,8 +122,8 @@ ui <- fluidPage(
         uiOutput("station_lists")
       ),
       tabPanel(
-        title = "Recent Stations",
-        p(em("Shown here is a list of recently-viewed stations. Click any of them to re-select that station.")),
+        title = "Recently Viewed Stations",
+        p(em("The most recent 5 stations you have selected are shown below. Click 'Select' to re-select any station.")),
         uiOutput("recent_stn_ui")
       )
     )
