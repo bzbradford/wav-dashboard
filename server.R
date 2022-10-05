@@ -574,7 +574,7 @@ server <- function(input, output, session) {
     bsCollapse(
       bsCollapsePanel(
         title = "Baseline monitoring stations",
-        style = "primary",
+        style = "success",
         p(downloadButton("baseline_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -583,7 +583,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Nutrient monitoring locations",
-        style = "primary",
+        style = "success",
         p(downloadButton("nutrient_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -592,7 +592,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Thermistor station locations",
-        style = "primary",
+        style = "success",
         p(downloadButton("therm_stn_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -601,7 +601,7 @@ server <- function(input, output, session) {
       ),
       bsCollapsePanel(
         title = "Complete station list",
-        style = "primary",
+        style = "success",
         p(downloadButton("all_stns_dl", "Download this list")),
         div(
           style = "overflow: auto;",
@@ -678,19 +678,6 @@ server <- function(input, output, session) {
 
   output$recent_stn_ui <- renderUI({
     dataTableOutput("recent_stn_tbl")
-
-    # ids <- recent_stns()
-    # tags$ol(
-    #   lapply(ids, function(id) {
-    #     tags$li(
-    #       HTML(paste0(
-    #         "<button class='btn btn-default action-btn' id=", id,
-    #         " onclick=\"Shiny.setInputValue('station', this.id, {priority: 'event'});\"",
-    #         ">", names(all_stn_list[all_stn_list == id]), "</button>"
-    #       ))
-    #     )
-    #   })
-    # )
   })
 
   output$recent_stn_tbl <- renderDataTable({
@@ -701,7 +688,7 @@ server <- function(input, output, session) {
       select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
       mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
       mutate(button = lapply(ids, function(id) {
-        paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('station', this.id, {priority: 'event'});\">Select</a>")
+        paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
       })) %>%
       clean_names("title")
     },
@@ -712,7 +699,19 @@ server <- function(input, output, session) {
   )
 
   observeEvent(input$recent_stn, {
-    print(input$recent_stn)
+    id <- input$recent_stn
+
+    if (id %in% stn_list()) {
+      updateSelectInput(
+        inputId = "station",
+        selected = id
+      )
+    } else {
+      updateSelectInput(
+        inputId = "stn_types",
+        selected = station_types
+      )
+    }
   })
 
 
