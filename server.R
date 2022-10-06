@@ -3,6 +3,17 @@
 server <- function(input, output, session) {
 
 
+# Helper functions --------------------------------------------------------
+
+  year_choices <- function(years) {
+    if (length(years) > 1) {
+      c(years, "All")
+    } else {
+      years
+    }
+  }
+
+
 # Reactive values ---------------------------------------------------------
 
   recent_stns <- reactiveVal(value = c())
@@ -716,6 +727,10 @@ server <- function(input, output, session) {
         inputId = "stn_types",
         selected = station_types
       )
+      updateCheckboxGroupInput(
+        inputId = "stn_years",
+        selected = data_years[1]
+      )
     }
   })
 
@@ -734,8 +749,12 @@ server <- function(input, output, session) {
   })
 
   selected_baseline_data <- reactive({
-    cur_baseline_data() %>%
-      filter(year == input$baseline_year)
+    if (input$baseline_year == "All") {
+      cur_baseline_data()
+    } else {
+      cur_baseline_data() %>%
+        filter(year == input$baseline_year)
+    }
   })
 
 
@@ -762,7 +781,7 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "baseline_year",
             label = NULL,
-            choices = cur_baseline_years(),
+            choices = year_choices(cur_baseline_years()),
             selected = last(cur_baseline_years())
           )
         )
@@ -1015,8 +1034,12 @@ server <- function(input, output, session) {
   })
 
   selected_nutrient_data <- reactive({
-    cur_nutrient_data() %>%
-      filter(year == input$nutrient_year)
+    if (input$nutrient_year == "All") {
+      cur_nutrient_data()
+    } else {
+      cur_nutrient_data() %>%
+        filter(year == input$nutrient_year)
+    }
   })
 
   phos_estimate <- reactive({
@@ -1066,7 +1089,7 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "nutrient_year",
             label = NULL,
-            choices = cur_nutrient_years(),
+            choices = year_choices(cur_nutrient_years()),
             selected = last(cur_nutrient_years())
           )
         )
@@ -1119,15 +1142,20 @@ server <- function(input, output, session) {
   ## Plot ----
 
   output$nutrient_plot <- renderPlotly({
-    nutrient_year <- input$nutrient_year
+    req(nrow(selected_nutrient_data()) > 0)
+
     df <- selected_nutrient_data() %>%
       mutate(exceedance = factor(
         ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
         levels = c("TP OK", "TP High", "No data"))) %>%
-      drop_na(tp)
-    date_range <- as.Date(paste0(nutrient_year, c("-05-01", "-10-31")))
-    outer_months <- as.Date(paste0(nutrient_year, c("-04-30", "-11-1")))
-    data_dates <-  as.Date(paste(nutrient_year, 5:10, 15, sep = "-"))
+      drop_na(tp) %>%
+      mutate(phoslimit = phoslimit)
+
+    min_year <- min(df$year)
+    max_year <- max(df$year)
+    date_range <- c(ISOdate(min_year, 5, 1), ISOdate(max_year, 10, 31))
+    outer_months <- c(ISOdate(min_year, 4, 30), ISOdate(max_year, 11, 1))
+    data_dates <- unique(df$date)
     all_dates <-  c(outer_months, data_dates)
     yrange <- suppressWarnings(c(0, max(phoslimit * 1.1, max(df$tp, na.rm = T) * 1.1)))
 
@@ -1138,7 +1166,6 @@ server <- function(input, output, session) {
       median = phos_estimate()$median
     )
 
-
     # no confidence invervals if only one month of data
     if (phos_estimate()$n > 1) {
       ci_color <- ifelse(phos_estimate()$upper >= phoslimit, "red", "teal")
@@ -1146,8 +1173,17 @@ server <- function(input, output, session) {
       plt <- plot_ly(phos_params) %>%
         add_lines(
           x = ~date,
-          y = ~upper,
-          name = "Upper 90% CI",
+          y = ~phoslimit,
+          name = "TP limit",
+          xperiod = "M1",
+          xperiodalignment = "middle",
+          opacity = 0.75,
+          line = list(color = "black", dash = "dash", width = 1.5)
+        ) %>%
+        add_lines(
+          x = ~date,
+          y = ~lower,
+          name = "Lower 90% CI",
           xperiod = "M1",
           xperiodalignment = "middle",
           opacity = 0.5,
@@ -1164,8 +1200,8 @@ server <- function(input, output, session) {
         ) %>%
         add_lines(
           x = ~date,
-          y = ~lower,
-          name = "Lower 90% CI",
+          y = ~upper,
+          name = "Upper 90% CI",
           xperiod = "M1",
           xperiodalignment = "middle",
           opacity = 0.5,
@@ -1173,12 +1209,11 @@ server <- function(input, output, session) {
         )
 
       shapes <- list(
-        rect(phos_estimate()$lower, phos_estimate()$upper, ci_color),
-        hline(phoslimit)
+        rect(phos_estimate()$lower, phos_estimate()$upper, ci_color)
       )
     } else {
       plt <- plot_ly()
-      shapes <- hline(phoslimit)
+      shapes <- list()
     }
 
     plt <- plt %>%
@@ -1198,11 +1233,10 @@ server <- function(input, output, session) {
           line = list(color = "rgb(8,48,107)", width = 1)
         ),
         textfont = list(color = "black"),
-        hovertemplate = "Measured TP: %{y:.3f}<extra></extra>"
+        hovertemplate = "Measured TP: %{y:.3f} ppm<extra></extra>"
       ) %>%
       layout(
         title = "Total Phosphorus",
-        # showlegend = F,
         xaxis = list(
           title = "",
           type = "date",
@@ -1211,12 +1245,14 @@ server <- function(input, output, session) {
           ticklabelmode = "period",
           range = date_range),
         yaxis = list(
-          title = "Total phosphorus (ppm)",
+          title = "Total phosphorus",
+          ticksuffix = " ppm",
           zerolinecolor = "lightgrey",
           range = yrange),
         legend = list(
           traceorder = "reversed",
-          orientation = "h"
+          orientation = "h",
+          x = 0.25, y = 1
         ),
         hovermode = "x unified",
         margin = list(t = 50),
@@ -1277,8 +1313,12 @@ server <- function(input, output, session) {
   })
 
   selected_therm_data <- reactive({
-    cur_therm_data() %>%
-      filter(year == input$therm_year)
+    if (input$therm_year == "All") {
+      cur_therm_data()
+    } else {
+      cur_therm_data() %>%
+        filter(year == input$therm_year)
+    }
   })
 
   # create station daily totals
@@ -1330,7 +1370,7 @@ server <- function(input, output, session) {
           radioGroupButtons(
             inputId = "therm_year",
             label = NULL,
-            choices = cur_therm_years(),
+            choices = year_choices(cur_therm_years()),
             selected = last(cur_therm_years())
           )
         )
@@ -1423,6 +1463,8 @@ server <- function(input, output, session) {
   output$therm_plot <- renderPlotly({
     req(input$therm_temp_units)
     req(input$therm_plot_annotations)
+    req(nrow(therm_daily()) > 0)
+    req(nrow(selected_therm_data()) > 0)
 
     units <- input$therm_temp_units
     annotation <- input$therm_plot_annotations
@@ -1431,8 +1473,33 @@ server <- function(input, output, session) {
       mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
     df_hourly <- selected_therm_data()
 
-    req(nrow(df_daily) > 0)
-    req(nrow(df_hourly) > 0)
+    # if (input$therm_year == "All") {
+    #   dates <- df_hourly %>%
+    #     group_by(year) %>%
+    #     summarize(
+    #       first_date = min(date) - 1
+    #       # ,
+    #       # last_date = max(date) + 2
+    #     )
+    #   # dates <- tibble(date = c(dates$first_date, dates$last_date)) %>%
+    #   #   arrange(date)
+    #   dates <- tibble(date = dates$first_date) %>%
+    #     arrange(date)
+    #   # years <- cur_therm_years()[1:length(cur_therm_years()) - 1]
+    #   # dates <- tibble(date = as.Date(paste0(years, "-12-31")))
+    #   print(dates)
+    #   df_daily <- df_daily %>%
+    #     bind_rows(dates) %>%
+    #     arrange(date)
+    #
+    #   df_hourly <- df_hourly %>%
+    #     bind_rows(dates) %>%
+    #     arrange(date)
+    # }
+    #
+    # df_daily <- df_daily %>%
+    #   mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
+    # print(head(df_daily))
 
     # handle units
     temp_col <- paste0("temp_", tolower(units))
