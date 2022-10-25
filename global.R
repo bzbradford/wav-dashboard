@@ -186,7 +186,7 @@ huc12 <- read_sf("shp/wi-huc-12.shp")
 
 # Station lists -----------------------------------------------------------
 
-station_list <- read_csv("data/station-list.csv", show_col_types = F)
+station_list <- read_csv("data/station-list.csv", col_types = list(station_id = "c"))
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
@@ -197,7 +197,7 @@ station_types <- list(
 
 # Baseline data -----------------------------------------------------------
 
-baseline_data <- read_csv("data/baseline-data.csv", show_col_types = F) %>%
+baseline_data <- read_csv("data/baseline-data.csv", col_types = list(station_id = "c")) %>%
   arrange(station_id, date)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
@@ -212,8 +212,8 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 # Thermistor data ---------------------------------------------------------
 
-therm_data <- read_csv("data/therm-data.csv.gz", show_col_types = F)
-therm_info <- read_csv("data/therm-info.csv", show_col_types = F)
+therm_data <- read_csv("data/therm-data.csv.gz", col_types = list(station_id = "c"))
+therm_info <- read_csv("data/therm-info.csv", col_types = list(station_id = "c"))
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -228,7 +228,8 @@ check_missing_stns(therm_data, therm_pts, "thermistor")
 
 # Nutrient data -----------------------------------------------------------
 
-nutrient_data <- read_csv("data/tp-data.csv", show_col_types = F)
+nutrient_data <- read_csv("data/tp-data.csv", col_types = list(station_id = "c")) %>%
+  arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
 nutrient_years <- unique(nutrient_stn_years$year)
@@ -310,7 +311,8 @@ all_pts <- station_pts %>%
     baseline_stn ~ stn_colors$baseline,
     therm_stn ~ stn_colors$thermistor,
     nutrient_stn ~ stn_colors$nutrient
-  ))
+  )) %>%
+  mutate(station_id = as.numeric(station_id))
 
 all_stns <- all_pts %>%
   select(-c(data_year_list, stn_color)) %>%
