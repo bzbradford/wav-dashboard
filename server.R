@@ -842,8 +842,7 @@ server <- function(input, output, session) {
         paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")))
     temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
     trans_data <- df %>% filter(!is.na(transparency_average))
-    flow_data <- df %>% filter(!is.na(corrected_streamflow))
-
+    flow_data <- df %>% filter(!is.na(corrected_stream_flow))
 
     plot_ly() %>%
       add_trace(
@@ -912,7 +911,7 @@ server <- function(input, output, session) {
         data = flow_data,
         name = "Stream flow",
         x = ~date,
-        y = ~corrected_streamflow,
+        y = ~corrected_stream_flow,
         type = "scatter",
         mode = "lines+markers",
         yaxis = "y4",
