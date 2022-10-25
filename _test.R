@@ -28,7 +28,10 @@ baseline_data %>%
 # Dissolved oxygen plot ---------------------------------------------------
 
 cur_baseline_data <- baseline_data %>%
-  filter(station_id == station_id[2], year == 2021)
+  filter(station_id == 10016773, year == 2022)
+
+cur_baseline_data <- baseline_data %>%
+  filter(station_id == 10030403, year == 2022)
 
 
 do_color <- function(do) {
@@ -182,7 +185,7 @@ df <- cur_baseline_data %>%
 do_data <- df %>% filter(!(is.na(d_o) & is.na(d_o_percent_saturation)))
 temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
 trans_data <- df %>% filter(!is.na(transparency_average))
-flow_data <- df %>% filter(!is.na(corrected_streamflow))
+flow_data <- df %>% filter(!is.na(stream_flow_cfs))
 
 
 df %>%
@@ -253,7 +256,7 @@ df %>%
     data = flow_data,
     name = "Stream flow",
     x = ~date,
-    y = ~corrected_streamflow,
+    y = ~stream_flow_cfs,
     type = "scatter",
     mode = "lines+markers",
     yaxis = "y4",
@@ -270,7 +273,7 @@ df %>%
     xaxis = list(
       title = "",
       type = "date",
-      range = ~c(min(date) - 15, max(date) + 15),
+      # range = ~c(min(date) - 15, max(date) + 30),
       fixedrange = T,
       dtick = "M1",
       ticklabelmode = "period",

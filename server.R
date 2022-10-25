@@ -856,162 +856,130 @@ server <- function(input, output, session) {
     trans_data <- df %>% filter(!is.na(transparency_average))
     flow_data <- df %>% filter(!is.na(stream_flow_cfs))
 
-    ### Base plot ----
-    plt <- plot_ly() %>%
+    df %>%
+      plot_ly() %>%
+      add_trace(
+        data = do_data,
+        name = "D.O.",
+        x = ~date,
+        y = ~d_o,
+        text = ~paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
+        marker = list(
+          color = ~do_color,
+          line = list(color = "black", width = 0.5)),
+        type = "bar",
+        width = 1000 * 60 * 60 * 24 * 15,
+        hovertemplate = "%{y}"
+      ) %>%
+      add_trace(
+        data = temp_data,
+        name = "Water temp",
+        x = ~date,
+        y = ~water_temperature,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y2",
+        marker = list(
+          color = "lightblue",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(
+          color = "lightblue",
+          width = 3
+        )
+      ) %>%
+      add_trace(
+        data = temp_data,
+        name = "Air temp",
+        x = ~date,
+        y = ~ambient_air_temp_field,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y2",
+        marker = list(
+          color = "orange",
+          size = 10,
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "orange", width = 3)
+      ) %>%
+      add_trace(
+        data = trans_data,
+        name = "Transparency",
+        x = ~date,
+        y = ~transparency_average,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y3",
+        marker = list(
+          color = "brown",
+          size = 10,
+          symbol = "square",
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "brown", width = 3)
+      ) %>%
+      add_trace(
+        data = flow_data,
+        name = "Stream flow",
+        x = ~date,
+        y = ~stream_flow_cfs,
+        type = "scatter",
+        mode = "lines+markers",
+        yaxis = "y4",
+        marker = list(
+          color = "#48a67b",
+          size = 10,
+          symbol = "triangle-right",
+          line = list(color = "white", width = 1)
+        ),
+        line = list(color = "#48a67b", width = 3)
+      ) %>%
       layout(
         title = "Baseline Measurements",
         xaxis = list(
           title = "",
           type = "date",
-          range = c(min(df$date) - 15, max(df$date) + 15),
           fixedrange = T,
           dtick = "M1",
           ticklabelmode = "period",
           hoverformat = "%b %d, %Y",
           domain = c(.1, .9)),
+        yaxis = list(
+          title = "Dissolved oxygen",
+          ticksuffix = " mg/L",
+          fixedrange = T),
+        yaxis2 = list(
+          title = "Temperature",
+          overlaying = "y",
+          side = "left",
+          ticksuffix = "&deg;C",
+          position = 0,
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
+        yaxis3 = list(
+          title = "Transparency",
+          overlaying = "y",
+          side = "right",
+          ticksuffix = " cm",
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
+        yaxis4 = list(
+          title = "Stream flow",
+          overlaying = "y",
+          side = "right",
+          ticksuffix = " cfs",
+          position = 1,
+          showgrid = F,
+          zeroline = F,
+          fixedrange = T),
         hovermode = "x unified",
         margin = list(t = 50, r = 50),
         legend = list(orientation = "h")
-      ) %>%
-      config(displayModeBar = F)
-
-    ## Dissolved oxygen ----
-    if (nrow(do_data) > 0) {
-      plt <- plt %>%
-        add_trace(
-          data = do_data,
-          name = "D.O.",
-          x = ~date,
-          y = ~d_o,
-          text = ~label,
-          marker = list(
-            color = ~do_color,
-            line = list(color = "black", width = 0.5)),
-          type = "bar",
-          width = 1000 * 60 * 60 * 24 * 15,
-          hovertemplate = "%{y}"
-        ) %>%
-        layout(
-          yaxis = list(
-            title = "Dissolved oxygen",
-            ticksuffix = " mg/L",
-            fixedrange = T)
-        )
-    }
-
-    ## Water/Air Temp ----
-    if (nrow(temp_data) > 0) {
-      plt <- plt %>%
-        add_trace(
-          data = temp_data,
-          name = "Water temp",
-          x = ~date,
-          y = ~water_temperature,
-          type = "scatter",
-          mode = "lines+markers",
-          yaxis = "y2",
-          marker = list(
-            color = "lightblue",
-            size = 10,
-            line = list(color = "white", width = 1)
-          ),
-          line = list(
-            color = "lightblue",
-            width = 3
-          )
-        ) %>%
-        add_trace(
-          data = temp_data,
-          name = "Air temp",
-          x = ~date,
-          y = ~ambient_air_temp_field,
-          type = "scatter",
-          mode = "lines+markers",
-          yaxis = "y2",
-          marker = list(
-            color = "orange",
-            size = 10,
-            line = list(color = "white", width = 1)
-          ),
-          line = list(color = "orange", width = 3)
-        ) %>%
-        layout(
-          yaxis2 = list(
-            title = "Temperature",
-            overlaying = "y",
-            side = "left",
-            ticksuffix = "&deg;C",
-            position = 0,
-            showgrid = F,
-            zeroline = F,
-            fixedrange = T)
-        )
-    }
-
-    ## Transparency ----
-    if (nrow(trans_data) > 0) {
-      plt <- plt %>%
-        add_trace(
-          data = trans_data,
-          name = "Transparency",
-          x = ~date,
-          y = ~transparency_average,
-          type = "scatter",
-          mode = "lines+markers",
-          yaxis = "y3",
-          marker = list(
-            color = "brown",
-            size = 10,
-            symbol = "square",
-            line = list(color = "white", width = 1)
-          ),
-          line = list(color = "brown", width = 3)
-        ) %>%
-        layout(
-          yaxis3 = list(
-            title = "Transparency",
-            overlaying = "y",
-            side = "right",
-            ticksuffix = " cm",
-            showgrid = F,
-            zeroline = F,
-            fixedrange = T)
-        )
-    }
-
-    ## Streamflow ----
-    if (nrow(flow_data) > 0) {
-      plt <- plt %>%
-        add_trace(
-          data = flow_data,
-          name = "Stream flow",
-          x = ~date,
-          y = ~stream_flow_cfs,
-          type = "scatter",
-          mode = "lines+markers",
-          yaxis = "y4",
-          marker = list(
-            color = "#48a67b",
-            size = 10,
-            symbol = "triangle-right",
-            line = list(color = "white", width = 1)
-          ),
-          line = list(color = "#48a67b", width = 3)
-        ) %>%
-        layout(
-          yaxis4 = list(
-            title = "Stream flow",
-            overlaying = "y",
-            side = "right",
-            ticksuffix = " cfs",
-            position = 1,
-            showgrid = F,
-            zeroline = F,
-            fixedrange = T)
-        )
-    }
-
-    plt
+      )
   })
 
 
