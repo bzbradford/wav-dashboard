@@ -165,6 +165,23 @@ server <- function(input, output, session) {
     }
   })
 
+  ## Prev/Next station buttons ----
+  observeEvent(input$next_stn, {
+    stn <- cur_stn()$station_id
+    stns <- stn_list()
+    i <- which(stn == stns)[[1]]
+    selected <- ifelse(i < length(stns), stns[i + 1], stns[1])
+    updateSelectInput(inputId = "station", selected = selected)
+  })
+
+  observeEvent(input$prev_stn, {
+    stn <- cur_stn()$station_id
+    stns <- stn_list()
+    i <- which(stn == stns)[[1]]
+    selected <- ifelse(i > 1, stns[i - 1], stns[length(stns)])
+    updateSelectInput(inputId = "station", selected = selected)
+  })
+
 
 
 # Map ---------------------------------------------------------------------
@@ -522,7 +539,7 @@ server <- function(input, output, session) {
 
   ### Random site button ----
 
-  observeEvent(input$random_site, {
+  observeEvent(input$rnd_stn, {
     req(length(stn_list()) > 0)
 
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]

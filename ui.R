@@ -71,11 +71,10 @@ ui <- fluidPage(
       uiOutput("total_stns_text"),
       hr(),
       div(
-        style = "line-height: 3em;",
+        style = "line-height: 3.5em;",
         align = "center",
-        actionButton("zoom_in", "Zoom to selected site"), br(),
-        actionButton("reset_zoom", "Zoom out to all sites"), br(),
-        actionButton("random_site", "Random site")
+        actionButton("zoom_in", "Zoom to selected site", width = "100%"), br(),
+        actionButton("reset_zoom", "Zoom out to all sites", width = "100%")
       )
     ),
     mainPanel(
@@ -101,11 +100,25 @@ ui <- fluidPage(
       type = "pills",
       tabPanel(
         title = "Current Station",
-        selectInput(
-          inputId = "station",
-          label = NULL,
-          choices = list(),
-          width = "100%"
+        div(
+          style = flex_row,
+          div(
+            style = "flex:1;",
+            title = "Currently selected station",
+            selectInput(
+              inputId = "station",
+              label = NULL,
+              choices = list()
+            ),
+          ),
+          {
+            style <- "width:34px; height:34px; padding:0; font-weight: bold; margin-left: 4px;"
+            tagList(
+              actionButton("prev_stn", "<", style = style, title = "Previous station"),
+              actionButton("next_stn", ">", style = style, title = "Next station"),
+              actionButton("rnd_stn", "?", style = style, title = "Random station")
+            )
+          }
         ),
         em("To search for a station by name, delete the text above and start typing.")
       ),
