@@ -9,6 +9,9 @@ ui <- fluidPage(
   useShinyjs(),
 
   tags$head(
+    tags$meta(charset = "UTF-8"),
+    tags$meta(name = "description", content = "An online data dashboard for viewing stream monitoring data collected by volunteers across Wisconsin"),
+    tags$meta(name = "keywords", content = "wav, water action volunteers, wisconsin, water, data, dashboard, uw"),
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
     includeHTML("google-analytics.html"),
