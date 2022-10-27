@@ -263,6 +263,13 @@ server <- function(input, output, session) {
           ")
         )
       ) %>%
+      suspendScroll(
+        sleepTime = 0,
+        wakeTime = 1000,
+        hoverToWake = T,
+        sleepNote = F,
+        sleepOpacity = 1
+      ) %>%
       addPolygons(
         data = counties,
         group = layers$counties,
@@ -611,37 +618,25 @@ server <- function(input, output, session) {
         title = "Baseline monitoring stations",
         style = "success",
         p(downloadButton("baseline_stn_dl", "Download this list")),
-        div(
-          style = "overflow: auto;",
-          dataTableOutput("baseline_stn_tbl")
-        )
+        dataTableOutput("baseline_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Nutrient monitoring locations",
         style = "success",
         p(downloadButton("nutrient_stn_dl", "Download this list")),
-        div(
-          style = "overflow: auto;",
-          dataTableOutput("nutrient_stn_tbl")
-        )
+        dataTableOutput("nutrient_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Thermistor station locations",
         style = "success",
         p(downloadButton("therm_stn_dl", "Download this list")),
-        div(
-          style = "overflow: auto;",
-          dataTableOutput("therm_stn_tbl")
-        )
+        dataTableOutput("therm_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Complete station list",
         style = "success",
         p(downloadButton("all_stns_dl", "Download this list")),
-        div(
-          style = "overflow: auto;",
-          dataTableOutput("all_stn_tbl")
-        )
+        dataTableOutput("all_stn_tbl")
       )
     )
   })
@@ -724,7 +719,7 @@ server <- function(input, output, session) {
       mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
       mutate(action = lapply(ids, function(id) {
         paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
-      })) %>%
+      }), .before = everything()) %>%
       clean_names("title")
     },
     server = F,
@@ -735,7 +730,7 @@ server <- function(input, output, session) {
       bFilter = F,
       bSort = F,
       bInfo = F,
-      columnDefs = list(list(targets = 2:5, className = "dt-center")))
+      columnDefs = list(list(targets = c(0:1, 3:5), className = "dt-center")))
   )
 
   observeEvent(input$recent_stn, {
@@ -794,20 +789,13 @@ server <- function(input, output, session) {
 
     list(
       div(
-        class = "well",
-        style = paste(flex_row, "align-items: center; padding: 10px;"),
-        div(
-          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"), style = "margin-bottom: 0px;")
-        ),
-        div(
-          style = flex_col,
-          radioGroupButtons(
-            inputId = "baseline_year",
-            label = NULL,
-            choices = year_choices(cur_baseline_years()),
-            selected = last(cur_baseline_years())
-          )
+        class = "well flex-row year-btns",
+        div(class = "year-btn-text", em("Choose year:")),
+        radioGroupButtons(
+          inputId = "baseline_year",
+          label = NULL,
+          choices = year_choices(cur_baseline_years()),
+          selected = last(cur_baseline_years())
         )
       ),
       div(
@@ -1104,20 +1092,13 @@ server <- function(input, output, session) {
 
     list(
       div(
-        class = "well",
-        style = paste(flex_row, "align-items: center; padding: 10px;"),
-        div(
-          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"), style = "margin-bottom: 0px;")
-        ),
-        div(
-          style = flex_col,
-          radioGroupButtons(
-            inputId = "nutrient_year",
-            label = NULL,
-            choices = year_choices(cur_nutrient_years()),
-            selected = last(cur_nutrient_years())
-          )
+        class = "well flex-row year-btns",
+        div(class = "year-btn-text", em("Choose year:")),
+        radioGroupButtons(
+          inputId = "nutrient_year",
+          label = NULL,
+          choices = year_choices(cur_nutrient_years()),
+          selected = last(cur_nutrient_years())
         )
       ),
       div(
@@ -1385,20 +1366,13 @@ server <- function(input, output, session) {
 
     list(
       div(
-        class = "well",
-        style = paste(flex_row, "align-items: center; padding: 10px;"),
-        div(
-          style = paste(flex_col, "flex: 0 0 auto; margin-right: 1em;"),
-          p(em("Choose year:"), style = "margin-bottom: 0px;")
-        ),
-        div(
-          style = flex_col,
-          radioGroupButtons(
-            inputId = "therm_year",
-            label = NULL,
-            choices = year_choices(cur_therm_years()),
-            selected = last(cur_therm_years())
-          )
+        class = "well flex-row year-btns",
+        div(class = "year-btn-text", em("Choose year:")),
+        radioGroupButtons(
+          inputId = "therm_year",
+          label = NULL,
+          choices = year_choices(cur_therm_years()),
+          selected = last(cur_therm_years())
         )
       ),
       uiOutput("therm_plot_opts"),
@@ -1697,27 +1671,15 @@ server <- function(input, output, session) {
         tabsetPanel(
           tabPanel(
             title = "Daily temperature data",
-            style = tab_css,
+            class = "data-tab",
             p(downloadButton("therm_daily_dl", "Download this data")),
-            div(
-              style = "overflow: auto;",
-              renderDataTable({
-                therm_daily() %>%
-                  clean_names(case = "big_camel")
-              })
-            )
+            renderDataTable({ clean_names(therm_daily(), case = "big_camel") })
           ),
           tabPanel(
             title = "Hourly temperature data",
-            style = tab_css,
+            class = "data-tab",
             p(downloadButton("therm_hourly_dl", "Download this data")),
-            div(
-              style = "overflow: auto;",
-              renderDataTable({
-                selected_therm_data() %>%
-                  clean_names(case = "big_camel")
-              })
-            )
+            renderDataTable({ clean_names(selected_therm_data(), case = "big_camel") })
           )
         )
       )
@@ -1733,14 +1695,5 @@ server <- function(input, output, session) {
     paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$therm_year, ".csv"),
     function(file) {write_csv(selected_therm_data(), file)}
   )
-
-
-
-
-
-
-
-
-
 
 }

@@ -1,0 +1,97 @@
+/* Modifications of existing classes */
+
+body {
+  font-family: 'Lato', sans-serif;
+}
+
+.container-fluid {
+  max-width: 1000px;
+  margin: auto;
+}
+
+.leaflet-control-layers-list::before {
+  content: 'Basemap:';
+  font-weight: bold;
+}
+
+.leaflet-control-layers-overlays::before {
+  content: 'Layers:';
+  font-weight: bold;
+}
+
+.leaflet-container {
+  max-height: min(90vh, 120vw);
+}
+
+.tab-pane {
+  margin-top: 1em;
+}
+
+a, a:hover, a:focus {
+  color: #48a67b;
+}
+
+.form-group {
+  margin-bottom: 0px;
+}
+
+.dataTables_wrapper {
+  overflow:  auto;
+}
+
+
+/* New classes */
+
+.data-tab {
+  min-height: 300px;
+  margin-top: 1em;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
+}
+
+.stn-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.year-btns {
+  align-items: center;
+  padding: 10px;
+}
+
+.year-btn-text {
+  flex: 0;
+  white-space: nowrap;
+  margin-right: 10px;
+  margin-bottom: 0px;
+}
+
+/*.stn-select {
+  flex: 1;
+}*/
+
+@media screen and (max-width: 600px) {
+  .stn-select {
+    flex-direction: column;
+    margin-bottom: 1em;
+  }
+
+  .stn-btns {
+    text-align: center;
+  }
+}

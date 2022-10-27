@@ -10,8 +10,8 @@ ui <- fluidPage(
 
   tags$head(
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
     includeHTML("google-analytics.html"),
-    tags$style(HTML(head_css)),
     tags$script(src = "html2canvas.js"),
     tags$script(src = "saveAs.js")
   ),
@@ -31,7 +31,7 @@ ui <- fluidPage(
 
 # Map caption -----------------------------------------------------------
 
-  div(style = "margin: 0.5em 1em; 0.5em 1em;", align = "center",
+  div(style = "margin: 0.5em 1em;", align = "center",
     p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
   ),
 
@@ -101,9 +101,9 @@ ui <- fluidPage(
       tabPanel(
         title = "Current Station",
         div(
-          style = flex_row,
+          class = "flex-row stn-select",
           div(
-            style = "flex:1;",
+            class = "flex-col",
             title = "Currently selected station",
             selectInput(
               inputId = "station",
@@ -111,23 +111,21 @@ ui <- fluidPage(
               choices = list()
             ),
           ),
-          {
-            style <- "width:34px; height:34px; padding:0; font-weight: bold; margin-left: 4px;"
-            tagList(
-              actionButton("prev_stn", "<", style = style, title = "Previous station"),
-              actionButton("next_stn", ">", style = style, title = "Next station"),
-              actionButton("rnd_stn", "?", style = style, title = "Random station")
-            )
-          }
+          div(
+            class = "stn-btns",
+            actionButton("prev_stn", "<", class = "stn-btn", title = "Previous station"),
+            actionButton("next_stn", ">", class = "stn-btn", title = "Next station"),
+            actionButton("rnd_stn", "?", class = "stn-btn", title = "Random station")
+          )
         ),
         em("To search for a station by name, delete the text above and start typing.")
       ),
       tabPanel(
         title = "Station Details",
         div(
-          style = flex_row,
-          div(style = flex_col, uiOutput("stn_info")),
-          div(style = flex_col, uiOutput("stn_coverage"))
+          class = "flex-row",
+          div(class = "flex-col", uiOutput("stn_info")),
+          div(class = "flex-col", uiOutput("stn_coverage"))
         )
       ),
       tabPanel(
@@ -150,20 +148,20 @@ ui <- fluidPage(
     type = "pills",
     tabPanel(
       title = "Baseline data",
-      uiOutput("baseline_tab")
+      div(class = "data-tab", uiOutput("baseline_tab"))
     ),
     tabPanel(
       title = "Nutrient data",
-      div(style = tab_css, uiOutput("nutrient_tab"))
+      div(class = "data-tab", uiOutput("nutrient_tab"))
     ),
     tabPanel(
       title = "Thermistor data",
-      div(style = tab_css, uiOutput("therm_tab"))
+      div(class = "data-tab", uiOutput("therm_tab"))
     ),
     tabPanel(
       title = "More information",
       div(
-        style = tab_css,
+        class = "data-tab",
         h3("Monitoring Stations"),
         p("The sites on the map above show established sites where Water Action Volunteers made water quality monitoring measurements. Stations are only shown if we have data available for that station."),
         p(strong("Baseline monitoring:"), "Volunteers enter the WAV program by training to do baseline stream monitoring. Each year, baseline volunteers journey to their monitoring sites once per month from May to October to collect four baseline parameters: dissolved oxygen, instantaneous temperature, transparency and streamflow. During at least two of these months (May/June and September/October), volunteers also collect macroinvertebrates to calculate a biotic index score. Once per season, some advanced volunteers also conduct a habitat assessment."),

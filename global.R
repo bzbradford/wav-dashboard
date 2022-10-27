@@ -107,64 +107,6 @@ check_missing_stns <- function(data, pts, type) {
 }
 
 
-# CSS Styles --------------------------------------------------------------
-
-head_css <- "
-  body {
-    font-family: 'Lato', sans-serif;
-  }
-
-  .container-fluid {
-    max-width: 1000px;
-    margin: auto;
-  }
-
-  .leaflet-control-layers-list::before {
-    content: 'Basemap:';
-    font-weight: bold;
-  }
-
-  .leaflet-control-layers-overlays::before {
-    content: 'Layers:';
-    font-weight: bold;
-  }
-
-  .leaflet-container {
-    max-height: min(90vh, 120vw);
-  }
-
-  .tab-pane {
-    margin-top: 1em;
-  }
-
-  a, a:hover, a:focus {
-    color: #48a67b;
-  }
-
-  .form-group {
-    margin-bottom: 0px;
-  }
-"
-
-tab_css <- "
-  min-height: 300px;
-  margin-top: 1em;
-"
-
-flex_row <- "
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  width: 100%;
-"
-
-flex_col <- "
-  display: flex;
-  flex-direction: column;
-  flex-basis: 100%;
-  flex: 1;
-"
-
 # Defs --------------------------------------------------------------------
 
 stn_colors <- list(
