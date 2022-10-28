@@ -842,12 +842,25 @@ server <- function(input, output, session) {
     brewer.pal(11, "RdBu")[i]
   }
 
+  find_max <- function(vals, min_val) {
+    vals <- na.omit(vals)
+    if (length(vals) == 0) return(min_val)
+    ceiling(max(min_val, max(vals)) * 1.1)
+  }
+
   output$baseline_plot <- renderPlotly({
     req(input$baseline_year)
     req(nrow(selected_baseline_data()) > 0)
 
     df <- selected_baseline_data() %>%
       distinct(date, .keep_all = T)
+
+    yranges <- list(
+      d_o = c(0, find_max(df$d_o, 12)),
+      temp = c(0, find_max(c(df$water_temperature, df$ambient_air_temp), 30)),
+      trans = c(0, 125),
+      cfs = c(0, find_max(df$stream_flow_cfs, 10))
+    )
 
     do_data <- df %>%
       filter(!is.na(d_o)) %>%
@@ -857,12 +870,26 @@ server <- function(input, output, session) {
         paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
       rowwise() %>%
       mutate(do_color = oxy_color(d_o))
-    temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
+    temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp)))
     trans_data <- df %>% filter(!is.na(transparency_average))
     flow_data <- df %>% filter(!is.na(stream_flow_cfs))
 
     df %>%
       plot_ly() %>%
+      layout(
+        title = "Baseline Measurements",
+        hovermode = "x unified",
+        margin = list(t = 50, r = 50),
+        legend = list(orientation = "h"),
+        xaxis = list(
+          title = "",
+          type = "date",
+          fixedrange = T,
+          dtick = "M1",
+          ticklabelmode = "period",
+          hoverformat = "%b %d, %Y",
+          domain = c(.1, .9))
+      ) %>%
       add_trace(
         data = do_data,
         name = "D.O.",
@@ -898,7 +925,7 @@ server <- function(input, output, session) {
         data = temp_data,
         name = "Air temp",
         x = ~date,
-        y = ~ambient_air_temp_field,
+        y = ~ambient_air_temp,
         type = "scatter",
         mode = "lines+markers",
         yaxis = "y2",
@@ -942,19 +969,12 @@ server <- function(input, output, session) {
         line = list(color = "#48a67b", width = 3)
       ) %>%
       layout(
-        title = "Baseline Measurements",
-        xaxis = list(
-          title = "",
-          type = "date",
-          fixedrange = T,
-          dtick = "M1",
-          ticklabelmode = "period",
-          hoverformat = "%b %d, %Y",
-          domain = c(.1, .9)),
         yaxis = list(
           title = "Dissolved oxygen",
           ticksuffix = " mg/L",
-          fixedrange = T),
+          range = yranges$d_o,
+          fixedrange = T
+        ),
         yaxis2 = list(
           title = "Temperature",
           overlaying = "y",
@@ -963,7 +983,9 @@ server <- function(input, output, session) {
           position = 0,
           showgrid = F,
           zeroline = F,
-          fixedrange = T),
+          range = yranges$temp,
+          fixedrange = T
+        ),
         yaxis3 = list(
           title = "Transparency",
           overlaying = "y",
@@ -971,7 +993,9 @@ server <- function(input, output, session) {
           ticksuffix = " cm",
           showgrid = F,
           zeroline = F,
-          fixedrange = T),
+          range = yranges$trans,
+          fixedrange = T
+        ),
         yaxis4 = list(
           title = "Stream flow",
           overlaying = "y",
@@ -980,10 +1004,9 @@ server <- function(input, output, session) {
           position = 1,
           showgrid = F,
           zeroline = F,
-          fixedrange = T),
-        hovermode = "x unified",
-        margin = list(t = 50, r = 50),
-        legend = list(orientation = "h")
+          range = yranges$cfs,
+          fixedrange = T
+        )
       )
   })
 

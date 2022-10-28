@@ -314,3 +314,20 @@ df %>%
     margin = list(t = 50, r = 50),
     legend = list(orientation = "h")
   )
+
+
+
+# Baseline summaries ------------------------------------------------------
+
+baseline_data %>%
+  select(
+    d_o,
+    water_temperature,
+    ambient_air_temp,
+    transparency_average,
+    stream_flow_cfs
+  ) %>%
+  pivot_longer(everything()) %>%
+  group_by(name) %>%
+  split(.$name) %>%
+  map(summary)
