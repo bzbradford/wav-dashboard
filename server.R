@@ -1007,7 +1007,8 @@ server <- function(input, output, session) {
           range = yranges$cfs,
           fixedrange = T
         )
-      )
+      ) %>%
+      config(displayModeBar = F)
   })
 
 
