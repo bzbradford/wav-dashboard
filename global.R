@@ -139,7 +139,7 @@ station_types <- list(
 
 # Baseline data -----------------------------------------------------------
 
-baseline_data <- read_csv("data/baseline-data.csv", col_types = list(station_id = "c")) %>%
+baseline_data <- read_csv("data/baseline-data.csv.gz", col_types = list(station_id = "c")) %>%
   arrange(station_id, date)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)

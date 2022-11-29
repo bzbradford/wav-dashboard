@@ -179,6 +179,17 @@ ui <- fluidPage(
         h3("More information"),
         p("Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>."))
       )
+    ),
+    tabPanel(
+      title = "Changelog",
+      div(
+        class = "data-tab",
+        h4("2022-11-29"),
+        tags$ul(
+          tags$li("Added thermistor data for 2022. 50 thermistors were deployed, generally starting in early May and recovered in mid-October for an average deployment length of 165 days."),
+          tags$li("Added this changelog section to track updates and additions to the dashboard.")
+        )
+      )
     )
   ),
 

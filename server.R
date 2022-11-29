@@ -30,7 +30,7 @@ server <- function(input, output, session) {
   ## Random station on load ----
 
   random_stn <- all_pts %>%
-    filter(max_fw_year == max(data_years)) %>%
+    filter(max_fw_year == max(data_years), baseline_stn) %>%
     pull(station_id) %>%
     sample(1)
 
