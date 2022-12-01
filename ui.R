@@ -56,7 +56,7 @@ ui <- fluidPage(
             inputId = "stn_years",
             label = NULL,
             choices = data_years,
-            selected = data_years[1:2]
+            selected = data_years[1]
           )
         ),
         column(7,
@@ -124,18 +124,6 @@ ui <- fluidPage(
         em("To search for a station by name, delete the text above and start typing.")
       ),
       tabPanel(
-        title = "Station Details",
-        div(
-          class = "flex-row",
-          div(class = "flex-col", uiOutput("stn_info")),
-          div(class = "flex-col", uiOutput("stn_coverage"))
-        )
-      ),
-      tabPanel(
-        title = "Station Lists",
-        uiOutput("station_lists")
-      ),
-      tabPanel(
         title = "Recently Viewed Stations",
         p(em("The most recent 5 stations you have selected are shown below. Click 'Select' to re-select any station.")),
         uiOutput("recent_stn_ui")
@@ -162,6 +150,21 @@ ui <- fluidPage(
       div(class = "data-tab", uiOutput("therm_tab"))
     ),
     tabPanel(
+      title = "Station Details",
+      div(
+        class = "data-tab",
+        div(
+          class = "flex-row",
+          div(class = "flex-col", uiOutput("stn_info")),
+          div(class = "flex-col", uiOutput("stn_coverage"))
+        )
+      )
+    ),
+    tabPanel(
+      title = "Station Lists",
+      div(class = "data-tab", uiOutput("station_lists"))
+    ),
+    tabPanel(
       title = "More information",
       div(
         class = "data-tab",
@@ -176,19 +179,13 @@ ui <- fluidPage(
         p(strong("Nine Key Elements Plans:"), "These are long-term plans for specific watersheds that provide a framework for improving water quality in a holistic manner. The nine elements help assess the contributing causes and sources of nonpoint source pollution, involve key stakeholders and prioritize restoration and protection strategies to address water quality problems. Learn more about NKEs at the", HTML("<a href='https://dnr.wisconsin.gov/topic/Nonpoint/9keyElement' target='_blank'>Wisconsin DNR</a>.")),
         p(strong("HUC8, HUC10, and HUC12 watersheds:"), "HUC stands for Hydrologic Unit Code and is a sequence of numbers or letters that identify a hydrological feature like a river, lake, or drainage basin. For this map, we are including HUC8 boundaries (subbasins), HUC10 boundaries (watersheds), and HUC12 boundaries (subwatersheds) as optional layers so you can better understand the hydrology of Wisconsin. HUC8 is the largest of these classifications, and HUC12 the smallest."),
 
-        h3("More information"),
-        p("Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>."))
-      )
-    ),
-    tabPanel(
-      title = "Changelog",
-      div(
-        class = "data-tab",
-        h4("2022-11-29"),
-        tags$ul(
-          tags$li("Added thermistor data for 2022. 50 thermistors were deployed, generally starting in early May and recovered in mid-October for an average deployment length of 165 days."),
-          tags$li("Added this changelog section to track updates and additions to the dashboard.")
-        )
+        h3("About Water Action Volunteers"),
+        p("The Water Action Volunteers (WAV) citizen stream monitoring program is an ongoing partnership between the University of Wisconsin–Madison Division of Extension, the Wisconsin Department of Natural Resources (WDNR) and Wisconsin citizen volunteers. The program aims to preserve, protect and restore Wisconsin’s 86,000+ miles of streams and rivers by educating and empowering volunteers to (1) gather high-quality stream data useful for decision-making and natural resource management, and (2) share their data and knowledge. Annually, more than 500 volunteers and an estimated 2,000 supervised students monitor 600+ stream locations throughout the state. Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>.")),
+
+        h3("Recent Updates"),
+        includeMarkdown("changelog.md"),
+
+
       )
     )
   ),

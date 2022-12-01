@@ -30,7 +30,7 @@ server <- function(input, output, session) {
   ## Random station on load ----
 
   random_stn <- all_pts %>%
-    filter(max_fw_year == max(data_years), baseline_stn) %>%
+    filter(baseline_stn & (max_fw_year == max(data_years))) %>%
     pull(station_id) %>%
     sample(1)
 
@@ -406,7 +406,7 @@ server <- function(input, output, session) {
           data = baseline,
           group = layers$baseline,
           label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
-          popup = setNames(all_popups[names(all_popups) %in% baseline$station_id], NULL),
+          # popup = setNames(all_popups[names(all_popups) %in% baseline$station_id], NULL),
           layerId = ~station_id,
           radius = 4,
           color = "black",
@@ -419,7 +419,7 @@ server <- function(input, output, session) {
           data = therm,
           group = layers$therm,
           label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
-          popup = setNames(all_popups[names(all_popups) %in% therm$station_id], NULL),
+          # popup = setNames(all_popups[names(all_popups) %in% therm$station_id], NULL),
           layerId = ~station_id,
           radius = 4,
           color = "black",
@@ -432,7 +432,7 @@ server <- function(input, output, session) {
           data = nutrient,
           group = layers$nutrient,
           label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
-          popup = setNames(all_popups[names(all_popups) %in% nutrient$station_id], NULL),
+          # popup = setNames(all_popups[names(all_popups) %in% nutrient$station_id], NULL),
           layerId = ~station_id,
           radius = 4,
           color = "black",
@@ -578,15 +578,15 @@ server <- function(input, output, session) {
       renderTable(
         {
           cur_stn() %>%
+            select(station_id:geometry) %>%
             st_set_geometry(NULL) %>%
-            select(station_id:longitude) %>%
             mutate(across(everything(), as.character)) %>%
             clean_names(case = "title") %>%
             pivot_longer(
               cols = everything(),
               names_to = "Property",
               values_to = "Value") %>%
-            clean_names(case = "title")
+            na.omit()
         }
       )
     )
@@ -616,25 +616,21 @@ server <- function(input, output, session) {
     bsCollapse(
       bsCollapsePanel(
         title = "Baseline monitoring stations",
-        style = "success",
         p(downloadButton("baseline_stn_dl", "Download this list")),
         dataTableOutput("baseline_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Nutrient monitoring locations",
-        style = "success",
         p(downloadButton("nutrient_stn_dl", "Download this list")),
         dataTableOutput("nutrient_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Thermistor station locations",
-        style = "success",
         p(downloadButton("therm_stn_dl", "Download this list")),
         dataTableOutput("therm_stn_tbl")
       ),
       bsCollapsePanel(
         title = "Complete station list",
-        style = "success",
         p(downloadButton("all_stns_dl", "Download this list")),
         dataTableOutput("all_stn_tbl")
       )
@@ -706,12 +702,18 @@ server <- function(input, output, session) {
 
 # Recent stations ---------------------------------------------------------
 
+  ## Layout ----
   output$recent_stn_ui <- renderUI({
-    dataTableOutput("recent_stn_tbl")
+    list(
+      dataTableOutput("recent_stn_tbl"),
+      p(actionButton("clear_recent_stns", "Clear list"), align = "right", style = "margin-top: 1em;")
+    )
   })
 
+  ## Table ----
   output$recent_stn_tbl <- renderDataTable({
-    ids <- rev(recent_stns())
+    ids <- recent_stns()
+    cur_id <- cur_stn()$station_id
 
     tibble(station_id = ids) %>%
       left_join(all_stns, by = "station_id") %>%
@@ -720,10 +722,11 @@ server <- function(input, output, session) {
       mutate(action = lapply(ids, function(id) {
         paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
       }), .before = everything()) %>%
+      mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
       clean_names("title")
     },
     server = F,
-    rownames = F,
+    rownames = T,
     selection = "none",
     options = list(
       paging = F,
@@ -733,6 +736,7 @@ server <- function(input, output, session) {
       columnDefs = list(list(targets = c(0:1, 3:5), className = "dt-center")))
   )
 
+  ## Observers ----
   observeEvent(input$recent_stn, {
     id <- input$recent_stn
 
@@ -751,6 +755,10 @@ server <- function(input, output, session) {
         selected = data_years[1]
       )
     }
+  })
+
+  observeEvent(input$clear_recent_stns, {
+    recent_stns(cur_stn()$station_id)
   })
 
 
