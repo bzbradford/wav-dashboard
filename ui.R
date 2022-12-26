@@ -182,10 +182,13 @@ ui <- fluidPage(
         h3("About Water Action Volunteers"),
         p("The Water Action Volunteers (WAV) citizen stream monitoring program is an ongoing partnership between the University of Wisconsin–Madison Division of Extension, the Wisconsin Department of Natural Resources (WDNR) and Wisconsin citizen volunteers. The program aims to preserve, protect and restore Wisconsin’s 86,000+ miles of streams and rivers by educating and empowering volunteers to (1) gather high-quality stream data useful for decision-making and natural resource management, and (2) share their data and knowledge. Annually, more than 500 volunteers and an estimated 2,000 supervised students monitor 600+ stream locations throughout the state. Visit the Water Action Volunteers website at", HTML("<a href='https://wateractionvolunteers.org' target='_blank'>wateractionvolunteers.org</a>.")),
 
-        h3("Recent Updates"),
-        includeMarkdown("changelog.md"),
-
-
+        br(),
+        bsCollapse(
+          bsCollapsePanel(
+            title = "Changelog",
+            includeMarkdown("changelog.md")
+          )
+        )
       )
     )
   ),

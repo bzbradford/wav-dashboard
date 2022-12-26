@@ -152,22 +152,6 @@ baseline_pts <- station_pts %>%
 check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 
-# Thermistor data ---------------------------------------------------------
-
-therm_data <- read_csv("data/therm-data.csv.gz", col_types = list(station_id = "c"))
-therm_info <- read_csv("data/therm-info.csv", col_types = list(station_id = "c"))
-therm_coverage <- get_coverage(therm_data)
-therm_stn_years <- therm_data %>% distinct(station_id, year)
-therm_years <- unique(therm_stn_years$year)
-
-therm_pts <- station_pts %>%
-  filter(station_id %in% therm_data$station_id) %>%
-  left_join(therm_coverage, by = "station_id")
-
-check_missing_stns(therm_data, therm_pts, "thermistor")
-
-
-
 # Nutrient data -----------------------------------------------------------
 
 nutrient_data <- read_csv("data/tp-data.csv", col_types = list(station_id = "c")) %>%
@@ -183,14 +167,27 @@ nutrient_pts <- station_pts %>%
 check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 
+# Thermistor data ---------------------------------------------------------
+
+therm_data <- read_csv("data/therm-data.csv.gz", col_types = list(station_id = "c"))
+therm_info <- read_csv("data/therm-info.csv", col_types = list(station_id = "c"))
+therm_coverage <- get_coverage(therm_data)
+therm_stn_years <- therm_data %>% distinct(station_id, year)
+therm_years <- unique(therm_stn_years$year)
+
+therm_pts <- station_pts %>%
+  filter(station_id %in% therm_data$station_id) %>%
+  left_join(therm_coverage, by = "station_id")
+
+check_missing_stns(therm_data, therm_pts, "thermistor")
 
 
 # Data coverage -----------------------------------------------------------
 
 all_coverage <- bind_rows(
   mutate(baseline_coverage, source = "Baseline"),
-  mutate(therm_coverage, source = "Thermistor"),
-  mutate(nutrient_coverage, source = "Nutrient")
+  mutate(nutrient_coverage, source = "Nutrient"),
+  mutate(therm_coverage, source = "Thermistor")
 ) %>%
   group_by(station_id) %>%
   summarise(
@@ -203,7 +200,18 @@ all_coverage <- bind_rows(
   mutate(
     data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))),
     data_years = paste(data_year_list, collapse = ", ")) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(count(baseline_data, station_id, name = "baseline_data_obs"), by = "station_id") %>%
+  left_join(count(nutrient_data, station_id, name = "nutrient_data_obs"), by = "station_id") %>%
+  left_join({
+    therm_data %>%
+      count(station_id, date) %>%
+      count(station_id, name = "thermistor_days_recorded")
+  }, by = "station_id") %>%
+  replace_na(list(
+    baseline_data_obs = 0,
+    nutrient_data_obs = 0,
+    thermistor_days_recorded = 0))
 
 all_stn_years <- bind_rows(
   baseline_stn_years,
@@ -221,21 +229,26 @@ all_stn_years <- bind_rows(
   )
 data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 
+baseline_tallies <- baseline_data %>%
+  count(station_id, year, name = "baseline") %>%
+  mutate(baseline = paste("\u2705", baseline, "obs"))
+
+nutrient_tallies <- nutrient_data %>%
+  count(station_id, year, name = "nutrient") %>%
+  mutate(nutrient = paste("\u2705", nutrient, "obs"))
+
+therm_tallies <- therm_data %>%
+  count(station_id, year, date) %>%
+  count(station_id, year, name = "thermistor") %>%
+  mutate(thermistor = paste("\u2705", thermistor, "days"))
+
 all_stn_data <- all_stn_years %>%
-  select(
-    station_id,
-    year,
-    baseline = baseline_stn,
-    nutrient = nutrient_stn,
-    thermistor = therm_stn
-  ) %>%
-  complete(station_id, nesting(year), fill = list(
-    "baseline" = F,
-    "nutrient" = F,
-    "thermistor" = F
-  )) %>%
-  mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
-  mutate(year = as.character(year))
+  select(station_id, year) %>%
+  left_join(baseline_tallies, by = c("station_id", "year")) %>%
+  left_join(nutrient_tallies, by = c("station_id", "year")) %>%
+  left_join(therm_tallies, by = c("station_id", "year")) %>%
+  mutate(across(where(is.numeric), as.character)) %>%
+  replace_na(list(baseline = "\u274c", nutrient = "\u274c", thermistor = "\u274c"))
 
 
 # Finalize sites ----------------------------------------------------------
@@ -266,7 +279,7 @@ all_labels <- all_pts %>%
   mutate(label = paste0("<b>", title, "</b><br>Station ID: ", station_id, "<br>Name: ", station_name)) %>%
   pull(label) %>%
   lapply(HTML) %>%
-  setNames(all_pts$station_id)
+  setNames(as.character(all_pts$station_id))
 
 all_popups <- all_pts %>%
   st_set_geometry(NULL) %>%
@@ -309,3 +322,4 @@ all_stn_list <- all_pts %>%
 #
 #
 # names(df) <- paste("Obs", ncol(df))
+

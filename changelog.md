@@ -1,3 +1,8 @@
+**2022-12-26**
+
+* Added additional 2022 baseline data exported from the DNR SWIMS database.
+* Added a station data summary showing min/max values for baseline parameters.
+
 **2022-12-01**
 
 * Added nutrient data for 2022, which included 112 stations.

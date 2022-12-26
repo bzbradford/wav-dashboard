@@ -331,3 +331,53 @@ baseline_data %>%
   group_by(name) %>%
   split(.$name) %>%
   map(summary)
+
+df1 <- baseline_data %>%
+  filter(station_id == sample(station_id, 1))
+
+df2 <- df1 %>%
+  filter(year == sample(year, 1))
+
+#' Summary objectives:
+#' - DO, water temp, air temp, transparency
+#' - For each: hi/low value and date, current year and if multiple years all time
+
+df1[which.max(df1$d_o), ]
+
+df <- df1
+var <- "d_o"
+varname <- "Dissolved oxygen (mg/L)"
+
+
+
+tibble(
+  name = varname,
+  max_val = df[which.max(df[[var]]), ][[var]],
+  max_date = df[which.max(df[[var]]), ]$date,
+  min_val = df[which.min(df[[var]]), ][[var]],
+  min_date = df[which.min(df[[var]]), ]$date
+)
+
+
+make_min_max <- function(df, var) {
+  tibble(
+    min_val = df[which.min(df[[var]]), ][[var]],
+    max_val = df[which.max(df[[var]]), ][[var]],
+    min_date = df[which.min(df[[var]]), ]$date,
+    max_date = df[which.max(df[[var]]), ]$date
+  )
+}
+
+summary_vars <- tribble(
+  ~var, ~name, ~units,
+  "d_o", "Dissolved oxygen", "mg/L",
+  "water_temperature", "Water temperature", "°C",
+  "ambient_air_temp", "Air temperature", "°C",
+  "transparency_average", "Transparency", "cm",
+  "stream_flow_cfs", "Stream flow", "cfs"
+) %>% rowwise()
+
+summary_vars %>%
+  summarize(cur_data(), make_min_max(df, var)) %>%
+  mutate(across(c(min_val, max_val), ~paste(.x, units))) %>%
+  mutate(across(c(min_date, max_date), ~format(.x, "%b %d, %Y")))

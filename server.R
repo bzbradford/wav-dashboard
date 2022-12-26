@@ -20,21 +20,21 @@ server <- function(input, output, session) {
     )
   }
 
+  random_baseline_stn <- function() {
+    all_pts %>%
+      filter(baseline_stn) %>%
+      filter(max_fw_year == max(data_years)) %>%
+      pull(station_id) %>%
+      sample(1)
+  }
+
 
 # Reactive values ---------------------------------------------------------
 
-  recent_stns <- reactiveVal(value = c())
+  recent_stns <- reactiveVal(c())
+  first_run <- reactiveVal(T)
 
 # Station select ----------------------------------------------------------
-
-  ## Random station on load ----
-
-  random_stn <- all_pts %>%
-    filter(baseline_stn) %>%
-    filter(max_fw_year == max(data_years)) %>%
-    pull(station_id) %>%
-    sample(1)
-
 
   ## Available stations ----
 
@@ -69,12 +69,9 @@ server <- function(input, output, session) {
   ## Station list for selector ----
 
   stn_list <- reactive({
-    if (nrow(avail_stns()) > 0) {
-      ids <- avail_stns()$station_id
-      all_stn_list[all_stn_list %in% ids]
-    } else {
-      list("No stations available" = NULL)
-    }
+    if (nrow(avail_stns()) > 0)
+      return(all_stn_list[all_stn_list %in% avail_stns()$station_id])
+    return(list())
   })
 
 
@@ -136,13 +133,17 @@ server <- function(input, output, session) {
 
   ## When list changes ----
   observeEvent(stn_list(), {
-
     stations <- stn_list()
 
     if (input$station %in% stations) {
       selected <- input$station
     } else {
-      selected <- stations[sample(1:length(stations), 1)]
+      if (first_run()) {
+        selected <- random_baseline_stn()
+        first_run(F)
+      } else {
+        selected <- stations[sample(1:length(stations), 1)]
+      }
     }
 
     updateSelectInput(
@@ -166,7 +167,7 @@ server <- function(input, output, session) {
     }
   })
 
-  ## Prev/Next station buttons ----
+  ## Prev/Next/Rnd station buttons ----
   observeEvent(input$next_stn, {
     stn <- cur_stn()$station_id
     stns <- stn_list()
@@ -181,6 +182,21 @@ server <- function(input, output, session) {
     i <- which(stn == stns)[[1]]
     selected <- ifelse(i > 1, stns[i - 1], stns[length(stns)])
     updateSelectInput(inputId = "station", selected = selected)
+  })
+
+  observeEvent(input$rnd_stn, {
+    req(length(stn_list()) > 0)
+    stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
+    stn <- all_pts %>% filter(station_id == stn_id)
+    if (input$map_zoom > 8) {
+      leafletProxy("map") %>%
+        setView(
+          lat = stn$latitude,
+          lng = stn$longitude,
+          zoom = input$map_zoom
+        )
+    }
+    updateSelectInput(inputId = "station", selected = stn_id)
   })
 
 
@@ -545,31 +561,6 @@ server <- function(input, output, session) {
   })
 
 
-  ### Random site button ----
-
-  observeEvent(input$rnd_stn, {
-    req(length(stn_list()) > 0)
-
-    stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
-    stn <- all_pts %>% filter(station_id == stn_id)
-
-    if (input$map_zoom > 8) {
-      leafletProxy("map") %>%
-        setView(
-          lat = stn$latitude,
-          lng = stn$longitude,
-          zoom = input$map_zoom
-        )
-    }
-
-    updateSelectInput(
-      inputId = "station",
-      selected = stn_id
-    )
-  })
-
-
-
 
 # Station info ---------------------------------------------------------------
 
@@ -813,11 +804,13 @@ server <- function(input, output, session) {
         plotlyOutput("baseline_plot")
       ),
       uiOutput("baseline_plot_export"),
-      p(strong("Dissolved Oxygen."), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
-      p(strong("Temperature."), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
-      p(strong("Transparency."), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
-      p(strong("Stream flow."), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
+      uiOutput("baseline_stn_summary"),
+      p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
+      p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
+      p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
+      p(strong("Stream flow:"), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
       br(),
+      # p(strong("Download a PDF report of this station's data:"), downloadBttn("baseline_report")),
       uiOutput("baseline_data")
     )
   })
@@ -858,6 +851,10 @@ server <- function(input, output, session) {
   }
 
   output$baseline_plot <- renderPlotly({
+    baseline_plot()
+  })
+
+  baseline_plot <- reactive({
     req(input$baseline_year)
     req(nrow(selected_baseline_data()) > 0)
 
@@ -1020,6 +1017,65 @@ server <- function(input, output, session) {
       config(displayModeBar = F)
   })
 
+
+  ## Summary ----
+
+  output$baseline_stn_summary <- renderUI({
+    req(input$baseline_year)
+    req(nrow(selected_baseline_data()) > 0)
+
+    div(
+      class = "well",
+      style = "overflow: auto",
+      h4("Station data summary", style = "border-bottom: 2px solid #d0d7d9;"),
+      tableOutput("baseline_stn_summary_data")
+    )
+  })
+
+  make_min_max <- function(df, var) {
+    v <- df[[var]]
+    if (length(v) == 0) return(tibble())
+    tibble(
+      observations = length(na.omit(v)),
+      min = df[which.min(v), ][[var]],
+      max = df[which.max(v), ][[var]],
+      date_of_min = df[which.min(v), ]$date,
+      date_of_max = df[which.max(v), ]$date
+    )
+  }
+
+  baseline_summary_vars <- tribble(
+    ~var, ~parameter, ~units,
+    "d_o", "Dissolved oxygen", "mg/L",
+    "water_temperature", "Water temperature", "°C",
+    "ambient_air_temp", "Air temperature", "°C",
+    "transparency_average", "Transparency", "cm",
+    "stream_flow_cfs", "Stream flow", "cfs"
+  ) %>% rowwise()
+
+  output$baseline_stn_summary_data <- renderTable(
+    {
+      req(input$baseline_year)
+      req(nrow(selected_baseline_data()) > 0)
+
+      df <- selected_baseline_data() %>%
+        distinct(date, .keep_all = T)
+
+      date_fmt <- ifelse(input$baseline_year == "All", "%b %e, %Y", "%b %e")
+
+      baseline_summary_vars %>%
+        summarize(
+          cur_data(),
+          make_min_max(df, var)) %>%
+        mutate(across(c(min, max), ~paste(.x, units))) %>%
+        mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
+        select(-c(var, units)) %>%
+        clean_names("title")
+    },
+    width = "100%",
+    spacing = "xs",
+    align = "lccccc"
+  )
 
   ## Data ----
 
@@ -1728,5 +1784,34 @@ server <- function(input, output, session) {
     paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$therm_year, ".csv"),
     function(file) {write_csv(selected_therm_data(), file)}
   )
+
+
+  # PDF Reports ----
+
+  # output$baseline_report <- downloadHandler(
+  #   filename = paste0(
+  #     input$baseline_year,
+  #     " Baseline Report for Station ",
+  #     as.character(cur_stn()$station_id),
+  #     ".pdf"),
+  #   content = function(file) {
+  #     temp_dir <- tempdir()
+  #     temp_file <- tempfile(tmpdir = temp_dir, fileext = ".Rmd")
+  #     file.copy("baseline-report.Rmd", temp_file)
+  #     print(temp_file)
+  #     rmarkdown::render(
+  #       temp_file,
+  #       output_file = file,
+  #       output_options = list(self_contained = TRUE),
+  #       envir = new.env(parent = globalenv()),
+  #       params = list(
+  #         id = cur_stn()$station_id,
+  #         name = cur_stn()$station_name,
+  #         year = input$baseline_year,
+  #         plot = baseline_plot()
+  #         )
+  #     )
+  #   }
+  # )
 
 }
