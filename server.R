@@ -1080,25 +1080,32 @@ server <- function(input, output, session) {
   ## Data ----
 
   output$baseline_data <- renderUI({
+    btn_year <- downloadButton("baseline_data_dl", paste("Download", input$baseline_year, "data"))
+    btn_all <- downloadButton("baseline_data_all_dl", "Download all years of baseline data for this site")
+
+    if (input$baseline_year == "All") {
+      dl_btns <- list(btn_all)
+    } else {
+      dl_btns <- list(btn_year, btn_all)
+    }
+
     bsCollapse(
       bsCollapsePanel(
         title = "View/download baseline data",
-        p(
-          downloadButton("baseline_data_dl", paste("Download", input$baseline_year, "data")),
-          downloadButton("baseline_data_all_dl", "Download all years of baseline data for this site")
-        ),
+        p(dl_btns),
         div(style = "overflow: auto;", dataTableOutput("baseline_data_table"))
       )
     )
   })
 
   output$baseline_data_table <- renderDataTable({
+    date_fmt <- ifelse(input$baseline_year == "All", "%b %d, %Y", "%b %d")
 
     df <- selected_baseline_data() %>%
       arrange(date) %>%
       distinct(date, .keep_all = TRUE) %>%
       clean_names(case = "title") %>%
-      mutate(label = format(Date, "%b %d")) %>%
+      mutate(label = format(Date, date_fmt)) %>%
       mutate(across(everything(), as.character)) %>%
       pivot_longer(cols = -label, names_to = "Parameter") %>%
       pivot_wider(names_from = label) %>%
@@ -1363,14 +1370,19 @@ server <- function(input, output, session) {
   ## Data ----
 
   output$nutrient_data <- renderUI({
+    btn_year <- downloadButton("nutrient_data_dl", paste("Download", input$nutrient_year, "data"))
+    btn_all <- downloadButton("nutrient_data_all_dl", paste("Download all years of nutrient data for this site"))
+
+    if (input$baseline_year == "All") {
+      dl_btns <- list(btn_all)
+    } else {
+      dl_btns <- list(btn_year, btn_all)
+    }
+
     bsCollapse(
       bsCollapsePanel(
         title = "View or download nutrient data data",
-
-        p(
-          downloadButton("nutrient_data_dl", paste("Download", input$nutrient_year, "data")),
-          downloadButton("nutrient_data_all_dl", paste("Download all years of nutrient data for this site"))
-        ),
+        p(dl_btns),
         div(style = "overflow: auto;", dataTableOutput("nutrient_data_table")),
         p(em("Total phosphorus is shown in units of mg/L (ppm)."))
       )
