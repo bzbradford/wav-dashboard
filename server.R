@@ -1064,9 +1064,7 @@ server <- function(input, output, session) {
       date_fmt <- ifelse(input$baseline_year == "All", "%b %e, %Y", "%b %e")
 
       baseline_summary_vars %>%
-        summarize(
-          cur_data(),
-          make_min_max(df, var)) %>%
+        reframe(pick(everything()), make_min_max(df, var)) %>%
         mutate(across(c(min, max), ~paste(.x, units))) %>%
         mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
         select(-c(var, units)) %>%
