@@ -213,6 +213,10 @@ all_coverage <- bind_rows(
     nutrient_data_obs = 0,
     thermistor_days_recorded = 0))
 
+# all_coverage %>%
+#   select(-"data_year_list") %>%
+#   write_csv("station data coverage.csv")
+
 all_stn_years <- bind_rows(
   baseline_stn_years,
   therm_stn_years,
@@ -249,6 +253,12 @@ all_stn_data <- all_stn_years %>%
   left_join(therm_tallies, by = c("station_id", "year")) %>%
   mutate(across(where(is.numeric), as.character)) %>%
   replace_na(list(baseline = "\u274c", nutrient = "\u274c", thermistor = "\u274c"))
+
+# all_stn_data %>%
+#   mutate(across(everything(), ~gsub("\u2705 ", "", .x))) %>%
+#   mutate(across(everything(), ~gsub("\u274c", "", .x))) %>%
+#   write_csv("station data coverage.csv")
+
 
 
 # Finalize sites ----------------------------------------------------------
