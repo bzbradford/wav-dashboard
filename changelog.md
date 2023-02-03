@@ -1,3 +1,7 @@
+**2023-02-03**
+
+* Added monthly water temperature summary to thermistor page.
+
 **2022-12-26**
 
 * Added additional 2022 baseline data exported from the DNR SWIMS database.
