@@ -1750,7 +1750,7 @@ server <- function(input, output, session) {
   output$therm_stn_summary <- renderUI({
     bsCollapse(
       bsCollapsePanel(
-        title = "Monthly water temperature summary",
+        title = "View monthly water temperature summary",
         dataTableOutput("therm_stn_summary_data"),
         uiOutput("therm_stn_summary_footnote")
       )
