@@ -1483,6 +1483,7 @@ server <- function(input, output, session) {
       ),
       uiOutput("therm_plot_export"),
       br(),
+      uiOutput("therm_stn_summary"),
       h4("What does water temperature tell us?"),
       p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state."),
       p("Tips for understanding and interacting with the temperature plot:"),
@@ -1744,6 +1745,72 @@ server <- function(input, output, session) {
     )
   })
 
+  ## Summary ----
+
+  output$therm_stn_summary <- renderUI({
+    bsCollapse(
+      bsCollapsePanel(
+        title = "Monthly water temperature summary",
+        dataTableOutput("therm_stn_summary_data"),
+        uiOutput("therm_stn_summary_footnote")
+      )
+    )
+  })
+
+  output$therm_stn_summary_footnote <- renderUI({
+    req(input$therm_temp_units)
+
+    div(style = "margin-top: 0.5em",
+      em(
+        paste0("Temperatures shown in units of °", input$therm_temp_units, "."),
+        "Q10 and Q90 reflect the 10th percentile and 90th percentile temperatures, respectively."
+      )
+    )
+  })
+
+  output$therm_stn_summary_data <- renderDT(
+    {
+      req(input$therm_year)
+      req(input$therm_temp_units)
+      req(nrow(selected_therm_data()) > 0)
+
+      temp_col <- ifelse(input$therm_temp_units == "F", "temp_f", "temp_c")
+      monthly <- selected_therm_data() %>%
+        mutate(temp = .[[temp_col]]) %>%
+        arrange(month) %>%
+        mutate(name = fct_inorder(format(date, "%B"))) %>%
+        summarize(
+          days = n_distinct(date),
+          min = round(min(temp, na.rm = T), 1),
+          q10 = round(quantile(temp, .1, na.rm = T), 1),
+          mean = round(mean(temp, na.rm = T), 1),
+          q90 = round(quantile(temp, .9, na.rm = T), 1),
+          max = round(max(temp, na.rm = T), 1),
+          .by = c(month, name)
+        ) %>%
+        clean_names("title")
+
+      total <- selected_therm_data() %>%
+        mutate(temp = .[[temp_col]]) %>%
+        summarize(
+          name = "Total",
+          days = n_distinct(date),
+          min = round(min(temp, na.rm = T), 1),
+          q10 = round(quantile(temp, .1, na.rm = T), 1),
+          mean = round(mean(temp, na.rm = T), 1),
+          q90 = round(quantile(temp, .9, na.rm = T), 1),
+          max = round(max(temp, na.rm = T), 1)
+        ) %>%
+        clean_names("title")
+
+      bind_rows(monthly, total)
+    },
+    rownames = F,
+    options = list(
+      dom = "t",
+      columnDefs = list(list(targets = 0:7, className = "dt-center"))
+    )
+  )
 
   ## Data table ----
 

@@ -381,3 +381,26 @@ summary_vars %>%
   summarize(cur_data(), make_min_max(df, var)) %>%
   mutate(across(c(min_val, max_val), ~paste(.x, units))) %>%
   mutate(across(c(min_date, max_date), ~format(.x, "%b %d, %Y")))
+
+
+
+
+# Thermistor summary ------------------------------------------------------
+
+therm_temp_units <- "F"
+
+temp_col <- ifelse(therm_temp_units == "F", "temp_f", "temp_c")
+therm_data %>%
+  filter(station_id == station_id[1]) %>%
+  mutate(temp = .[[temp_col]]) %>%
+  mutate(month_name = fct_inorder(format(date, "%b"))) %>%
+  summarize(
+    days = n_distinct(date),
+    obs = n(),
+    min = min(temp, na.rm = T),
+    q10 = quantile(temp, .1, na.rm = T),
+    mean = mean(temp, na.rm = T),
+    q90 = quantile(temp, .9, na.rm = T),
+    max = max(temp, na.rm = T),
+    .by = month_name
+  )
