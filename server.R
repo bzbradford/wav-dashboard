@@ -1199,43 +1199,17 @@ server <- function(input, output, session) {
         id = "nutrient-plot-container",
         h3(cur_stn()$label, align = "center"),
         plotlyOutput("nutrient_plot"),
-        p(
-          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
-          align = "center",
-          em("The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band.")
-        ),
+        div(class = "plot-caption", "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."),
+        uiOutput("nutrient_exceedance_caption")
       ),
       uiOutput("nutrient_plot_export"),
       br(),
       p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
-      p(strong("Exceedance criteria."), HTML(paste0("A stream site is considered 'Criteria Exceeded' and the confidence interval band will be shaded ", strong(colorize("red")), " if: 1) the lower 90% confidence limit of the sample median exceeds the state TP criterion of ", phoslimit, " mg/L or 2) there is corroborating WDNR biological data to support an adverse response in the fish or macroinvertebrate communities. If there is insufficient data for either of these requirements, more data will need to be collected in subsequent years before a decision can be made. A site is designated as 'Watch Waters' if the total phosphorus state criterion concentration falls within the confidence limit or additional data are required, and a site is considered to have 'Met Criteria' if the upper limit of the confidence interval does not exceed the criterion (shaded confidence interval band will be ", strong(colorize("teal")), "). Some sites are assigned 'Watch Waters' because fewer than six samples were collected. Nevertheless, these total phosphorus measurements will still improve our understanding of stream health at this site."))),
+      p(HTML("<strong>Exceedance criteria.</strong> A stream site <b><i>clearly exceeds</i></b> the phosphorus limit and the confidence interval band will be shaded <b><span style='color: red'>red</span></b> if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of 0.075 mg/L. A stream site <b><i>may exceed</i></b> the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site <b><i>may meet</i></b> the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site <b><i>clearly meets</i></b> the phosphorus limit, and the shaded confidence interval band in the plot above will be colored <b><span style='color: teal'>teal</span></b>.")),
       p(strong("Why phosphorus?"), "Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
-      p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, four to six phosphorus water samples were collected at each monitoring site - one per month for up to each of the six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another. Samples at several sites were collected every two weeks. The monthly values are an average of the biweekly sample results."),
+      p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another."),
       br(),
       uiOutput("nutrient_data")
-    )
-  })
-
-
-  ## Plot export ----
-
-  output$nutrient_plot_export <- renderUI({
-    p(
-      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
-      align = "center",
-      em(
-        a("Click here to download this plot as a PNG.",
-          style = "cursor: pointer;",
-          onclick = paste0(
-            "html2canvas(document.querySelector('",
-            "#nutrient-plot-container",
-            "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
-            paste("nutrient-plot", cur_stn()$station_id, input$nutrient_year, sep = "-"),
-            ".png",
-            "')})"
-          )
-        )
-      )
     )
   })
 
@@ -1362,6 +1336,55 @@ server <- function(input, output, session) {
       config(displayModeBar = F)
 
     plt
+  })
+
+
+  ## Exceedance caption ----
+
+  phos_exceedance <- reactive({
+    req(phos_estimate())
+
+    tp_median <- phos_estimate()$median
+    tp_lower <- phos_estimate()$lower
+    tp_upper <- phos_estimate()$upper
+
+    if (tp_lower >= phoslimit) {
+      "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit.)"
+    } else if (tp_lower <= phoslimit & tp_median >= phoslimit) {
+      "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit)."
+    } else if (tp_upper >= phoslimit & tp_median <= phoslimit) {
+      "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit)."
+    } else if (tp_upper <= phoslimit) {
+      "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit)."
+    } else {
+      "Unable to determine phosphorus exceedance type based on the data shown above."
+    }
+  })
+
+  output$nutrient_exceedance_caption <- renderUI({
+    div(class = "plot-caption", strong(phos_exceedance()))
+  })
+
+  ## Plot export ----
+
+  output$nutrient_plot_export <- renderUI({
+    p(
+      style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+      align = "center",
+      em(
+        a("Click here to download this plot as a PNG.",
+          style = "cursor: pointer;",
+          onclick = paste0(
+            "html2canvas(document.querySelector('",
+            "#nutrient-plot-container",
+            "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+            paste("nutrient-plot", cur_stn()$station_id, input$nutrient_year, sep = "-"),
+            ".png",
+            "')})"
+          )
+        )
+      )
+    )
   })
 
 
@@ -1861,6 +1884,11 @@ server <- function(input, output, session) {
     paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$therm_year, ".csv"),
     function(file) {write_csv(selected_therm_data(), file)}
   )
+
+
+  # Gracefully exit ----
+
+  session$onSessionEnded(function() { stopApp() })
 
 
   # PDF Reports ----

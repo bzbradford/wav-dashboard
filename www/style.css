@@ -85,6 +85,13 @@ a, a:hover, a:focus {
   margin-bottom: 0px;
 }
 
+.plot-caption {
+  margin: 0.5em 2em;
+  font-size: smaller;
+  font-style: italic;
+  text-align: center;
+}
+
 /*.stn-select {
   flex: 1;
 }*/

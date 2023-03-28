@@ -1,3 +1,7 @@
+**2023-03-28**
+
+* Added language to the total phosphorus plot matching the DNR's exceedance criteria based on the confidence limit and median observation.
+
 **2023-02-03**
 
 * Added monthly water temperature summary to thermistor page.
