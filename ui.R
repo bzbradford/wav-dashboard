@@ -139,7 +139,10 @@ ui <- fluidPage(
     type = "pills",
     tabPanel(
       title = "Baseline data",
-      div(class = "data-tab", uiOutput("baseline_tab"))
+      div(
+        class = "data-tab",
+        baselineUI()
+      )
     ),
     tabPanel(
       title = "Nutrient data",

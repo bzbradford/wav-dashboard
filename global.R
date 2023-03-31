@@ -106,6 +106,29 @@ check_missing_stns <- function(data, pts, type) {
   }
 }
 
+year_choices <- function(years) {
+  if (length(years) > 1) {
+    c(years, "All")
+  } else {
+    years
+  }
+}
+
+min_max <- function(v) {
+  possibly(
+    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(NA, NA))
+  )
+}
+
+random_baseline_stn <- function() {
+  all_pts %>%
+    filter(baseline_stn) %>%
+    filter(max_fw_year == max(data_years)) %>%
+    pull(station_id) %>%
+    sample(1)
+}
+
 
 # Defs --------------------------------------------------------------------
 
