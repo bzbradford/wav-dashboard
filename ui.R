@@ -162,7 +162,7 @@ ui <- fluidPage(
     ),
     tabPanel(
       title = "Station Lists",
-      div(class = "data-tab", uiOutput("station_lists"))
+      uiOutput("station-list-content")
     ),
     tabPanel(
       title = "More information",

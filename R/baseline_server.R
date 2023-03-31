@@ -1,5 +1,7 @@
 ## BASELINE TAB ##
 
+# Helpers ----
+
 do_color <- function(do) {
   i <- min(max(round(do), 1), 11)
   brewer.pal(11, "RdBu")[i]
@@ -31,6 +33,12 @@ baseline_summary_vars <- tribble(
   "transparency_average", "Transparency", "cm",
   "stream_flow_cfs", "Stream flow", "cfs"
 ) %>% rowwise()
+
+
+# Server ----
+
+#' requires global data frame 'baseline_data'
+#' @param cur_stn a `reactive()` single line data frame
 
 baselineServer <- function(id = "baseline", cur_stn) {
   moduleServer(

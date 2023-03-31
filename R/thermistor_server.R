@@ -1,14 +1,16 @@
 ## THERMISTOR TAB ##
 
+# Server ----
+
 #' requires global data frame 'therm_data'
-#' requires global data frame 'therm_info'
-#' should be passed reactive single line data frame 'cur_stn'
+#' @param cur_stn a `reactive()` single line data frame
 
 thermistorServer <- function(id = "thermistor", cur_stn) {
   moduleServer(
     id,
     function(input, output, session) {
       ns <- session$ns
+
 
       ## Reactives ----
 

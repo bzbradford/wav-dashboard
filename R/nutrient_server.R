@@ -1,5 +1,7 @@
 ## NUTRIENT TAB ##
 
+# Helpers ----
+
 phoslimit <- 0.075 # mg/L, ppm
 
 get_phos_estimate <- function(vals) {
@@ -40,8 +42,10 @@ get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
 }
 
 
-# Requires data frame 'nutrient_data'
-# Should be passed reactive single line data frame 'cur_stn'
+# Server ----
+
+#' requires global data frame 'nutrient_data'
+#' @param cur_stn a `reactive()` single line data frame
 
 nutrientServer <- function(id = "nutrient", cur_stn) {
   moduleServer(

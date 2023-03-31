@@ -576,93 +576,9 @@ server <- function(input, output, session) {
 
   # Station lists -----------------------------------------------------------
 
-  ## Layout ----
-
-  output$station_lists <- renderUI({
-    bsCollapse(
-      bsCollapsePanel(
-        title = "Baseline monitoring stations",
-        p(downloadButton("baseline_stn_dl", "Download this list")),
-        dataTableOutput("baseline_stn_tbl")
-      ),
-      bsCollapsePanel(
-        title = "Nutrient monitoring locations",
-        p(downloadButton("nutrient_stn_dl", "Download this list")),
-        dataTableOutput("nutrient_stn_tbl")
-      ),
-      bsCollapsePanel(
-        title = "Thermistor station locations",
-        p(downloadButton("therm_stn_dl", "Download this list")),
-        dataTableOutput("therm_stn_tbl")
-      ),
-      bsCollapsePanel(
-        title = "Complete station list",
-        p(downloadButton("all_stns_dl", "Download this list")),
-        dataTableOutput("all_stn_tbl")
-      )
-    )
-  })
-
-  output$baseline_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(baseline_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$nutrient_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(nutrient_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$therm_stn_tbl <- renderDataTable({
-    all_stns %>%
-      filter(therm_stn) %>%
-      clean_names(case = "big_camel")
-  })
-
-  output$all_stn_tbl <- renderDataTable({
-    all_stns %>%
-      clean_names(case = "big_camel")
-  })
+  stationListServer()
 
 
-  ## Download handlers ----
-
-  output$baseline_stn_dl <- downloadHandler(
-    "wav-baseline-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(baseline_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$therm_stn_dl <- downloadHandler(
-    "wav-thermistor-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(therm_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$nutrient_stn_dl <- downloadHandler(
-    "wav-nutrient-stations.csv",
-    function(file) {
-      all_stns %>%
-        filter(nutrient_stn) %>%
-        write_csv(file)
-    }
-  )
-
-  output$all_stns_dl <- downloadHandler(
-    "wav-station-list.csv",
-    function(file) {
-      all_stns %>%
-        write_csv(file)
-    }
-  )
 
 
 
