@@ -147,7 +147,7 @@ ui <- fluidPage(
     ),
     tabPanel(
       title = "Thermistor data",
-      uiOutput("therm_tab")
+      uiOutput("thermistor-content")
     ),
     tabPanel(
       title = "Station Details",
