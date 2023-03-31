@@ -35,14 +35,23 @@ baseline_summary_vars <- tribble(
 ) %>% rowwise()
 
 
+# UI ----
+
+baselineDataUI <- function() {
+  ns <- NS("baseline")
+
+  uiOutput(ns("content"))
+}
+
+
 # Server ----
 
 #' requires global data frame 'baseline_data'
 #' @param cur_stn a `reactive()` single line data frame
 
-baselineServer <- function(id = "baseline", cur_stn) {
+baselineDataServer <- function(cur_stn) {
   moduleServer(
-    id,
+    id = "baseline",
     function(input, output, session) {
       ns <- session$ns
 

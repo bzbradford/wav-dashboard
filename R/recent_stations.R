@@ -1,5 +1,18 @@
 ## RECENT STATIONS TAB ##
 
+
+# UI ----
+
+recentStationsUI <- function() {
+  ns <- NS("recent-stations")
+
+  tagList(
+    p(em("The most recent 5 stations you have selected are shown below. Click 'Select' to re-select any station.")),
+    uiOutput("recent-stations-content")
+  )
+}
+
+
 # Server ----
 
 #' requires globals:

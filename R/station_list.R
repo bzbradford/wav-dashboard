@@ -1,12 +1,24 @@
-## STATION LIST TAB ##
+## STATION LISTS TAB ##
+
+# UI ----
+
+stationListUI <- function() {
+  ns <- NS("station-list")
+
+  tagList(
+    p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
+    uiOutput(ns("content"))
+  )
+}
+
 
 # Server ----
 
 #' requires global data frame 'all_stns'
 
-stationListServer <- function(id = "station-list") {
+stationListServer <- function() {
   moduleServer(
-    id,
+    id = "station-list",
     function(input, output, session) {
       ns <- session$ns
 

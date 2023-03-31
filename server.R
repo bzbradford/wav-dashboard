@@ -3,11 +3,12 @@
 server <- function(input, output, session) {
 
 
-# Reactive values ---------------------------------------------------------
+  # Reactive values ----
 
   first_run <- reactiveVal(T)
 
-# Station select ----------------------------------------------------------
+
+  # Station select ----
 
   ## Available stations ----
 
@@ -161,7 +162,7 @@ server <- function(input, output, session) {
 
 
 
-# Map ---------------------------------------------------------------------
+  # Map ----
 
   basemaps <- list(
     one = "ESRI Topo",
@@ -522,73 +523,18 @@ server <- function(input, output, session) {
 
 
 
-# Station info ---------------------------------------------------------------
-
-  output$stn_info <- renderUI({
-    list(
-      h4("Station Information"),
-      renderTable(
-        {
-          cur_stn() %>%
-            select(station_id:geometry) %>%
-            st_set_geometry(NULL) %>%
-            mutate(across(everything(), as.character)) %>%
-            clean_names(case = "title") %>%
-            pivot_longer(
-              cols = everything(),
-              names_to = "Property",
-              values_to = "Value") %>%
-            na.omit()
-        }
-      )
-    )
-  })
-
-  output$stn_coverage <- renderUI({
-    list(
-      h4("Station Data Coverage"),
-      renderTable(
-        {
-          all_stn_data %>%
-            filter(station_id == cur_stn()$station_id) %>%
-            select(-station_id) %>%
-            clean_names(case = "title")
-        },
-        align = "c"
-      )
-    )
-  })
-
-
-  # Station lists -----------------------------------------------------------
-
-  stationListServer()
-
-
-
-
-
-# Recent stations ---------------------------------------------------------
+  # Module servers ----
 
   recentStationsServer(
     cur_stn = reactive(cur_stn()),
     stn_list = reactive(stn_list())
   )
 
-
-# Baseline data ----
-
-  baselineServer(cur_stn = reactive(cur_stn()))
-
-
-# Nutrient data ----
-
-  nutrientServer(cur_stn = reactive(cur_stn()))
-
-
-# Thermistor data ----
-
-  thermistorServer(cur_stn = reactive(cur_stn()))
+  baselineDataServer(cur_stn = reactive(cur_stn()))
+  nutrientDataServer(cur_stn = reactive(cur_stn()))
+  thermistorDataServer(cur_stn = reactive(cur_stn()))
+  stationInfoServer(cur_stn = reactive(cur_stn()))
+  stationListServer()
 
 
   # Gracefully exit ----

@@ -1,13 +1,23 @@
 ## THERMISTOR TAB ##
 
+
+# UI ----
+
+thermistorDataUI <- function() {
+  ns <- NS("thermistor")
+
+  uiOutput(ns("content"))
+}
+
+
 # Server ----
 
 #' requires global data frame 'therm_data'
 #' @param cur_stn a `reactive()` expression containing the current station
 
-thermistorServer <- function(id = "thermistor", cur_stn) {
+thermistorDataServer <- function(cur_stn) {
   moduleServer(
-    id,
+    id = "thermistor",
     function(input, output, session) {
       ns <- session$ns
 
