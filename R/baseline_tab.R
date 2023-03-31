@@ -1,10 +1,36 @@
 ## BASELINE TAB ##
 
-baselineUI <- function(id = "baseline") {
-  ns <- NS(id)
-
-  uiOutput(ns("content"))
+do_color <- function(do) {
+  i <- min(max(round(do), 1), 11)
+  brewer.pal(11, "RdBu")[i]
 }
+
+find_max <- function(vals, min_val) {
+  vals <- na.omit(vals)
+  if (length(vals) == 0) return(min_val)
+  ceiling(max(min_val, max(vals)) * 1.1)
+}
+
+make_min_max <- function(df, var) {
+  v <- df[[var]]
+  if (length(v) == 0) return(tibble())
+  tibble(
+    observations = length(na.omit(v)),
+    min = df[which.min(v), ][[var]],
+    max = df[which.max(v), ][[var]],
+    date_of_min = df[which.min(v), ]$date,
+    date_of_max = df[which.max(v), ]$date
+  )
+}
+
+baseline_summary_vars <- tribble(
+  ~var, ~parameter, ~units,
+  "d_o", "Dissolved oxygen", "mg/L",
+  "water_temperature", "Water temperature", "°C",
+  "ambient_air_temp", "Air temperature", "°C",
+  "transparency_average", "Transparency", "cm",
+  "stream_flow_cfs", "Stream flow", "cfs"
+) %>% rowwise()
 
 baselineServer <- function(id = "baseline", cur_stn) {
   moduleServer(
@@ -17,6 +43,10 @@ baselineServer <- function(id = "baseline", cur_stn) {
           filter(station_id == cur_stn()$station_id)
       })
 
+      data_ready <- reactive({
+        nrow(cur_data()) > 0
+      })
+
       cur_years <- reactive({
         sort(unique(cur_data()$year))
       })
@@ -25,8 +55,7 @@ baselineServer <- function(id = "baseline", cur_stn) {
         if (input$year == "All") {
           cur_data()
         } else {
-          cur_data() %>%
-            filter(year == input$year)
+          cur_data() %>% filter(year == input$year)
         }
       })
 
@@ -34,12 +63,9 @@ baselineServer <- function(id = "baseline", cur_stn) {
       ## Layout ----
 
       output$content <- renderUI({
-        validate(
-          need(
-            nrow(cur_data()) > 0,
-            "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."
-          )
-        )
+        if (!data_ready()) {
+          return(div(class = "well", p("This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station.")))
+        }
 
         tagList(
           div(
@@ -60,39 +86,28 @@ baselineServer <- function(id = "baseline", cur_stn) {
             h3(cur_stn()$label, align = "center"),
             plotlyOutput(ns("plot"))
           ),
-          uiOutput(ns("plot_export")),
-          uiOutput(ns("stn_summary")),
+          uiOutput(ns("plotExportUI")),
+          uiOutput(ns("stnSummaryUI")),
           p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
           p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
           p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
           p(strong("Stream flow:"), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
           br(),
           # p(strong("Download a PDF report of this station's data:"), downloadBttn("baseline_report")),
-          uiOutput(ns("data"))
+          bsCollapse(
+            bsCollapsePanel(
+              title = "View/download baseline data",
+              uiOutput(ns("viewDataUI"))
+            )
+          )
         )
       })
 
 
       ## Plot ----
 
-      oxy_color <- function(d_o) {
-        i <- min(max(round(d_o), 1), 11)
-        brewer.pal(11, "RdBu")[i]
-      }
-
-      find_max <- function(vals, min_val) {
-        vals <- na.omit(vals)
-        if (length(vals) == 0) return(min_val)
-        ceiling(max(min_val, max(vals)) * 1.1)
-      }
-
       output$plot <- renderPlotly({
-        plot_obj()
-      })
-
-      plot_obj <- reactive({
-        req(input$year)
-        req(nrow(selected_data()) > 0)
+        req(data_ready())
 
         df <- selected_data() %>%
           distinct(date, .keep_all = T)
@@ -111,7 +126,7 @@ baselineServer <- function(id = "baseline", cur_stn) {
             paste0(d_o, " mg/L"),
             paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
           rowwise() %>%
-          mutate(do_color = oxy_color(d_o))
+          mutate(do_color = do_color(d_o))
         temp_data <- filter(df, !(is.na(water_temperature) & is.na(ambient_air_temp)))
         trans_data <- filter(df, !is.na(transparency_average))
         flow_data <- filter(df, !is.na(stream_flow_cfs))
@@ -256,7 +271,7 @@ baselineServer <- function(id = "baseline", cur_stn) {
 
       ## Plot export ----
 
-      output$plot_export <- renderUI({
+      output$plotExportUI <- renderUI({
         p(
           style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
           align = "center",
@@ -278,7 +293,7 @@ baselineServer <- function(id = "baseline", cur_stn) {
 
       ## Summary ----
 
-      output$stn_summary <- renderUI({
+      output$stnSummaryUI <- renderUI({
         req(input$year)
         req(nrow(selected_data()) > 0)
 
@@ -286,32 +301,11 @@ baselineServer <- function(id = "baseline", cur_stn) {
           class = "well",
           style = "overflow: auto",
           h4("Station data summary", style = "border-bottom: 2px solid #d0d7d9;"),
-          tableOutput(ns("stn_summary_data"))
+          tableOutput(ns("stnSummaryData"))
         )
       })
 
-      make_min_max <- function(df, var) {
-        v <- df[[var]]
-        if (length(v) == 0) return(tibble())
-        tibble(
-          observations = length(na.omit(v)),
-          min = df[which.min(v), ][[var]],
-          max = df[which.max(v), ][[var]],
-          date_of_min = df[which.min(v), ]$date,
-          date_of_max = df[which.max(v), ]$date
-        )
-      }
-
-      summary_vars <- tribble(
-        ~var, ~parameter, ~units,
-        "d_o", "Dissolved oxygen", "mg/L",
-        "water_temperature", "Water temperature", "°C",
-        "ambient_air_temp", "Air temperature", "°C",
-        "transparency_average", "Transparency", "cm",
-        "stream_flow_cfs", "Stream flow", "cfs"
-      ) %>% rowwise()
-
-      output$stn_summary_data <- renderTable(
+      output$stnSummaryData <- renderTable(
         {
           req(input$year)
           req(nrow(selected_data()) > 0)
@@ -321,7 +315,7 @@ baselineServer <- function(id = "baseline", cur_stn) {
 
           date_fmt <- ifelse(input$year == "All", "%b %e, %Y", "%b %e")
 
-          summary_vars %>%
+          baseline_summary_vars %>%
             reframe(pick(everything()), make_min_max(df, var)) %>%
             mutate(across(c(min, max), ~paste(.x, units))) %>%
             mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
@@ -333,33 +327,30 @@ baselineServer <- function(id = "baseline", cur_stn) {
         align = "lccccc"
       )
 
-      ## Data ----
 
-      output$data <- renderUI({
+      ## View data ----
+
+      output$viewDataUI <- renderUI({
         req(input$year)
 
-        btn_year <- downloadButton(ns("data_dl"), paste("Download", input$year, "data"))
-        btn_all <- downloadButton(ns("data_all_dl"), "Download all years of baseline data for this site")
-
+        btn_year <- downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
+        btn_all <- downloadButton(ns("downloadAll"), "Download all years of baseline data for this site")
         if (input$year == "All") {
           dl_btns <- list(btn_all)
         } else {
           dl_btns <- list(btn_year, btn_all)
         }
 
-        bsCollapse(
-          bsCollapsePanel(
-            title = "View/download baseline data",
-            p(dl_btns),
-            div(
-              style = "overflow: auto;",
-              dataTableOutput(ns("data_table"))
-            )
+        tagList(
+          p(dl_btns),
+          div(
+            style = "overflow: auto;",
+            dataTableOutput(ns("dataTable"))
           )
         )
       })
 
-      output$data_table <- renderDataTable({
+      output$dataTable <- renderDataTable({
         date_fmt <- ifelse(input$year == "All", "%b %d, %Y", "%b %d")
 
         df <- selected_data() %>%
@@ -377,12 +368,12 @@ baselineServer <- function(id = "baseline", cur_stn) {
       },
         server = F)
 
-      output$data_dl <- downloadHandler(
+      output$downloadYear <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$year, ".csv"),
         function(file) {write_csv(selected_data(), file)}
       )
 
-      output$data_all_dl <- downloadHandler(
+      output$downloadAll <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data.csv"),
         function(file) {write_csv(cur_data(), file)}
       )
