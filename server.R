@@ -5,7 +5,6 @@ server <- function(input, output, session) {
 
 # Reactive values ---------------------------------------------------------
 
-  recent_stns <- reactiveVal(c())
   first_run <- reactiveVal(T)
 
 # Station select ----------------------------------------------------------
@@ -56,19 +55,6 @@ server <- function(input, output, session) {
     req(nrow(avail_stns()) > 0)
 
     filter(all_pts, station_id == input$station)
-  })
-
-
-  ## Recent stations ----
-
-  observeEvent(cur_stn(), {
-    cur_id <- cur_stn()$station_id
-
-    if (!(cur_id %in% recent_stns())) {
-      new_list <- c(cur_id, recent_stns())
-      if (length(new_list) > 5) new_list <- new_list[1:5]
-      recent_stns(new_list)
-    }
   })
 
 
@@ -584,64 +570,10 @@ server <- function(input, output, session) {
 
 # Recent stations ---------------------------------------------------------
 
-  ## Layout ----
-  output$recent_stn_ui <- renderUI({
-    list(
-      dataTableOutput("recent_stn_tbl"),
-      p(actionButton("clear_recent_stns", "Clear list"), align = "right", style = "margin-top: 1em;")
-    )
-  })
-
-  ## Table ----
-  output$recent_stn_tbl <- renderDataTable({
-    ids <- recent_stns()
-    cur_id <- cur_stn()$station_id
-
-    tibble(station_id = ids) %>%
-      left_join(all_stns, by = "station_id") %>%
-      select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
-      mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
-      mutate(action = lapply(ids, function(id) {
-        paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
-      }), .before = everything()) %>%
-      mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
-      clean_names("title")
-    },
-    server = F,
-    rownames = T,
-    selection = "none",
-    options = list(
-      paging = F,
-      bFilter = F,
-      bSort = F,
-      bInfo = F,
-      columnDefs = list(list(targets = c(0:1, 3:5), className = "dt-center")))
+  recentStationsServer(
+    cur_stn = reactive(cur_stn()),
+    stn_list = reactive(stn_list())
   )
-
-  ## Observers ----
-  observeEvent(input$recent_stn, {
-    id <- input$recent_stn
-
-    if (id %in% stn_list()) {
-      updateSelectInput(
-        inputId = "station",
-        selected = id
-      )
-    } else {
-      updateSelectInput(
-        inputId = "stn_types",
-        selected = station_types
-      )
-      updateCheckboxGroupInput(
-        inputId = "stn_years",
-        selected = data_years[1]
-      )
-    }
-  })
-
-  observeEvent(input$clear_recent_stns, {
-    recent_stns(cur_stn()$station_id)
-  })
 
 
 # Baseline data ----

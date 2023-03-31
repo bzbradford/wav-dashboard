@@ -13,29 +13,26 @@ stationListServer <- function(id = "station-list") {
       ## Layout ----
 
       output$content <- renderUI({
-        tagList(
-          p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
-          bsCollapse(
-            bsCollapsePanel(
-              title = "Baseline monitoring stations",
-              p(downloadButton(ns("baselineDownload"), "Download this list")),
-              dataTableOutput(ns("baselineTable"))
-            ),
-            bsCollapsePanel(
-              title = "Nutrient monitoring locations",
-              p(downloadButton(ns("nutrientDownload"), "Download this list")),
-              dataTableOutput(ns("nutrientTable"))
-            ),
-            bsCollapsePanel(
-              title = "Thermistor station locations",
-              p(downloadButton(ns("thermistorDownload"), "Download this list")),
-              dataTableOutput(ns("thermistorTable"))
-            ),
-            bsCollapsePanel(
-              title = "Complete station list",
-              p(downloadButton(ns("allDownload"), "Download this list")),
-              dataTableOutput(ns("allTable"))
-            )
+        bsCollapse(
+          bsCollapsePanel(
+            title = "Baseline monitoring stations",
+            p(downloadButton(ns("baselineDownload"), "Download this list")),
+            dataTableOutput(ns("baselineTable"))
+          ),
+          bsCollapsePanel(
+            title = "Nutrient monitoring locations",
+            p(downloadButton(ns("nutrientDownload"), "Download this list")),
+            dataTableOutput(ns("nutrientTable"))
+          ),
+          bsCollapsePanel(
+            title = "Thermistor station locations",
+            p(downloadButton(ns("thermistorDownload"), "Download this list")),
+            dataTableOutput(ns("thermistorTable"))
+          ),
+          bsCollapsePanel(
+            title = "Complete station list",
+            p(downloadButton(ns("allDownload"), "Download this list")),
+            dataTableOutput(ns("allTable"))
           )
         )
       })

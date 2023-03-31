@@ -3,7 +3,7 @@
 # Server ----
 
 #' requires global data frame 'therm_data'
-#' @param cur_stn a `reactive()` single line data frame
+#' @param cur_stn a `reactive()` expression containing the current station
 
 thermistorServer <- function(id = "thermistor", cur_stn) {
   moduleServer(

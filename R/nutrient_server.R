@@ -45,11 +45,11 @@ get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
 # Server ----
 
 #' requires global data frame 'nutrient_data'
-#' @param cur_stn a `reactive()` single line data frame
+#' @param cur_stn a `reactive()` expression containing the current station
 
-nutrientServer <- function(id = "nutrient", cur_stn) {
+nutrientServer <- function(cur_stn) {
   moduleServer(
-    id,
+    id = "nutrient",
     function(input, output, session) {
       ns <- session$ns
 

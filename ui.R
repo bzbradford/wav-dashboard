@@ -126,7 +126,7 @@ ui <- fluidPage(
       tabPanel(
         title = "Recently Viewed Stations",
         p(em("The most recent 5 stations you have selected are shown below. Click 'Select' to re-select any station.")),
-        uiOutput("recent_stn_ui")
+        uiOutput("recent-stations-content")
       )
     )
   ),
@@ -162,6 +162,7 @@ ui <- fluidPage(
     ),
     tabPanel(
       title = "Station Lists",
+      p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
       uiOutput("station-list-content")
     ),
     tabPanel(
