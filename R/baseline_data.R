@@ -25,15 +25,6 @@ make_min_max <- function(df, var) {
   )
 }
 
-baseline_summary_vars <- tribble(
-  ~var, ~parameter, ~units,
-  "d_o", "Dissolved oxygen", "mg/L",
-  "water_temperature", "Water temperature", "°C",
-  "ambient_air_temp", "Air temperature", "°C",
-  "transparency_average", "Transparency", "cm",
-  "stream_flow_cfs", "Stream flow", "cfs"
-) %>% rowwise()
-
 
 # UI ----
 
@@ -328,6 +319,15 @@ baselineDataServer <- function(cur_stn) {
           tableOutput(ns("stnSummaryData"))
         )
       })
+
+      baseline_summary_vars <- tribble(
+        ~var, ~parameter, ~units,
+        "d_o", "Dissolved oxygen", "mg/L",
+        "water_temperature", "Water temperature", "°C",
+        "ambient_air_temp", "Air temperature", "°C",
+        "transparency_average", "Transparency", "cm",
+        "stream_flow_cfs", "Stream flow", "cfs"
+      ) %>% rowwise()
 
       output$stnSummaryData <- renderTable(
         {

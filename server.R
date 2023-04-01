@@ -1,19 +1,18 @@
-# server.R
+## MAIN SERVER ##
+
+# Server ----
 
 server <- function(input, output, session) {
 
+  # Reactives ----
 
-  # Reactive values ----
-
+  ## first_run ----
+  # becomes F after a random station gets selected
   first_run <- reactiveVal(T)
 
-
-  # Station select ----
-
-  ## Available stations ----
-
+  ## avail_stns ----
+  # reacts to map sidebar selections
   avail_stns <- reactive({
-
     ids <- list(0)
     coverage = list(
       "baseline" = baseline_coverage,
@@ -39,18 +38,16 @@ server <- function(input, output, session) {
       filter(station_id %in% avail_ids)
   })
 
-
-  ## Station list for selector ----
-
+  ## stn_list ----
+  # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
     if (nrow(avail_stns()) > 0)
       return(all_stn_list[all_stn_list %in% avail_stns()$station_id])
     return(list())
   })
 
-
-  ## Current station ----
-
+  ## cur_stn ----
+  # single line data frame with station info for currently selected station
   cur_stn <- reactive({
     req(input$station)
     req(nrow(avail_stns()) > 0)
@@ -59,17 +56,23 @@ server <- function(input, output, session) {
   })
 
 
-  ## When list changes ----
+  # Observers ----
+
+  ## on stn_list change ----
+  # it updates the station selectInput
   observeEvent(stn_list(), {
     stations <- stn_list()
 
     if (input$station %in% stations) {
+      # if the previously selected station is still in the list, keep it selected
       selected <- input$station
     } else {
       if (first_run()) {
+        # always pick a random baseline station on app load
         selected <- random_baseline_stn()
         first_run(F)
       } else {
+        # otherwise pick any random station
         selected <- stations[sample(1:length(stations), 1)]
       }
     }
@@ -82,8 +85,10 @@ server <- function(input, output, session) {
   })
 
 
-  ## Prev/Next/Rnd station buttons ----
+  # Button handlers ----
 
+  ## Prev station button ----
+  # select the next station in the list
   observeEvent(input$next_stn, {
     stn <- cur_stn()$station_id
     stns <- stn_list()
@@ -92,6 +97,8 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "station", selected = selected)
   })
 
+  ## Next station button ----
+  # select the previous station in the list
   observeEvent(input$prev_stn, {
     stn <- cur_stn()$station_id
     stns <- stn_list()
@@ -100,6 +107,8 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "station", selected = selected)
   })
 
+  ## Random station button ----
+  # select a random station
   observeEvent(input$rnd_stn, {
     req(length(stn_list()) > 0)
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
@@ -110,9 +119,11 @@ server <- function(input, output, session) {
 
   # Module servers ----
 
+  ## Map ----
+
   map_click <- mapServer(
-    avail_stns = reactive(avail_stns()),
-    cur_stn = reactive(cur_stn())
+    cur_stn = reactive(cur_stn()),
+    avail_stns = reactive(avail_stns())
   )
 
   # select a station when clicked on the map
@@ -123,28 +134,30 @@ server <- function(input, output, session) {
     )
   })
 
+
+  ## Recent stations ----
   recentStationsServer(
     cur_stn = reactive(cur_stn()),
     stn_list = reactive(stn_list())
   )
 
+  ## Baseline data tab ----
   baselineDataServer(cur_stn = reactive(cur_stn()))
 
+  ## Nutrient data tab ----
   nutrientDataServer(cur_stn = reactive(cur_stn()))
 
+  ## Thermistor data tab ----
   thermistorDataServer(cur_stn = reactive(cur_stn()))
 
+  ## Station info tab ----
   stationInfoServer(cur_stn = reactive(cur_stn()))
 
+  ## Station list tab ----
   stationListServer()
 
 
-  # Gracefully exit ----
-
-  session$onSessionEnded(function() { stopApp() })
-
-
-  # PDF Reports ----
+  # PDF Reports (pending) ----
 
   # output$baseline_report <- downloadHandler(
   #   filename = paste0(
@@ -171,5 +184,10 @@ server <- function(input, output, session) {
   #     )
   #   }
   # )
+
+
+  # Gracefully exit ----
+
+  session$onSessionEnded(function() { stopApp() })
 
 }

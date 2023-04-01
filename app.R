@@ -1,12 +1,21 @@
-# app.R
+## WAV DASHBOARD ##
+# Ben Bradford, UW-Madison
+# Requires data prep in separate RProj
 
-source("global.R")
-source("ui.R")
-source("server.R")
 
 shiny::shinyApp(ui, server)
 
-#- RENV -#
+
+#- Dependencies -#
+
+#' app.R
+#' - global.R
+#' - ui.R
+#' - server.R
+#' - modules in ./R
+
+
+#- Renv for pkg management -#
 
 # renv::init()         # initiate renv if not already
 # renv::dependencies() # show project dependencies

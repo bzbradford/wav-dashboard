@@ -1,13 +1,13 @@
-# ui.R
+## MAIN UI ##
 
-# UI ----------------------------------------------------------------------
+# UI ----
 
 ui <- fluidPage(
 
+  ## Setup ----
+
   title = "WAV Data Dashboard",
   theme = shinytheme("flatly"),
-  useShinyjs(),
-
   tags$head(
     tags$meta(charset = "UTF-8"),
     tags$meta(name = "description", content = "An online data dashboard for viewing stream monitoring data collected by volunteers across Wisconsin"),
@@ -18,29 +18,29 @@ ui <- fluidPage(
     tags$script(src = "html2canvas.js"),
     tags$script(src = "saveAs.js")
   ),
+  useShinyjs(),
+
+
+  ## Page heading ----
 
   div(
     align = "center",
     style = "margin-top: 1em;",
     a(img(src = "wav-logo-color.png", height = "100px"), href = "https://wateractionvolunteers.org", target = "_blank")
   ),
-
   br(),
-
   h2("Stream Monitoring Data Dashboard", align = "center"),
-
   br(),
   br(),
 
 
-  # Map UI ----
+  ## Map and sidebar ----
 
   mapUI(),
-
   br(),
 
 
-  # Station dropdown ----
+  ## Station tabs ----
 
   div(
     class = "well",
@@ -74,7 +74,7 @@ ui <- fluidPage(
   ),
 
 
-  # Data tabs ----
+  ## Data tabs ----
 
   tabsetPanel(
     id = "data_tabs",

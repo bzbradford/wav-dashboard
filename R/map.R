@@ -73,10 +73,10 @@ mapUI <- function() {
 
 # Server ----
 
-#' @param avail_stns a `reactive()` expression containing the list of available stations
 #' @param cur_stn a `reactive()` expression containing the currently selected station
+#' @param avail_stns a `reactive()` expression containing the list of available stations
 
-mapServer <- function(avail_stns, cur_stn) {
+mapServer <- function(cur_stn, avail_stns) {
   moduleServer(
     id = "map",
     function(input, output, session) {
