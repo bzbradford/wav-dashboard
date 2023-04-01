@@ -79,6 +79,10 @@ baselineDataServer <- function(cur_stn) {
         }
       })
 
+      selected_data_ready <- reactive({
+        nrow(selected_data()) > 0
+      })
+
 
       ## Layout ----
 
@@ -127,7 +131,7 @@ baselineDataServer <- function(cur_stn) {
       ## Plot ----
 
       output$plot <- renderPlotly({
-        req(data_ready())
+        req(selected_data_ready())
 
         df <- selected_data() %>%
           distinct(date, .keep_all = T)
@@ -315,7 +319,7 @@ baselineDataServer <- function(cur_stn) {
 
       output$stnSummaryUI <- renderUI({
         req(input$year)
-        req(nrow(selected_data()) > 0)
+        req(selected_data_ready())
 
         div(
           class = "well",
@@ -328,7 +332,7 @@ baselineDataServer <- function(cur_stn) {
       output$stnSummaryData <- renderTable(
         {
           req(input$year)
-          req(nrow(selected_data()) > 0)
+          req(selected_data_ready())
 
           df <- selected_data() %>%
             distinct(date, .keep_all = T)
@@ -371,6 +375,8 @@ baselineDataServer <- function(cur_stn) {
       })
 
       output$dataTable <- renderDataTable({
+        req(selected_data_ready())
+
         date_fmt <- ifelse(input$year == "All", "%b %d, %Y", "%b %d")
 
         df <- selected_data() %>%

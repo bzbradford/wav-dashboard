@@ -47,9 +47,13 @@ thermistorDataServer <- function(cur_stn) {
         }
       })
 
+      selected_data_ready <- reactive({
+        nrow(selected_data()) > 0
+      })
+
       logger_serials <- reactive({
         req(input$year)
-        req(data_ready())
+        req(selected_data_ready())
 
         loggers <- selected_data() %>%
           count(year, logger_sn)
@@ -66,7 +70,7 @@ thermistorDataServer <- function(cur_stn) {
 
       # create station daily totals
       daily_data <- reactive({
-        req(data_ready())
+        req(selected_data_ready())
         req(input$units)
 
         units <- input$units
@@ -91,7 +95,7 @@ thermistorDataServer <- function(cur_stn) {
       })
 
       summary_data <- reactive({
-        req(data_ready())
+        req(selected_data_ready())
         req(input$year)
         req(input$units)
 
@@ -220,7 +224,7 @@ thermistorDataServer <- function(cur_stn) {
       ## Plot ----
 
       output$plot <- renderPlotly({
-        req(data_ready())
+        req(selected_data_ready())
         req(input$units)
         req(input$annotations)
 
@@ -425,7 +429,7 @@ thermistorDataServer <- function(cur_stn) {
       ## Data table ----
 
       output$viewDataUI <- renderUI({
-        req(data_ready())
+        req(selected_data_ready())
 
         min_date <- min(selected_data()$date)
         max_date <- max(selected_data()$date)
