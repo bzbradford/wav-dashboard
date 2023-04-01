@@ -1,4 +1,6 @@
-# global.R
+## GLOBAL ##
+
+# Dependencies ----
 
 suppressMessages({
   # core
@@ -24,7 +26,8 @@ suppressMessages({
   library(RColorBrewer)
 })
 
-# Functions ---------------------------------------------------------------
+
+# Functions ----
 
 c_to_f <- function(c, d = 1) {
   round(c * 9.0 / 5.0 + 32, d)
@@ -106,8 +109,31 @@ check_missing_stns <- function(data, pts, type) {
   }
 }
 
+year_choices <- function(years) {
+  if (length(years) > 1) {
+    c(years, "All")
+  } else {
+    years
+  }
+}
 
-# Defs --------------------------------------------------------------------
+min_max <- function(v) {
+  possibly(
+    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(NA, NA))
+  )
+}
+
+random_baseline_stn <- function() {
+  all_pts %>%
+    filter(baseline_stn) %>%
+    filter(max_fw_year == max(data_years)) %>%
+    pull(station_id) %>%
+    sample(1)
+}
+
+
+# Defs ----
 
 stn_colors <- list(
   "baseline" = "green",
@@ -117,7 +143,7 @@ stn_colors <- list(
 )
 
 
-# Map layers --------------------------------------------------------------
+# Map layers ----
 
 counties <- read_sf("shp/wi-counties.shp")
 nkes <- read_sf("shp/nke-plans-2022.shp")
@@ -126,7 +152,7 @@ huc10 <- read_sf("shp/wi-huc-10.shp")
 huc12 <- read_sf("shp/wi-huc-12.shp")
 
 
-# Station lists -----------------------------------------------------------
+# Station lists ----
 
 station_list <- read_csv("data/station-list.csv", col_types = list(station_id = "c"))
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
@@ -137,7 +163,7 @@ station_types <- list(
 )
 
 
-# Baseline data -----------------------------------------------------------
+# Baseline data ----
 
 baseline_data <- read_csv("data/baseline-data.csv.gz", col_types = list(station_id = "c")) %>%
   arrange(station_id, date)
@@ -152,7 +178,7 @@ baseline_pts <- station_pts %>%
 check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 
-# Nutrient data -----------------------------------------------------------
+# Nutrient data ----
 
 nutrient_data <- read_csv("data/tp-data.csv", col_types = list(station_id = "c")) %>%
   arrange(station_id, date)
@@ -167,7 +193,7 @@ nutrient_pts <- station_pts %>%
 check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 
-# Thermistor data ---------------------------------------------------------
+# Thermistor data ----
 
 therm_data <- read_csv("data/therm-data.csv.gz", col_types = list(station_id = "c"))
 therm_info <- read_csv("data/therm-info.csv", col_types = list(station_id = "c"))
@@ -182,7 +208,7 @@ therm_pts <- station_pts %>%
 check_missing_stns(therm_data, therm_pts, "thermistor")
 
 
-# Data coverage -----------------------------------------------------------
+# Data coverage ----
 
 all_coverage <- bind_rows(
   mutate(baseline_coverage, source = "Baseline"),
@@ -261,7 +287,7 @@ all_stn_data <- all_stn_years %>%
 
 
 
-# Finalize sites ----------------------------------------------------------
+# Finalize sites lists ----
 
 all_pts <- station_pts %>%
   mutate(label = paste(station_id, station_name, sep = ": ")) %>%
@@ -303,33 +329,3 @@ all_stn_list <- all_pts %>%
   select(label, station_id) %>%
   deframe() %>%
   as.list()
-
-
-
-# TEST ZONE ---------------------------------------------------------------
-
-# these stations appear in the data but don't have a location
-# all_coverage %>%
-#   filter(!(station_id %in% all_pts$station_id)) %>%
-#   write_csv("stations missing locations.csv")
-
-
-# test = c("2019", "2021")
-# all_coverage %>%
-#   rowwise() %>%
-#   filter(setequal(intersect(test, data_year_list), test)) %>%
-#   pull(station_id)
-
-#
-# baseline_data %>%
-#   filter(station_id == station_id[1]) %>%
-#   clean_names(case = "title") %>%
-#   rownames_to_column() %>%
-#   mutate(rowname = paste("Obs", rowname)) %>%
-#   mutate(across(everything(), as.character)) %>%
-#   pivot_longer(cols = -rowname, names_to = "Parameter") %>%
-#   pivot_wider(names_from = rowname)
-#
-#
-# names(df) <- paste("Obs", ncol(df))
-

@@ -1,4 +1,38 @@
+## TESTING ##
+
+library(tidyverse)
+library(sf)
 library(leaflet)
+library(plotly)
+
+
+# Data validation ----
+
+# these stations appear in the data but don't have a location
+all_coverage %>%
+  filter(!(station_id %in% all_pts$station_id)) %>%
+  write_csv("stations missing locations.csv")
+
+test = c("2019", "2021")
+all_coverage %>%
+  rowwise() %>%
+  filter(setequal(intersect(test, data_year_list), test)) %>%
+  pull(station_id)
+
+baseline_data %>%
+  filter(station_id == station_id[1]) %>%
+  clean_names(case = "title") %>%
+  rownames_to_column() %>%
+  mutate(rowname = paste("Obs", rowname)) %>%
+  mutate(across(everything(), as.character)) %>%
+  pivot_longer(cols = -rowname, names_to = "Parameter") %>%
+  pivot_wider(names_from = rowname)
+
+names(df) <- paste("Obs", ncol(df))
+
+
+
+# Some leaflet maps ----
 
 station_pts %>%
   mutate(label = paste0(station_id, ": ", station_name)) %>%
@@ -24,8 +58,9 @@ baseline_data %>%
 
 
 
+# Dissolved oxygen plot ----
 
-# Dissolved oxygen plot ---------------------------------------------------
+# library(RColorBrewer)
 
 cur_baseline_data <- baseline_data %>%
   filter(station_id == 10016773, year == 2022)
@@ -69,7 +104,7 @@ colfunc(12)
 
 
 
-library(RColorBrewer)
+# Baseline plotly test ----
 
 cur_baseline_data %>%
   drop_na(d_o) %>%
@@ -129,8 +164,8 @@ cur_baseline_data %>%
   )
 
 
-# Temperature -------------------------------------------------------------
 
+# Temperature plotly test ----
 
 cur_baseline_data %>%
   plot_ly() %>%
@@ -175,7 +210,7 @@ cur_baseline_data %>%
 
 
 
-# Combined plot -----------------------------------------------------------
+# Combined plot test ----
 
 df <- cur_baseline_data %>%
   distinct(date, .keep_all = T) %>%
@@ -317,7 +352,7 @@ df %>%
 
 
 
-# Baseline summaries ------------------------------------------------------
+# Baseline summaries ----
 
 baseline_data %>%
   select(
@@ -384,8 +419,7 @@ summary_vars %>%
 
 
 
-
-# Thermistor summary ------------------------------------------------------
+# Thermistor summary ----
 
 therm_temp_units <- "F"
 
