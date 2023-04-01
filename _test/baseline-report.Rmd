@@ -1,0 +1,27 @@
+---
+title: "Baseline Monitoring Report"
+author: "Water Action Volunteers"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+params:
+  id: NA
+  name: NA
+  year: NA
+  plot: NA
+---
+
+# Water Action Volunteers
+
+Baseline data report for station `r params$id`: `r params$name`
+
+## Baseline Data
+
+Baseline data plot for `r params$year`.
+
+```{r baseline_plot, echo=FALSE}
+params$plot
+```
+
+
