@@ -5,7 +5,8 @@
 stationListUI <- function() {
   ns <- NS("station-list")
 
-  tagList(
+  div(
+    class = "data-tab",
     p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
     uiOutput(ns("content"))
   )

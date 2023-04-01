@@ -28,6 +28,10 @@ get_phos_estimate <- function(vals) {
 }
 
 get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
+  fail_msg <- "Unable to determine phosphorus exceedance type based on the data shown above."
+
+  if (anyNA(c(median, lower, upper))) return(fail_msg)
+
   if (lower >= limit) {
     "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit.)"
   } else if (lower <= limit & median >= limit) {
@@ -37,7 +41,7 @@ get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
   } else if (upper <= limit) {
     "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit)."
   } else {
-    "Unable to determine phosphorus exceedance type based on the data shown above."
+    fail_msg
   }
 }
 
@@ -47,7 +51,10 @@ get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
 nutrientDataUI <- function() {
   ns <- NS("nutrient")
 
-  uiOutput(ns("content"))
+  div(
+    class = "data-tab",
+    uiOutput(ns("content"))
+  )
 }
 
 
@@ -85,8 +92,13 @@ nutrientDataServer <- function(cur_stn) {
         }
       })
 
+      selected_data_ready <- reactive({
+        nrow(cur_data()) > 0
+      })
+
       phos_estimate <- reactive({
-        req(data_ready())
+        req(selected_data_ready())
+
         get_phos_estimate(selected_data()$tp)
       })
 
@@ -104,7 +116,7 @@ nutrientDataServer <- function(cur_stn) {
 
       output$content <- renderUI({
         if (!data_ready()) {
-          return(div(class = "well", p("This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station.")))
+          return(div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."))
         }
 
         tagList(
@@ -144,7 +156,7 @@ nutrientDataServer <- function(cur_stn) {
       ## Plot ----
 
       output$plot <- renderPlotly({
-        req(data_ready())
+        req(selected_data_ready())
 
         df <- selected_data() %>%
           mutate(exceedance = factor(
@@ -328,6 +340,8 @@ nutrientDataServer <- function(cur_stn) {
       })
 
       output$dataTable <- renderDataTable({
+        req(selected_data_ready())
+
         selected_data() %>%
           drop_na(tp) %>%
           clean_names(case = "big_camel")

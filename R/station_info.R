@@ -6,14 +6,17 @@ stationInfoUI <- function() {
   ns <- NS("station-info")
 
   div(
-    class = "flex-row",
+    class = "data-tab",
     div(
-      class = "flex-col",
-      uiOutput(ns("details"))
-    ),
-    div(
-      class = "flex-col",
-      uiOutput(ns("coverage"))
+      class = "flex-row",
+      div(
+        class = "flex-col",
+        uiOutput(ns("details"))
+      ),
+      div(
+        class = "flex-col",
+        uiOutput(ns("coverage"))
+      )
     )
   )
 }

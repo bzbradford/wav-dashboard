@@ -35,57 +35,7 @@ ui <- fluidPage(
 
   # Map UI ----
 
-  div(style = "margin: 0.5em 1em;", align = "center",
-      p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
-  ),
-
-  sidebarLayout(
-    sidebarPanel(
-      checkboxGroupInput(
-        inputId = "stn_types",
-        label = "Station data types:",
-        choices = station_types,
-        selected = station_types
-      ),
-      p(strong("Stations with data from:")),
-      fluidRow(
-        column(5,
-          checkboxGroupInput(
-            inputId = "stn_years",
-            label = NULL,
-            choices = data_years,
-            selected = data_years[1]
-          )
-        ),
-        column(7,
-          radioButtons(
-            inputId = "year_exact_match",
-            label = NULL,
-            choices = list(
-              "ANY selected year" = FALSE,
-              "ALL selected years" = TRUE
-            )
-          )
-        )
-      ),
-      hr(),
-      uiOutput("total_stns_text"),
-      hr(),
-      div(
-        style = "line-height: 3.5em;",
-        align = "center",
-        actionButton("zoom_in", "Zoom to selected site", width = "100%"), br(),
-        actionButton("reset_zoom", "Zoom out to all sites", width = "100%")
-      )
-    ),
-    mainPanel(
-      div(
-        style = "max-width: 1000px; margin: auto; border: 1px solid lightgrey;",
-        leafletOutput("map", width = "100%", height = "700px")
-      )
-    ),
-    position = "right"
-  ),
+  mapUI(),
 
   br(),
 

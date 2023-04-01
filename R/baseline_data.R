@@ -40,7 +40,10 @@ baseline_summary_vars <- tribble(
 baselineDataUI <- function() {
   ns <- NS("baseline")
 
-  uiOutput(ns("content"))
+  div(
+    class = "data-tab",
+    uiOutput(ns("content"))
+  )
 }
 
 
@@ -81,7 +84,7 @@ baselineDataServer <- function(cur_stn) {
 
       output$content <- renderUI({
         if (!data_ready()) {
-          return(div(class = "well", p("This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station.")))
+          return(div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."))
         }
 
         tagList(

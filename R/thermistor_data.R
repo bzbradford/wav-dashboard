@@ -6,7 +6,10 @@
 thermistorDataUI <- function() {
   ns <- NS("thermistor")
 
-  uiOutput(ns("content"))
+  div(
+    class = "data-tab",
+    uiOutput(ns("content"))
+  )
 }
 
 
@@ -129,7 +132,7 @@ thermistorDataServer <- function(cur_stn) {
 
       output$content <- renderUI({
         if (!data_ready()) {
-          return(div(class = "well", p("This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station.")))
+          return(div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."))
         }
 
         tagList(

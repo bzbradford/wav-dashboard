@@ -46,6 +46,12 @@ a, a:hover, a:focus {
 
 /* New classes */
 
+.map-container {
+  max-width: 1000px;
+  margin: auto;
+  border: 1px solid lightgrey;
+}
+
 .data-tab {
   min-height: 300px;
   margin-top: 1em;
