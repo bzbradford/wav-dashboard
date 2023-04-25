@@ -141,6 +141,12 @@ server <- function(input, output, session) {
     stn_list = reactive(stn_list())
   )
 
+  ## Station info tab ----
+  stationInfoServer(cur_stn = reactive(cur_stn()))
+
+  ## Station list tab ----
+  stationListServer()
+
   ## Baseline data tab ----
   baselineDataServer(cur_stn = reactive(cur_stn()))
 
@@ -150,11 +156,9 @@ server <- function(input, output, session) {
   ## Thermistor data tab ----
   thermistorDataServer(cur_stn = reactive(cur_stn()))
 
-  ## Station info tab ----
-  stationInfoServer(cur_stn = reactive(cur_stn()))
+  ## Watershed info tab ----
+  watershedInfoServer(cur_stn = reactive(cur_stn()))
 
-  ## Station list tab ----
-  stationListServer()
 
 
   # PDF Reports (pending) ----

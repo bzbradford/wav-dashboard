@@ -154,7 +154,7 @@ huc12 <- read_sf("shp/wi-huc-12.shp")
 
 # Station lists ----
 
-station_list <- read_csv("data/station-list.csv", col_types = list(station_id = "c"))
+station_list <- read_csv("data/station-list.csv.gz", col_types = list(station_id = "c"))
 station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
@@ -180,7 +180,7 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 # Nutrient data ----
 
-nutrient_data <- read_csv("data/tp-data.csv", col_types = list(station_id = "c")) %>%
+nutrient_data <- read_csv("data/tp-data.csv.gz", col_types = list(station_id = "c")) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
@@ -329,3 +329,8 @@ all_stn_list <- all_pts %>%
   select(label, station_id) %>%
   deframe() %>%
   as.list()
+
+
+# Landscape data ----
+
+landcover <- read_csv("data/landcover.csv.gz")
