@@ -267,7 +267,8 @@ mapServer <- function(cur_stn, avail_stns) {
             addPolygons(
               data = nkes,
               group = layers$nkes,
-              label = ~ lapply(paste0("<b>", PlanName, "</b><br>Ends: ", EndDate, "<br>Objective: ", Objective), HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1,
               color = "blue",
               fillColor = "blue",
@@ -283,12 +284,8 @@ mapServer <- function(cur_stn, avail_stns) {
             addPolygons(
               data = huc8,
               group = layers$huc8,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc8Name, " Subbasin</b>",
-                  "<br>HUC8 Code: ", Huc8Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1.5,
               color = color,
               fillColor = fill_color,
@@ -303,12 +300,8 @@ mapServer <- function(cur_stn, avail_stns) {
             addPolygons(
               data = huc10,
               group = layers$huc10,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc10Name, " Watershed</b>",
-                  "<br>HUC10 Code: ", Huc10Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1,
               color = color,
               fillColor = fill_color,
@@ -324,12 +317,8 @@ mapServer <- function(cur_stn, avail_stns) {
             addPolygons(
               data = huc12,
               group = layers$huc12,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc12Name, " Subwatershed</b>",
-                  "<br>HUC12 Code: ", Huc12Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 0.5,
               color = color,
               fillColor = fill_color,
