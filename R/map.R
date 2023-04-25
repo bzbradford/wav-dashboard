@@ -108,6 +108,9 @@ mapServer <- function(cur_stn, avail_stns) {
           filter(station_id %in% avail_stns()$station_id)
       })
 
+
+      ## Map point size ----
+
       pt_size <- reactiveVal(4)
 
       getPtSize <- function(z) {
@@ -120,7 +123,6 @@ mapServer <- function(cur_stn, avail_stns) {
 
       observe({
         z <- input$map_zoom
-        print(z)
         if (is.null(z)) return()
         new_size <- getPtSize(z)
         if (pt_size() != new_size) pt_size(new_size)
@@ -130,7 +132,7 @@ mapServer <- function(cur_stn, avail_stns) {
       ## Observers ----
 
       # center map when station changes
-      observeEvent(cur_stn(), {
+      observe({
         zoom <- input$map_zoom
         if (is.null(zoom)) return()
 
@@ -142,7 +144,7 @@ mapServer <- function(cur_stn, avail_stns) {
               zoom = zoom
             )
         }
-      })
+      }) %>% bindEvent(cur_stn())
 
 
       ## Station text output ----
@@ -252,10 +254,9 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
-      ## Render additional map layers ----
+      ## Render additional map layers after a delay ----
 
       observe({
-
         map <- leafletProxy(ns("map"))
         color <- "blue"
         fill_color <- "lightblue"
@@ -346,8 +347,7 @@ mapServer <- function(cur_stn, avail_stns) {
               options = layersControlOptions(collapsed = TRUE)
             )
         })
-      }) %>%
-        bindEvent(T, once = T)
+      }) %>% bindEvent(T, once = T)
 
 
       ## Render map points ----
@@ -424,8 +424,7 @@ mapServer <- function(cur_stn, avail_stns) {
             clearGroup(layers$pins)
             clearGroup("cur_point")
         }
-      }) %>%
-        bindEvent(list(avail_pts(), pt_size()))
+      }) %>% bindEvent(list(avail_pts(), pt_size()))
 
 
       ## Show current station ----
