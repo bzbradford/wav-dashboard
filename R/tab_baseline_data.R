@@ -136,10 +136,9 @@ baselineDataServer <- function(cur_stn) {
 
         do_data <- df %>%
           filter(!is.na(d_o)) %>%
-          mutate(label = ifelse(
-            is.na(d_o_percent_saturation),
-            paste0(d_o, " mg/L"),
-            paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
+          mutate(label = case_when(
+            is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
+            T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
           rowwise() %>%
           mutate(do_color = do_color(d_o))
         temp_data <- filter(df, !(is.na(water_temperature) & is.na(ambient_air_temp)))
@@ -167,7 +166,7 @@ baselineDataServer <- function(cur_stn) {
             name = "D.O.",
             x = ~date,
             y = ~d_o,
-            text = ~paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
+            text = ~label,
             marker = list(
               color = ~do_color,
               line = list(color = "black", width = 0.5)),
