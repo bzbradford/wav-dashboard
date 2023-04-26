@@ -335,64 +335,82 @@ mapServer <- function(cur_stn, avail_stns) {
       ## Render map points ----
 
       drawPts <- function() {
+        map <- leafletProxy(ns("map"))
         pts <- avail_pts()
         pt_size <- pt_size()
         labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
         popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
 
-        baseline <- avail_baseline_pts()
-        therm <- avail_therm_pts()
-        nutrient <- avail_nutrient_pts()
+        # pins
+        map %>% clearGroup(layers$pins)
+        if (nrow(pts) > 0) {
+          map %>%
+            addMarkers(
+              data = pts,
+              group = layers$pins,
+              label = labels,
+              popup = popups,
+              layerId = ~station_id,
+              clusterOptions = markerClusterOptions()
+            )
+        }
 
-        leafletProxy(ns("map")) %>%
-          clearGroup(layers$baseline) %>%
-          addCircleMarkers(
-            data = baseline,
-            group = layers$baseline,
-            label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
-            layerId = ~station_id,
-            radius = pt_size,
-            color = "black",
-            weight = 0.5,
-            fillColor = stn_colors$baseline,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "baseline", sticky = F)
-          ) %>%
-          clearGroup(layers$therm) %>%
-          addCircleMarkers(
-            data = therm,
-            group = layers$therm,
-            label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
-            layerId = ~station_id,
-            radius = pt_size,
-            color = "black",
-            weight = 0.5,
-            fillColor = stn_colors$thermistor,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "thermistor", sticky = F)
-          ) %>%
-          clearGroup(layers$nutrient) %>%
-          addCircleMarkers(
-            data = nutrient,
-            group = layers$nutrient,
-            label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
-            layerId = ~station_id,
-            radius = pt_size,
-            color = "black",
-            weight = 0.5,
-            fillColor = stn_colors$nutrient,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "nutrient", sticky = F)
-          ) %>%
-          clearGroup(layers$pins) %>%
-          addMarkers(
-            data = pts,
-            group = layers$pins,
-            label = labels,
-            popup = popups,
-            layerId = ~station_id,
-            clusterOptions = markerClusterOptions()
-          )
+        # baseline points
+        baseline <- avail_baseline_pts()
+        map %>% clearGroup(layers$baseline)
+        if (nrow(baseline) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = baseline,
+              group = layers$baseline,
+              label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$baseline,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "baseline", sticky = F)
+            )
+        }
+
+        # nutrient points
+        nutrient <- avail_nutrient_pts()
+        map %>% clearGroup(layers$nutrient)
+        if (nrow(nutrient) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = nutrient,
+              group = layers$nutrient,
+              label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$nutrient,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "nutrient", sticky = F)
+            )
+        }
+
+        # thermistor points
+        therm <- avail_therm_pts()
+        map %>% clearGroup(layers$therm)
+        if (nrow(therm) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = therm,
+              group = layers$therm,
+              label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$thermistor,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "thermistor", sticky = F)
+            )
+        }
       }
 
       observe({
@@ -403,7 +421,7 @@ mapServer <- function(cur_stn, avail_stns) {
             clearGroup(layers$baseline) %>%
             clearGroup(layers$therm) %>%
             clearGroup(layers$nutrient) %>%
-            clearGroup(layers$pins)
+            clearGroup(layers$pins) %>%
             clearGroup("cur_point")
         }
       }) %>% bindEvent(list(avail_pts(), pt_size()))
@@ -412,15 +430,15 @@ mapServer <- function(cur_stn, avail_stns) {
       ## Show current station ----
 
       observe({
-        leafletProxy(ns("map")) %>%
-          clearGroup("cur_point")
+        map <- leafletProxy(ns("map"))
+        map %>% clearGroup("cur_point")
 
         if (!any_stns()) return()
 
         label <- all_labels[names(all_labels) == cur_stn()$station_id] %>% setNames(NULL)
         popup <- all_popups[names(all_popups) == cur_stn()$station_id] %>% setNames(NULL)
 
-        leafletProxy(ns("map")) %>%
+        map %>%
           addCircleMarkers(
             data = cur_stn(),
             lat = ~latitude,
