@@ -62,6 +62,7 @@ mapUI <- function() {
       mainPanel(
         div(
           class = "map-container",
+          id = "map",
           leafletOutput(ns("map"), width = "100%", height = "700px")
         )
       ),
@@ -116,8 +117,8 @@ mapServer <- function(cur_stn, avail_stns) {
       getPtSize <- function(z) {
         if (is.null(z)) return(4)
         if (z >= 14) return(8)
-        if (z >= 12) return(6)
-        if (z >= 10) return(5)
+        if (z >= 12) return(7)
+        if (z >= 10) return(6)
         4
       }
 
@@ -131,20 +132,12 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ## Observers ----
 
-      # center map when station changes
-      observe({
-        zoom <- input$map_zoom
-        if (is.null(zoom)) return()
-
-        if (zoom > 7) {
-          leafletProxy(ns("map")) %>%
-            setView(
-              lat = cur_stn()$latitude,
-              lng = cur_stn()$longitude,
-              zoom = zoom
-            )
-        }
-      }) %>% bindEvent(cur_stn())
+      # center map when station changes but only if zoomed in
+      observeEvent(cur_stn(), {
+        req(input$map_zoom)
+        z <- input$map_zoom
+        if (z >= 8) zoomToSite()
+      })
 
 
       ## Station text output ----
@@ -256,7 +249,7 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ## Render additional map layers after a delay ----
 
-      observe({
+      observeEvent(T, {
         map <- leafletProxy(ns("map"))
         color <- "blue"
         fill_color <- "lightblue"
@@ -279,7 +272,7 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC8
-        delay(750, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc8,
@@ -295,7 +288,7 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC10
-        delay(1000, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc10,
@@ -312,7 +305,7 @@ mapServer <- function(cur_stn, avail_stns) {
 
 
         # HUC12
-        delay(1250, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc12,
@@ -336,7 +329,7 @@ mapServer <- function(cur_stn, avail_stns) {
               options = layersControlOptions(collapsed = TRUE)
             )
         })
-      }) %>% bindEvent(T, once = T)
+      })
 
 
       ## Render map points ----
@@ -461,15 +454,19 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ### Zoom in button ----
 
-      observeEvent(input$zoomInBtn, {
+      zoomToSite <- function() {
+        cur_zoom <- input$map_zoom
         leafletProxy(ns("map")) %>%
           setView(
             lat = cur_stn()$latitude,
             lng = cur_stn()$longitude,
-            zoom = 10
+            zoom = max(cur_zoom, 10)
           )
-      })
+      }
 
+      observeEvent(input$zoomInBtn, {
+        zoomToSite()
+      })
 
       ### Reset zoom button ----
 
@@ -491,6 +488,17 @@ mapServer <- function(cur_stn, avail_stns) {
               lng2 = max(all_pts$longitude)
             )
         }
+      })
+
+
+      ## Toggle watershed visibility ----
+
+      observeEvent(input$showWatersheds, {
+        leafletProxy(ns("map")) %>%
+          showGroup(layers$huc8) %>%
+          showGroup(layers$huc10) %>%
+          showGroup(layers$huc12)
+        zoomToSite()
       })
 
 

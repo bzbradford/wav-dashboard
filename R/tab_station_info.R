@@ -5,8 +5,7 @@
 stationInfoUI <- function() {
   ns <- NS("station-info")
 
-  div(
-    class = "data-tab",
+  tagList(
     div(
       class = "flex-row",
       div(

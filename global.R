@@ -168,24 +168,24 @@ huc8 <- readRDS("data/shp/huc8") %>%
     "<b>", Huc8Name, " Subbasin</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC8 Code: ", Huc8Code,
-    "<br>Within HUC6 basin: ", MajorBasin
+    "<br>HUC6 basin: ", MajorBasin
   ))
 huc10 <- readRDS("data/shp/huc10") %>%
   mutate(Label = paste0(
     "<b>", Huc10Name, " Watershed</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC10 Code: ", Huc10Code,
-    "<br>Within HUC8 subbasin: ", Huc8Name,
-    "<br>Within HUC6 basin: ", MajorBasin
+    "<br>HUC8 subbasin: ", Huc8Name,
+    "<br>HUC6 basin: ", MajorBasin
   ))
 huc12 <- readRDS("data/shp/huc12") %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC12 Code: ", Huc12Code,
-    "<br>Within HUC10 watershed: ", Huc10Name,
-    "<br>Within HUC8 subbasin: ", Huc8Name,
-    "<br>Within HUC6 basin: ", MajorBasin
+    "<br>HUC10 watershed: ", Huc10Name,
+    "<br>HUC8 subbasin: ", Huc8Name,
+    "<br>HUC6 basin: ", MajorBasin
   ))
 
 
@@ -382,5 +382,9 @@ all_stn_list <- all_pts %>%
 
 # Landscape data ----
 
-landcover <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F)
+
+landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progress = F) %>%
+  mutate(across(where(is.character), fct_inorder))
+landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
+  left_join(landcover_classes, by = "class")
 

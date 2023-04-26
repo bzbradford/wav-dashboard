@@ -127,11 +127,18 @@ server <- function(input, output, session) {
   )
 
   # select a station when clicked on the map
-  observe({
+  observeEvent(map_click(), {
     updateSelectInput(
       inputId = "station",
       selected = map_click()
     )
+    cur_zoom <- input$`map-map_zoom`
+    leafletProxy("map-map") %>%
+      setView(
+        lat = map_click()$lat,
+        lng = map_click()$lng,
+        zoom = max(cur_zoom, 10) # don't zoom out
+      )
   })
 
 

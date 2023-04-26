@@ -84,7 +84,7 @@ ui <- fluidPage(
     tabPanel("Baseline data", baselineDataUI()),
     tabPanel("Nutrient data", nutrientDataUI()),
     tabPanel("Thermistor data", thermistorDataUI()),
-    tabPanel("Watershed info", watershedInfoUI()),
+    tabPanel("Watersheds", watershedInfoUI()),
     tabPanel("Learn more", moreInfoUI())
   ),
 
