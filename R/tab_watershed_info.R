@@ -20,49 +20,60 @@ watershedInfoUI <- function() {
 #' Requires global variable `landscape_data`
 #' @param `cur_stn` a `reactive()` expression containing the 1-line data frame `cur_stn()`
 
-mean_landscape <- landscape_data %>%
-  group_by(huc_level, class_name, hex) %>%
-  summarize(pct_area = mean(pct_area), .groups = "drop")
-
-watershed_sizes <- landscape_data %>%
-  group_by(huc_level, huc) %>%
-  summarize(area = mean(total_area), .groups = "drop_last") %>%
-  summarize(area = mean(area)) %>%
-  deframe()
-
 watershedInfoServer <- function(cur_stn) {
   moduleServer(
     id = "watershed",
     function(input, output, session) {
       ns <- session$ns
 
-      this_huc12_data <- reactive({
+
+      ## Static vars ----
+
+      mean_landscape <- landscape_data %>%
+        group_by(huc_level, class_name, hex) %>%
+        summarize(pct_area = mean(pct_area), .groups = "drop")
+
+      watershed_sizes <- landscape_data %>%
+        group_by(huc_level, huc) %>%
+        summarize(area = mean(total_area), .groups = "drop_last") %>%
+        summarize(area = mean(area)) %>%
+        deframe()
+
+      scale_choices <- list(
+        "Sub-watershed" = 12,
+        "Watershed" = 10,
+        "Sub-basin" = 8
+      )
+
+
+      ## Reactive vars ----
+
+      selected_data <- reactive({
+        req(input$scale)
+        col <- paste0("huc", input$scale)
         landscape_data %>%
-          filter(huc == cur_stn()$huc12) %>%
+          filter(huc == cur_stn()[[col]]) %>%
           arrange(class_name) %>%
           droplevels()
       })
 
-      this_huc10_data <- reactive({
-        landscape_data %>%
-          filter(huc == cur_stn()$huc10) %>%
-          arrange(class_name) %>%
-          droplevels()
+      all_data <- reactive({
+        req(input$scale)
+        mean_landscape %>% filter(huc_level == input$scale)
       })
 
-      this_huc8_data <- reactive({
-        landscape_data %>%
-          filter(huc == cur_stn()$huc8) %>%
-          arrange(class_name) %>%
-          droplevels()
+      selected_name <- reactive({
+        req(input$scale)
+        if (input$scale == 12) return(paste(cur_stn()$sub_watershed, "sub-watershed"))
+        if (input$scale == 10) return(paste(cur_stn()$watershed, "watershed"))
+        if (input$scale == 8) return(paste(cur_stn()$sub_basin, "sub-basin"))
       })
 
-      cur_watershed_sizes <- reactive({
-        c(
-          "8" = first(this_huc8_data()$total_area),
-          "10" = first(this_huc10_data()$total_area),
-          "12" = first(this_huc12_data()$total_area)
-        )
+      all_name <- reactive({
+        req(input$scale)
+        if (input$scale == 12) return("All Wisconsin sub-watersheds")
+        if (input$scale == 10) return("All Wisconsin watersheds")
+        if (input$scale == 8) return("All Wisconsin sub-basins")
       })
 
 
@@ -72,7 +83,7 @@ watershedInfoServer <- function(cur_stn) {
         stn <- cur_stn()
 
         tagList(
-          h4(strong("Station context")),
+          h4(strong("Station context"), style = "margin-top: 1.5em;"),
           div(
             style = "padding-left: 1em;",
             strong("Selected station:"), stn$station_name, br(),
@@ -90,57 +101,42 @@ watershedInfoServer <- function(cur_stn) {
 
       output$landscapes <- renderUI({
         tagList(
-          h4(strong("Landscape composition")),
+          h4(strong("Landscape composition"), style = "margin-top: 1.5em;"),
+          div(
+            class = "well flex-row year-btns",
+            div(class = "year-btn-text", em("Landscape scale:")),
+            radioGroupButtons(
+              inputId = ns("scale"),
+              label = NULL,
+              choices = scale_choices,
+              selected = 12
+            )
+          ),
           div(
             class = "flex-row",
-            div(
-              class = "pie-container well",
-              div(
-                class = "pie",
-                h5(align = "center", strong(cur_stn()$sub_watershed, "sub-watershed")),
-                plotlyOutput(ns("this_huc12"), height = "250px"),
-                div(
-                  class = "plot-caption",
-                  "Drainage area:", fmt_area(cur_watershed_sizes()[["12"]]), br(),
-                  "State average:", fmt_area(watershed_sizes[["12"]])
-                )
-              )
-            ),
-            div(
-              class = "pie-container well",
-              div(
-                class = "pie",
-                h5(align = "center", strong(cur_stn()$watershed, "watershed")),
-                plotlyOutput(ns("this_huc10"), height = "250px"),
-                div(
-                  class = "plot-caption",
-                  "Drainage area:", fmt_area(cur_watershed_sizes()[["10"]]), br(),
-                  "State average:", fmt_area(watershed_sizes[["10"]])
-                )
-              )
-            ),
-            div(
-              class = "pie-container well",
-              div(
-                class = "pie",
-                h5(align = "center", strong(cur_stn()$sub_basin, "sub-basin")),
-                plotlyOutput(ns("this_huc8"), height = "250px"),
-                div(
-                  class = "plot-caption",
-                  "Drainage area:", fmt_area(cur_watershed_sizes()[["8"]]), br(),
-                  "State average:", fmt_area(watershed_sizes[["8"]])
-                )
-              )
-            ),
-            div(
-              class = "pie-container well",
-              div(
-                class = "pie",
-                h5(align = "center", strong("All Wisconsin watersheds")),
-                plotlyOutput(ns("all_huc10"), height = "250px")
-              )
-            )
+            div(class = "pie-container well", uiOutput(ns("selected_pie"))),
+            div(class = "pie-container well", uiOutput(ns("all_pie")))
           )
+        )
+      })
+
+      output$selected_pie <- renderUI({
+        req(input$scale)
+        area <- fmt_area(selected_data()$total_area[1])
+        tagList(
+          h5(align = "center", strong(selected_name())),
+          plotlyOutput(ns("plot_selected"), height = "250px"),
+          div(class = "plot-caption", "Drainage area:", area)
+        )
+      })
+
+      output$all_pie <- renderUI({
+        req(input$scale)
+        area <- fmt_area(watershed_sizes[[as.character(input$scale)]])
+        tagList(
+          h5(align = "center", strong(all_name())),
+          plotlyOutput(ns("plot_all"), height = "250px"),
+          div(class = "plot-caption", "Average drainage:", area)
         )
       })
 
@@ -175,26 +171,13 @@ watershedInfoServer <- function(cur_stn) {
 
       # Pie charts ----
 
-      output$this_huc12 <- renderPlotly({
-        make_plot(this_huc12_data())
+      output$plot_selected <- renderPlotly({
+        selected_data() %>% make_plot()
       })
 
-      output$this_huc10 <- renderPlotly({
-        make_plot(this_huc10_data())
+      output$plot_all <- renderPlotly({
+        all_data() %>% make_plot()
       })
-
-      output$this_huc8 <- renderPlotly({
-        make_plot(this_huc8_data())
-      })
-
-      output$all_huc10 <- renderPlotly({
-        mean_landscape %>%
-          filter(huc_level == 10) %>%
-          arrange(class_name) %>%
-          droplevels() %>%
-          make_plot()
-      })
-
     }
   )
 }
