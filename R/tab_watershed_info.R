@@ -83,7 +83,7 @@ watershedInfoServer <- function(cur_stn) {
         stn <- cur_stn()
 
         tagList(
-          h4(strong("Station context"), style = "margin-top: 1.5em;"),
+          h4(strong("Station context"), style = "margin-top: 1em;"),
           div(
             style = "padding-left: 1em;",
             strong("Selected station:"), stn$station_name, br(),
@@ -101,7 +101,7 @@ watershedInfoServer <- function(cur_stn) {
 
       output$landscapes <- renderUI({
         tagList(
-          h4(strong("Landscape composition"), style = "margin-top: 1.5em;"),
+          h4(strong("Landscape composition"), style = "margin-top: 1em;"),
           div(
             class = "well flex-row year-btns",
             div(class = "year-btn-text", em("Landscape scale:")),
@@ -125,7 +125,7 @@ watershedInfoServer <- function(cur_stn) {
         area <- fmt_area(selected_data()$total_area[1])
         tagList(
           h5(align = "center", strong(selected_name())),
-          plotlyOutput(ns("plot_selected"), height = "250px"),
+          plotlyOutput(ns("plot_selected"), height = "300px"),
           div(class = "plot-caption", "Drainage area:", area)
         )
       })
@@ -135,7 +135,7 @@ watershedInfoServer <- function(cur_stn) {
         area <- fmt_area(watershed_sizes[[as.character(input$scale)]])
         tagList(
           h5(align = "center", strong(all_name())),
-          plotlyOutput(ns("plot_all"), height = "250px"),
+          plotlyOutput(ns("plot_all"), height = "300px"),
           div(class = "plot-caption", "Average drainage:", area)
         )
       })

@@ -184,15 +184,16 @@ mapServer <- function(cur_stn, avail_stns) {
           addProviderTiles(providers$CartoDB.Positron, group = basemaps$two) %>%
           addProviderTiles(providers$OpenStreetMap, group = basemaps$three) %>%
           addMapPane("counties", 410) %>%
-          addMapPane("huc8", 420) %>%
-          addMapPane("huc10", 421) %>%
-          addMapPane("huc12", 422) %>%
-          addMapPane("nkes", 423) %>%
+          addMapPane("cur_huc", 420) %>%
+          addMapPane("huc8", 421) %>%
+          addMapPane("huc10", 422) %>%
+          addMapPane("huc12", 423) %>%
+          addMapPane("nkes", 424) %>%
           addMapPane("baseline", 430) %>%
           addMapPane("thermistor", 431) %>%
           addMapPane("nutrient", 432) %>%
-          addMapPane("pins", 440) %>%
-          addMapPane("cur_point", 450) %>%
+          addMapPane("cur_point", 440) %>%
+          addMapPane("pins", 450) %>%
           hideGroup(hidden_layers) %>%
           addLayersControl(
             baseGroups = unlist(basemaps, use.names = FALSE),
@@ -247,7 +248,7 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
-      ## Render additional map layers after a delay ----
+      ## Render watersheds ----
 
       observeEvent(T, {
         map <- leafletProxy(ns("map"))
@@ -444,7 +445,6 @@ mapServer <- function(cur_stn, avail_stns) {
             lat = ~latitude,
             lng = ~longitude,
             label = label,
-            popup = popup,
             layerId = ~station_id,
             group = "cur_point",
             options = pathOptions(pane = "cur_point"),
@@ -517,6 +517,63 @@ mapServer <- function(cur_stn, avail_stns) {
           showGroup(layers$huc10) %>%
           showGroup(layers$huc12)
         zoomToSite()
+      })
+
+
+      ## Render selected watersheds ----
+
+      cur_huc12 <- reactive({
+        huc12 %>% filter(Huc12Code == cur_stn()$huc12)
+      })
+
+      cur_huc10 <- reactive({
+        huc10 %>% filter(Huc10Code == cur_stn()$huc10)
+      })
+
+      cur_huc8 <- reactive({
+        huc8 %>% filter(Huc8Code == cur_stn()$huc8)
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc12") %>%
+          addPolygons(
+            data = cur_huc12(),
+            group = layers$huc12,
+            layerId = "curHuc12",
+            weight = 2,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc10") %>%
+          addPolygons(
+            data = cur_huc10(),
+            group = layers$huc10,
+            layerId = "curHuc10",
+            weight = 3,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc8") %>%
+          addPolygons(
+            data = cur_huc8(),
+            group = layers$huc8,
+            layerId = "curHuc8",
+            weight = 4,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
       })
 
 
