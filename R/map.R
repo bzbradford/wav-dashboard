@@ -34,7 +34,7 @@ mapUI <- function() {
               inputId = "stn_years",
               label = NULL,
               choices = data_years,
-              selected = data_years[1]
+              selected = data_years
             )
           ),
           column(

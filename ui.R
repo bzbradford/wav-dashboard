@@ -31,6 +31,7 @@ ui <- fluidPage(
   br(),
   h2("Stream Monitoring Data Dashboard", align = "center"),
   br(),
+  uiOutput("notice"),
   br(),
 
 

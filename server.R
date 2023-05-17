@@ -60,23 +60,57 @@ server <- function(input, output, session) {
 
   ## on stn_list change ----
   # it updates the station selectInput
-  observeEvent(stn_list(), {
-    stations <- stn_list()
+  # if the previously selected station is still in the list, keep it selected
+  # otherwise pick a random station from the list
 
+  observeEvent(stn_list(), {
+
+    # check if there's a stn in the url params
+    # or pick a random station from the list
+    setInitialStn <- function() {
+      query <- parseQueryString(session$clientData$url_search)[['stn']]
+      if (!is.null(query)) {
+        if (query %in% all_stns$station_id) {
+          selected <- query
+          stn_name <- all_stns[all_stns$station_id == selected,]$station_name
+          runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
+          output$notice <- renderUI({
+            div(
+              class = "notice notice-ok",
+              div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
+              div(class = "notice-text", sprintf("Station ID recognized in URL, setting selected station to '%s: %s'", selected, stn_name))
+            )
+          })
+        } else {
+          output$notice <- renderUI({
+            div(
+              class = "notice notice-error",
+              div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
+              div(class = "notice-text", sprintf("URL query string ('?stn=%s') does not match a station ID in our list. Loading random station instead.", query))
+            )
+          })
+          selected <- random_baseline_stn()
+        }
+        delay(10000, { output$notice <- NULL })
+      } else {
+        selected <- random_baseline_stn()
+      }
+      return(selected)
+    }
+
+    stations <- stn_list()
     if (input$station %in% stations) {
-      # if the previously selected station is still in the list, keep it selected
       selected <- input$station
     } else {
       if (first_run()) {
-        # always pick a random baseline station on app load
-        selected <- random_baseline_stn()
-        first_run(F)
+        selected <- setInitialStn()
+        first_run(FALSE)
       } else {
-        # otherwise pick any random station
         selected <- stations[sample(1:length(stations), 1)]
       }
     }
 
+    # change selection
     updateSelectInput(
       inputId = "station",
       choices = stations,
@@ -199,6 +233,6 @@ server <- function(input, output, session) {
 
   # Gracefully exit ----
 
-  session$onSessionEnded(function() { stopApp() })
+  # session$onSessionEnded(function() { stopApp() })
 
 }
