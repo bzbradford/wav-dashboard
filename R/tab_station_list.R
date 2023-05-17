@@ -5,8 +5,7 @@
 stationListUI <- function() {
   ns <- NS("station-list")
 
-  div(
-    class = "data-tab",
+  tagList(
     p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
     uiOutput(ns("content"))
   )
@@ -29,21 +28,25 @@ stationListServer <- function() {
         bsCollapse(
           bsCollapsePanel(
             title = "Baseline monitoring stations",
+            style = "primary",
             p(downloadButton(ns("baselineDownload"), "Download this list")),
             dataTableOutput(ns("baselineTable"))
           ),
           bsCollapsePanel(
-            title = "Nutrient monitoring locations",
+            title = "Nutrient monitoring stations",
+            style = "primary",
             p(downloadButton(ns("nutrientDownload"), "Download this list")),
             dataTableOutput(ns("nutrientTable"))
           ),
           bsCollapsePanel(
-            title = "Thermistor station locations",
+            title = "Thermistor station stations",
+            style = "primary",
             p(downloadButton(ns("thermistorDownload"), "Download this list")),
             dataTableOutput(ns("thermistorTable"))
           ),
           bsCollapsePanel(
             title = "Complete station list",
+            style = "primary",
             p(downloadButton(ns("allDownload"), "Download this list")),
             dataTableOutput(ns("allTable"))
           )

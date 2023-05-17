@@ -62,6 +62,7 @@ mapUI <- function() {
       mainPanel(
         div(
           class = "map-container",
+          id = "map",
           leafletOutput(ns("map"), width = "100%", height = "700px")
         )
       ),
@@ -109,21 +110,33 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
+      ## Map point size ----
+
+      pt_size <- reactiveVal(4)
+
+      getPtSize <- function(z) {
+        if (is.null(z)) return(4)
+        if (z >= 14) return(8)
+        if (z >= 12) return(7)
+        if (z >= 10) return(6)
+        4
+      }
+
+      observe({
+        z <- input$map_zoom
+        if (is.null(z)) return()
+        new_size <- getPtSize(z)
+        if (pt_size() != new_size) pt_size(new_size)
+      })
+
+
       ## Observers ----
 
-      # center map when station changes
+      # center map when station changes but only if zoomed in
       observeEvent(cur_stn(), {
-        zoom <- input$map_zoom
-        if (is.null(zoom)) return()
-
-        if (zoom > 7) {
-          leafletProxy(ns("map")) %>%
-            setView(
-              lat = cur_stn()$latitude,
-              lng = cur_stn()$longitude,
-              zoom = zoom
-            )
-        }
+        req(input$map_zoom)
+        z <- input$map_zoom
+        if (z >= 8) zoomToSite()
       })
 
 
@@ -171,15 +184,16 @@ mapServer <- function(cur_stn, avail_stns) {
           addProviderTiles(providers$CartoDB.Positron, group = basemaps$two) %>%
           addProviderTiles(providers$OpenStreetMap, group = basemaps$three) %>%
           addMapPane("counties", 410) %>%
-          addMapPane("huc8", 420) %>%
-          addMapPane("huc10", 421) %>%
-          addMapPane("huc12", 422) %>%
-          addMapPane("nkes", 423) %>%
+          addMapPane("cur_huc", 420) %>%
+          addMapPane("huc8", 421) %>%
+          addMapPane("huc10", 422) %>%
+          addMapPane("huc12", 423) %>%
+          addMapPane("nkes", 424) %>%
           addMapPane("baseline", 430) %>%
           addMapPane("thermistor", 431) %>%
           addMapPane("nutrient", 432) %>%
-          addMapPane("pins", 440) %>%
-          addMapPane("cur_point", 450) %>%
+          addMapPane("cur_point", 440) %>%
+          addMapPane("pins", 450) %>%
           hideGroup(hidden_layers) %>%
           addLayersControl(
             baseGroups = unlist(basemaps, use.names = FALSE),
@@ -234,10 +248,9 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
-      ## Render additional map layers ----
+      ## Render watersheds ----
 
-      observeEvent(TRUE, {
-
+      observeEvent(T, {
         map <- leafletProxy(ns("map"))
         color <- "blue"
         fill_color <- "lightblue"
@@ -248,7 +261,8 @@ mapServer <- function(cur_stn, avail_stns) {
             addPolygons(
               data = nkes,
               group = layers$nkes,
-              label = ~ lapply(paste0("<b>", PlanName, "</b><br>Ends: ", EndDate, "<br>Objective: ", Objective), HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1,
               color = "blue",
               fillColor = "blue",
@@ -259,17 +273,13 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC8
-        delay(750, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc8,
               group = layers$huc8,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc8Name, " Subbasin</b>",
-                  "<br>HUC8 Code: ", Huc8Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1.5,
               color = color,
               fillColor = fill_color,
@@ -279,17 +289,13 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC10
-        delay(1000, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc10,
               group = layers$huc10,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc10Name, " Watershed</b>",
-                  "<br>HUC10 Code: ", Huc10Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 1,
               color = color,
               fillColor = fill_color,
@@ -300,17 +306,13 @@ mapServer <- function(cur_stn, avail_stns) {
 
 
         # HUC12
-        delay(1250, {
+        delay(500, {
           map %>%
             addPolygons(
               data = huc12,
               group = layers$huc12,
-              label = ~ lapply(
-                paste0(
-                  "<b>", Huc12Name, " Subwatershed</b>",
-                  "<br>HUC12 Code: ", Huc12Code,
-                  "<br>Area: ", formatC(ShapeArea / 1e6, format = "f", big.mark = ",", digits = 2), " sq km"),
-                HTML),
+              label = ~ lapply(Label, HTML),
+              popup = ~ lapply(Label, HTML),
               weight = 0.5,
               color = color,
               fillColor = fill_color,
@@ -328,69 +330,22 @@ mapServer <- function(cur_stn, avail_stns) {
               options = layersControlOptions(collapsed = TRUE)
             )
         })
-
       })
 
 
       ## Render map points ----
 
-      observeEvent(avail_pts(), {
+      drawPts <- function() {
+        map <- leafletProxy(ns("map"))
+        pts <- avail_pts()
+        pt_size <- pt_size()
+        labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
+        popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
 
-        leafletProxy(ns("map")) %>%
-          clearGroup(layers$baseline) %>%
-          clearGroup(layers$therm) %>%
-          clearGroup(layers$nutrient) %>%
-          clearGroup(layers$pins)
-
-        if (nrow(avail_pts()) > 0) {
-          pts <- avail_pts()
-          labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
-          popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
-
-          baseline <- avail_baseline_pts()
-          therm <- avail_therm_pts()
-          nutrient <- avail_nutrient_pts()
-
-          leafletProxy(ns("map")) %>%
-            addCircleMarkers(
-              data = baseline,
-              group = layers$baseline,
-              label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
-              # popup = setNames(all_popups[names(all_popups) %in% baseline$station_id], NULL),
-              layerId = ~station_id,
-              radius = 4,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$baseline,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "baseline", sticky = F)
-            ) %>%
-            addCircleMarkers(
-              data = therm,
-              group = layers$therm,
-              label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
-              # popup = setNames(all_popups[names(all_popups) %in% therm$station_id], NULL),
-              layerId = ~station_id,
-              radius = 4,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$thermistor,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "thermistor", sticky = F)
-            ) %>%
-            addCircleMarkers(
-              data = nutrient,
-              group = layers$nutrient,
-              label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
-              # popup = setNames(all_popups[names(all_popups) %in% nutrient$station_id], NULL),
-              layerId = ~station_id,
-              radius = 4,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$nutrient,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "nutrient", sticky = F)
-            ) %>%
+        # pins
+        map %>% clearGroup(layers$pins)
+        if (nrow(pts) > 0) {
+          map %>%
             addMarkers(
               data = pts,
               group = layers$pins,
@@ -399,35 +354,101 @@ mapServer <- function(cur_stn, avail_stns) {
               layerId = ~station_id,
               clusterOptions = markerClusterOptions()
             )
+        }
+
+        # baseline points
+        baseline <- avail_baseline_pts()
+        map %>% clearGroup(layers$baseline)
+        if (nrow(baseline) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = baseline,
+              group = layers$baseline,
+              label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$baseline,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "baseline", sticky = F)
+            )
+        }
+
+        # nutrient points
+        nutrient <- avail_nutrient_pts()
+        map %>% clearGroup(layers$nutrient)
+        if (nrow(nutrient) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = nutrient,
+              group = layers$nutrient,
+              label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$nutrient,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "nutrient", sticky = F)
+            )
+        }
+
+        # thermistor points
+        therm <- avail_therm_pts()
+        map %>% clearGroup(layers$therm)
+        if (nrow(therm) > 0) {
+          map %>%
+            addCircleMarkers(
+              data = therm,
+              group = layers$therm,
+              label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
+              layerId = ~station_id,
+              radius = pt_size,
+              color = "black",
+              weight = 0.5,
+              fillColor = stn_colors$thermistor,
+              fillOpacity = 0.75,
+              options = markerOptions(pane = "thermistor", sticky = F)
+            )
+        }
+      }
+
+      observe({
+        if (nrow(avail_pts()) > 0) {
+          drawPts()
         } else {
           leafletProxy(ns("map")) %>%
+            clearGroup(layers$baseline) %>%
+            clearGroup(layers$therm) %>%
+            clearGroup(layers$nutrient) %>%
+            clearGroup(layers$pins) %>%
             clearGroup("cur_point")
         }
-      })
+      }) %>% bindEvent(list(avail_pts(), pt_size()))
 
 
-      ## Handle displaying current station ----
+      ## Show current station ----
 
-      observeEvent(list(avail_stns(), cur_stn()), {
-        leafletProxy(ns("map")) %>%
-          clearGroup("cur_point")
+      observe({
+        map <- leafletProxy(ns("map"))
+        map %>% clearGroup("cur_point")
 
         if (!any_stns()) return()
 
         label <- all_labels[names(all_labels) == cur_stn()$station_id] %>% setNames(NULL)
         popup <- all_popups[names(all_popups) == cur_stn()$station_id] %>% setNames(NULL)
 
-        leafletProxy(ns("map")) %>%
+        map %>%
           addCircleMarkers(
             data = cur_stn(),
             lat = ~latitude,
             lng = ~longitude,
             label = label,
-            popup = popup,
             layerId = ~station_id,
             group = "cur_point",
             options = pathOptions(pane = "cur_point"),
-            radius = 5,
+            radius = pt_size() + 1,
             weight = 0.75,
             color = "black",
             fillColor = stn_colors$current,
@@ -443,22 +464,27 @@ mapServer <- function(cur_stn, avail_stns) {
             group = "cur_point",
             options = pathOptions(pane = "cur_point")
           )
-      })
+      }) %>%
+        bindEvent(list(avail_stns(), cur_stn(), pt_size()))
 
 
       ## Map action buttons ----
 
       ### Zoom in button ----
 
-      observeEvent(input$zoomInBtn, {
+      zoomToSite <- function() {
+        cur_zoom <- input$map_zoom
         leafletProxy(ns("map")) %>%
           setView(
             lat = cur_stn()$latitude,
             lng = cur_stn()$longitude,
-            zoom = 10
+            zoom = max(cur_zoom, 10)
           )
-      })
+      }
 
+      observeEvent(input$zoomInBtn, {
+        zoomToSite()
+      })
 
       ### Reset zoom button ----
 
@@ -480,6 +506,74 @@ mapServer <- function(cur_stn, avail_stns) {
               lng2 = max(all_pts$longitude)
             )
         }
+      })
+
+
+      ## Toggle watershed visibility ----
+
+      observeEvent(input$showWatersheds, {
+        leafletProxy(ns("map")) %>%
+          showGroup(layers$huc8) %>%
+          showGroup(layers$huc10) %>%
+          showGroup(layers$huc12)
+        zoomToSite()
+      })
+
+
+      ## Render selected watersheds ----
+
+      cur_huc12 <- reactive({
+        huc12 %>% filter(Huc12Code == cur_stn()$huc12)
+      })
+
+      cur_huc10 <- reactive({
+        huc10 %>% filter(Huc10Code == cur_stn()$huc10)
+      })
+
+      cur_huc8 <- reactive({
+        huc8 %>% filter(Huc8Code == cur_stn()$huc8)
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc12") %>%
+          addPolygons(
+            data = cur_huc12(),
+            group = layers$huc12,
+            layerId = "curHuc12",
+            weight = 2,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc10") %>%
+          addPolygons(
+            data = cur_huc10(),
+            group = layers$huc10,
+            layerId = "curHuc10",
+            weight = 3,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      observeEvent(cur_stn(), {
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc8") %>%
+          addPolygons(
+            data = cur_huc8(),
+            group = layers$huc8,
+            layerId = "curHuc8",
+            weight = 4,
+            color = "red",
+            fillOpacity = 0,
+            options = pathOptions(pane = "cur_huc")
+          )
       })
 
 

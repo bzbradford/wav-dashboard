@@ -59,9 +59,22 @@ a, a:hover, a:focus {
 
 .flex-row {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
-  width: 100%;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.pie-container {
+  height: inherit;
+  margin: 0;
+  flex: 1 0 0;
+  min-width: 350px;
+}
+
+.pie {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .flex-col {

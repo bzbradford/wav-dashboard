@@ -69,7 +69,9 @@ ui <- fluidPage(
         ),
         em("To search for a station by name, delete the text above and start typing.")
       ),
-      tabPanel("Recently Viewed Stations", recentStationsUI())
+      tabPanel("Recently Viewed Stations", recentStationsUI()),
+      tabPanel("Station Details", stationInfoUI()),
+      tabPanel("Station Lists", stationListUI())
     )
   ),
 
@@ -82,9 +84,8 @@ ui <- fluidPage(
     tabPanel("Baseline data", baselineDataUI()),
     tabPanel("Nutrient data", nutrientDataUI()),
     tabPanel("Thermistor data", thermistorDataUI()),
-    tabPanel("Station Details", stationInfoUI()),
-    tabPanel("Station Lists", stationListUI()),
-    tabPanel("More information", moreInfoUI())
+    tabPanel("Watersheds", watershedInfoUI()),
+    tabPanel("Learn more", moreInfoUI())
   ),
 
 

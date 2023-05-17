@@ -127,11 +127,18 @@ server <- function(input, output, session) {
   )
 
   # select a station when clicked on the map
-  observe({
+  observeEvent(map_click(), {
     updateSelectInput(
       inputId = "station",
       selected = map_click()
     )
+    cur_zoom <- input$`map-map_zoom`
+    leafletProxy("map-map") %>%
+      setView(
+        lat = map_click()$lat,
+        lng = map_click()$lng,
+        zoom = max(cur_zoom, 10) # don't zoom out
+      )
   })
 
 
@@ -140,6 +147,12 @@ server <- function(input, output, session) {
     cur_stn = reactive(cur_stn()),
     stn_list = reactive(stn_list())
   )
+
+  ## Station info tab ----
+  stationInfoServer(cur_stn = reactive(cur_stn()))
+
+  ## Station list tab ----
+  stationListServer()
 
   ## Baseline data tab ----
   baselineDataServer(cur_stn = reactive(cur_stn()))
@@ -150,11 +163,9 @@ server <- function(input, output, session) {
   ## Thermistor data tab ----
   thermistorDataServer(cur_stn = reactive(cur_stn()))
 
-  ## Station info tab ----
-  stationInfoServer(cur_stn = reactive(cur_stn()))
+  ## Watershed info tab ----
+  watershedInfoServer(cur_stn = reactive(cur_stn()))
 
-  ## Station list tab ----
-  stationListServer()
 
 
   # PDF Reports (pending) ----

@@ -132,6 +132,17 @@ random_baseline_stn <- function() {
     sample(1)
 }
 
+fmt_area <- function(area) {
+  sq_km <- area / 1e6
+  sq_mi <- sq_km * 0.3861
+  paste0(
+    formatC(sq_km, format = "f", big.mark = ",", digits = 1),
+    " sq km (",
+    formatC(sq_mi, format = "f", big.mark = ",", digits = 1),
+    " sq mi)"
+  )
+}
+
 
 # Defs ----
 
@@ -143,19 +154,50 @@ stn_colors <- list(
 )
 
 
-# Map layers ----
+# Load shapefiles ----
 
-counties <- read_sf("shp/wi-counties.shp")
-nkes <- read_sf("shp/nke-plans-2022.shp")
-huc8 <- read_sf("shp/wi-huc-8.shp")
-huc10 <- read_sf("shp/wi-huc-10.shp")
-huc12 <- read_sf("shp/wi-huc-12.shp")
+counties <- readRDS("data/shp/counties")
+nkes <- readRDS("data/shp/nkes") %>%
+  mutate(Label = paste0(
+    "<b>", PlanName, "</b>",
+    "<br>Ends: ", EndDate,
+    "<br>Objective: ", Objective
+  ))
+huc8 <- readRDS("data/shp/huc8") %>%
+  mutate(Label = paste0(
+    "<b>", Huc8Name, " Subbasin</b>",
+    "<br>Area: ", fmt_area(Area),
+    "<br>HUC8 Code: ", Huc8Code,
+    "<br>HUC6 basin: ", MajorBasin
+  ))
+huc10 <- readRDS("data/shp/huc10") %>%
+  mutate(Label = paste0(
+    "<b>", Huc10Name, " Watershed</b>",
+    "<br>Area: ", fmt_area(Area),
+    "<br>HUC10 Code: ", Huc10Code,
+    "<br>HUC8 subbasin: ", Huc8Name,
+    "<br>HUC6 basin: ", MajorBasin
+  ))
+huc12 <- readRDS("data/shp/huc12") %>%
+  mutate(Label = paste0(
+    "<b>", Huc12Name, " Subwatershed</b>",
+    "<br>Area: ", fmt_area(Area),
+    "<br>HUC12 Code: ", Huc12Code,
+    "<br>HUC10 watershed: ", Huc10Name,
+    "<br>HUC8 subbasin: ", Huc8Name,
+    "<br>HUC6 basin: ", MajorBasin
+  ))
+
 
 
 # Station lists ----
 
-station_list <- read_csv("data/station-list.csv", col_types = list(station_id = "c"))
-station_pts <- st_as_sf(station_list, coords = c("longitude", "latitude"), crs = 4326, remove = F)
+station_list <- read_csv(
+  "data/station-list.csv.gz",
+  col_types = list(station_id = "c"),
+  progress = F)
+station_pts <- station_list %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
   "Baseline (stream monitoring)" = "baseline",
   "Nutrient (total phosphorus)" = "nutrient",
@@ -165,7 +207,10 @@ station_types <- list(
 
 # Baseline data ----
 
-baseline_data <- read_csv("data/baseline-data.csv.gz", col_types = list(station_id = "c")) %>%
+baseline_data <- read_csv(
+  "data/baseline-data.csv.gz",
+  col_types = list(station_id = "c"),
+  progress = F) %>%
   arrange(station_id, date)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
@@ -180,7 +225,10 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 # Nutrient data ----
 
-nutrient_data <- read_csv("data/tp-data.csv", col_types = list(station_id = "c")) %>%
+nutrient_data <- read_csv(
+  "data/tp-data.csv.gz",
+  col_types = list(station_id = "c"),
+  progress = F) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
@@ -195,8 +243,14 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 # Thermistor data ----
 
-therm_data <- read_csv("data/therm-data.csv.gz", col_types = list(station_id = "c"))
-therm_info <- read_csv("data/therm-info.csv", col_types = list(station_id = "c"))
+therm_data <- read_csv(
+  "data/therm-data.csv.gz",
+  col_types = list(station_id = "c"),
+  progress = F)
+therm_info <- read_csv(
+  "data/therm-info.csv",
+  col_types = list(station_id = "c"),
+  progress = F)
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -213,15 +267,13 @@ check_missing_stns(therm_data, therm_pts, "thermistor")
 all_coverage <- bind_rows(
   mutate(baseline_coverage, source = "Baseline"),
   mutate(nutrient_coverage, source = "Nutrient"),
-  mutate(therm_coverage, source = "Thermistor")
-) %>%
+  mutate(therm_coverage, source = "Thermistor")) %>%
   group_by(station_id) %>%
   summarise(
     data_sources = paste(source, collapse = ", "),
     data_years = paste(data_years, collapse = ", "),
     max_fw_year = max(max_fw_year),
-    max_fw_date = as.character(max(max_fw_date))
-  ) %>%
+    max_fw_date = as.character(max(max_fw_date))) %>%
   rowwise() %>%
   mutate(
     data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))),
@@ -246,8 +298,7 @@ all_coverage <- bind_rows(
 all_stn_years <- bind_rows(
   baseline_stn_years,
   therm_stn_years,
-  nutrient_stn_years
-) %>%
+  nutrient_stn_years) %>%
   distinct(station_id, year) %>%
   arrange(station_id, year) %>%
   left_join(station_list, by = "station_id") %>%
@@ -255,8 +306,8 @@ all_stn_years <- bind_rows(
   mutate(
     baseline_stn = station_id %in% baseline_pts$station_id,
     therm_stn = station_id %in% therm_pts$station_id,
-    nutrient_stn = station_id %in% nutrient_pts$station_id
-  )
+    nutrient_stn = station_id %in% nutrient_pts$station_id)
+
 data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 
 baseline_tallies <- baseline_data %>%
@@ -294,15 +345,13 @@ all_pts <- station_pts %>%
   mutate(
     baseline_stn = station_id %in% baseline_pts$station_id,
     therm_stn = station_id %in% therm_pts$station_id,
-    nutrient_stn = station_id %in% nutrient_pts$station_id
-  ) %>%
+    nutrient_stn = station_id %in% nutrient_pts$station_id) %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
   left_join(all_coverage, by = "station_id") %>%
   mutate(stn_color = case_when(
     baseline_stn ~ stn_colors$baseline,
     therm_stn ~ stn_colors$thermistor,
-    nutrient_stn ~ stn_colors$nutrient
-  )) %>%
+    nutrient_stn ~ stn_colors$nutrient)) %>%
   mutate(station_id = as.numeric(station_id))
 
 all_stns <- all_pts %>%
@@ -329,3 +378,13 @@ all_stn_list <- all_pts %>%
   select(label, station_id) %>%
   deframe() %>%
   as.list()
+
+
+# Landscape data ----
+
+
+landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progress = F) %>%
+  mutate(across(where(is.character), fct_inorder))
+landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
+  left_join(landcover_classes, by = "class")
+

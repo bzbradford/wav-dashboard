@@ -5,8 +5,7 @@
 stationInfoUI <- function() {
   ns <- NS("station-info")
 
-  div(
-    class = "data-tab",
+  tagList(
     div(
       class = "flex-row",
       div(
@@ -39,7 +38,7 @@ stationInfoServer <- function(cur_stn) {
               select(station_id:geometry) %>%
               st_set_geometry(NULL) %>%
               mutate(across(everything(), as.character)) %>%
-              clean_names(case = "title") %>%
+              clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
               pivot_longer(
                 cols = everything(),
                 names_to = "Property",
