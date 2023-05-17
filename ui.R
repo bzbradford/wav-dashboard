@@ -15,7 +15,7 @@ ui <- fluidPage(
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
     includeHTML("google-analytics.html"),
-    tags$script(src = "html2canvas.js"),
+    tags$script(src = "html2canvas.min.js"),
     tags$script(src = "saveAs.js")
   ),
   useShinyjs(),
