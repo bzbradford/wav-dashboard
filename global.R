@@ -41,6 +41,23 @@ colorize <- function(text, color = tolower(text)) {
   shiny::HTML(paste0("<span style='color: ", color, "'>", text, "</span>"))
 }
 
+setURL <- function(id) {
+  if (!is.null(id)) {
+    runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
+  } else {
+    runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
+  }
+}
+
+setTitle <- function(label) {
+  if (!is.null(label)) {
+    title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
+    runjs(sprintf("document.title = '%s'", title))
+  } else {
+    runjs("document.title = 'WAV Data Dashboard'")
+  }
+}
+
 create_popup <- function(data, title) {
   data %>% {
     cols <- names(.)

@@ -65,10 +65,11 @@ ui <- fluidPage(
             class = "stn-btns",
             actionButton("prev_stn", "<", class = "stn-btn", title = "Previous station"),
             actionButton("next_stn", ">", class = "stn-btn", title = "Next station"),
-            actionButton("rnd_stn", "?", class = "stn-btn", title = "Random station")
+            actionButton("rnd_stn", "?", class = "stn-btn", title = "Random station"),
+            uiOutput("bookmark_btn", inline = TRUE)
           )
         ),
-        em("To search for a station by name, delete the text above and start typing.")
+        div(class = "note", "To search for a station by name, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You still have to press the bookmark button on your browser to save a site.")
       ),
       tabPanel("Recently Viewed Stations", recentStationsUI()),
       tabPanel("Station Details", stationInfoUI()),

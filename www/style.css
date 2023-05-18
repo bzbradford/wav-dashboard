@@ -76,6 +76,11 @@ a, a:hover, a:focus {
   cursor: pointer;
 }
 
+.note {
+  font-size: small;
+  font-style: italic;
+}
+
 .map-container {
   max-width: 1000px;
   margin: auto;

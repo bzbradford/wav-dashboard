@@ -4,14 +4,18 @@
 
 server <- function(input, output, session) {
 
-  # Reactives ----
+  # Reactives values ----
 
-  ## first_run ----
-  # becomes F after a random station gets selected
-  first_run <- reactiveVal(T)
+  ## first_run // becomes F after initial station selection ----
+  first_run <- reactiveVal(TRUE)
 
-  ## avail_stns ----
-  # reacts to map sidebar selections
+  ## initial_stn // determines station to select on app load ----
+  initial_stn <- reactiveVal(random_baseline_stn())
+
+  ## bookmarking // enable/disable bookmarking features ----
+  bookmarking <- reactiveVal(FALSE)
+
+  ## avail_stns // reacts to map sidebar selections ----
   avail_stns <- reactive({
     ids <- list(0)
     coverage = list(
@@ -56,66 +60,67 @@ server <- function(input, output, session) {
   })
 
 
-  # Observers ----
+  # Event reactives ----
 
-  ## on stn_list change ----
-  # it updates the station selectInput
+  # On startup // Set initial station ----
+  observeEvent(TRUE, once = TRUE, {
+    # check for a url query
+    query <- parseQueryString(session$clientData$url_search)[['stn']]
+    if (!is.null(query)) {
+      if (query %in% all_stns$station_id) {
+        selected <- query
+        stn_name <- all_stns[all_stns$station_id == selected,]$station_name
+        bookmarking(TRUE)
+        initial_stn(selected)
+        output$notice <- renderUI({
+          div(
+            class = "notice notice-ok",
+            div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
+            div(class = "notice-text", sprintf("Dashboard loaded with station '%s: %s' selected.", query, stn_name))
+          )
+        })
+      } else {
+        output$notice <- renderUI({
+          div(
+            class = "notice notice-error",
+            div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
+            div(class = "notice-text", sprintf("Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.", query))
+          )
+        })
+      }
+      delay(10000, { output$notice <- NULL })
+    }
+  })
+
+  ## Update the station selectInput on stn_list() change ----
   # if the previously selected station is still in the list, keep it selected
   # otherwise pick a random station from the list
-
   observeEvent(stn_list(), {
-
-    # check if there's a stn in the url params
-    # or pick a random station from the list
-    setInitialStn <- function() {
-      query <- parseQueryString(session$clientData$url_search)[['stn']]
-      if (!is.null(query)) {
-        if (query %in% all_stns$station_id) {
-          selected <- query
-          stn_name <- all_stns[all_stns$station_id == selected,]$station_name
-          runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
-          output$notice <- renderUI({
-            div(
-              class = "notice notice-ok",
-              div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
-              div(class = "notice-text", sprintf("Station ID recognized in URL, setting selected station to '%s: %s'", selected, stn_name))
-            )
-          })
-        } else {
-          output$notice <- renderUI({
-            div(
-              class = "notice notice-error",
-              div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
-              div(class = "notice-text", sprintf("URL query string ('?stn=%s') does not match a station ID in our list. Loading random station instead.", query))
-            )
-          })
-          selected <- random_baseline_stn()
-        }
-        delay(10000, { output$notice <- NULL })
-      } else {
-        selected <- random_baseline_stn()
-      }
-      return(selected)
-    }
-
     stations <- stn_list()
-    if (input$station %in% stations) {
+    if (first_run()) {
+      selected <- initial_stn()
+      first_run(FALSE)
+    } else if (input$station %in% stations) {
       selected <- input$station
     } else {
-      if (first_run()) {
-        selected <- setInitialStn()
-        first_run(FALSE)
-      } else {
-        selected <- stations[sample(1:length(stations), 1)]
-      }
+      selected <- stations[sample(1:length(stations), 1)]
     }
-
-    # change selection
     updateSelectInput(
       inputId = "station",
       choices = stations,
       selected = selected
     )
+  })
+
+  ## Set URL and page title when bookmarking enabled ----
+  observeEvent(list(cur_stn(), bookmarking()), {
+    if (bookmarking()) {
+      setURL(cur_stn()$station_id)
+      setTitle(cur_stn()$label)
+    } else {
+      setURL(NULL)
+      setTitle(NULL)
+    }
   })
 
 
@@ -149,6 +154,18 @@ server <- function(input, output, session) {
     stn <- all_pts %>% filter(station_id == stn_id)
     updateSelectInput(inputId = "station", selected = stn_id)
   })
+
+  ## Bookmark button ----
+  # enable/disable URL and title to show current station
+  observeEvent(input$toggle_bookmarking, bookmarking(!bookmarking()))
+  output$bookmark_btn <- renderUI({
+    if (bookmarking()) {
+      actionButton("toggle_bookmarking", "★", class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
+    } else {
+      actionButton("toggle_bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title")
+    }
+  })
+
 
 
   # Module servers ----
@@ -199,40 +216,5 @@ server <- function(input, output, session) {
 
   ## Watershed info tab ----
   watershedInfoServer(cur_stn = reactive(cur_stn()))
-
-
-
-  # PDF Reports (pending) ----
-
-  # output$baseline_report <- downloadHandler(
-  #   filename = paste0(
-  #     input$baseline_year,
-  #     " Baseline Report for Station ",
-  #     as.character(cur_stn()$station_id),
-  #     ".pdf"),
-  #   content = function(file) {
-  #     temp_dir <- tempdir()
-  #     temp_file <- tempfile(tmpdir = temp_dir, fileext = ".Rmd")
-  #     file.copy("baseline-report.Rmd", temp_file)
-  #     print(temp_file)
-  #     rmarkdown::render(
-  #       temp_file,
-  #       output_file = file,
-  #       output_options = list(self_contained = TRUE),
-  #       envir = new.env(parent = globalenv()),
-  #       params = list(
-  #         id = cur_stn()$station_id,
-  #         name = cur_stn()$station_name,
-  #         year = input$baseline_year,
-  #         plot = baseline_plot()
-  #         )
-  #     )
-  #   }
-  # )
-
-
-  # Gracefully exit ----
-
-  # session$onSessionEnded(function() { stopApp() })
 
 }
