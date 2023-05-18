@@ -46,6 +46,41 @@ a, a:hover, a:focus {
 
 /* New classes */
 
+.notice {
+  font-weight: bold;
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.notice-ok {
+  border: 1px solid green;
+  background: rgba(0, 255, 0, .1);
+  color: green;
+}
+
+.notice-error {
+  border: 1px solid red;
+  background: rgba(255, 0, 0, .1);
+  color: red;
+}
+
+.notice-text {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.notice-close {
+  float: right;
+  margin-left: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.note {
+  font-size: small;
+  font-style: italic;
+}
+
 .map-container {
   max-width: 1000px;
   margin: auto;

@@ -3,7 +3,7 @@
 # Requires data prep in separate RProj
 
 
-shiny::shinyApp(ui, server)
+shiny::shinyApp(ui, server, enableBookmarking = "url")
 
 
 #- Dependencies -#

@@ -1,3 +1,11 @@
+**2023-05-17**
+
+* Added a 'bookmarking' toggle, where if enabled, the station id is shown in the browser address bar, and the station title is shown in the page title. This allows sharing or bookmarking a specific station to easily select that station when loading the dashboard.
+
+**2023-04-26**
+
+* Added the watershed info tab, which gives a summary of the names and spatial extents of the watersheds in which a site is located. Users can also view landscape data for the watershed surrounding the currently selected station and compare it to the Wisconsin average, for subwatersheds, watersheds, and subbasins.
+
 **2023-03-28**
 
 * Added language to the total phosphorus plot matching the DNR's exceedance criteria based on the confidence limit and median observation.
