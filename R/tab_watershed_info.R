@@ -40,9 +40,9 @@ watershedInfoServer <- function(cur_stn) {
         deframe()
 
       scale_choices <- list(
-        "Sub-watershed" = 12,
-        "Watershed" = 10,
-        "Sub-basin" = 8
+        "HUC12 sub-watershed" = 12,
+        "HUC10 watershed" = 10,
+        "HUC8 sub-basin" = 8
       )
 
 
