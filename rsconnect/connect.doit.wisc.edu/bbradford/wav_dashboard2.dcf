@@ -1,0 +1,14 @@
+name: wav_dashboard2
+title: WAV Dashboard
+username: bbradford
+account: bbradford
+server: connect.doit.wisc.edu
+hostUrl: https://connect.doit.wisc.edu/__api__
+appId: 7
+bundleId: 32
+url: https://connect.doit.wisc.edu/wav-dashboard/
+when: 1690924007.06908
+lastSyncTime: 1690924007.06909
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .RData|.Rprofile|.test/baseline-report.Rmd|.test/test.R
