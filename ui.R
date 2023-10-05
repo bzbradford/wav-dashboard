@@ -99,7 +99,7 @@ ui <- fluidPage(
     style = "color: grey; font-size: smaller; font-style: italic;",
     align = "center",
     "Dashboard developed by",
-    a("Ben Bradford", href = "https://github.com/bzbradford", target = "_blank", .noWS = "after"),
+    a("Ben Bradford", href = "https://entomology.wisc.edu/directory/ben-bradford/", target = "_blank", .noWS = "after"),
     ", UW-Madison Entomology", br(),
     paste("Last updated:", format(file.info(".")$mtime, "%Y-%m-%d")), br(),
     a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")

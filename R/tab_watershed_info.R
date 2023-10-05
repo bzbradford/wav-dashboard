@@ -9,7 +9,8 @@ watershedInfoUI <- function() {
   div(
     class = "data-tab",
     h3("Watersheds"),
-    p("In the US, watersheds are divided and subdivided into successively smaller hydrological units and given a numerical designation called a hydrological unit code (HUC) that has a specific number of digits for each level. Here we will focus on the major drainage basin (either the Mississippi or the Great Lakes), and their smaller subdivisions 'sub-basins' (HUC8), 'watersheds' (HUC10), and 'sub-watersheds' (HUC12). Wisconsin is divided into 52 sub-basins, 372 watersheds, and 1,808 sub-watersheds. Use the layers menu (upper right) in the map above or", strong(a(href = "#map", onclick = "Shiny.setInputValue('map-showWatersheds', 1, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
+    p(strong("What is a watershed?"), "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."),
+    p("In the US, drainage basins are divided into successively smaller", strong("hydrological units"), "and given a numerical designation called a", em("hydrological unit code (HUC),"), "which for a given hydrological unit will contain the HUC code of the parent watershed plus two more digits to identify it within the parent watershed. Here we will focus on the major drainage basin (either the Mississippi or the Great Lakes), and their smaller subdivisions 'sub-basins' (HUC8), 'watersheds' (HUC10), and 'sub-watersheds' (HUC12). Wisconsin is divided into 52 sub-basins, 372 watersheds, and 1,808 sub-watersheds. Use the layers menu (upper right) in the map above or", strong(a(href = "#map", onclick = "Shiny.setInputValue('map-showWatersheds', 1, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
     uiOutput(ns("content"))
   )
 }
@@ -40,9 +41,9 @@ watershedInfoServer <- function(cur_stn) {
         deframe()
 
       scale_choices <- list(
-        "HUC12 sub-watershed" = 12,
-        "HUC10 watershed" = 10,
-        "HUC8 sub-basin" = 8
+        "Sub-watershed (HUC12)" = 12,
+        "Watershed (HUC10)" = 10,
+        "Sub-basin (HUC8)" = 8
       )
 
 
@@ -81,16 +82,22 @@ watershedInfoServer <- function(cur_stn) {
 
       output$content <- renderUI({
         stn <- cur_stn()
+        maps_link <- sprintf("https://www.google.com/maps/search/?api=1&query=%s+%s", stn$latitude, stn$longitude)
+        coords_html <- HTML(sprintf("%.6f, %.6f (<a href='%s' target='_blank'>View on Google Maps</a>)", stn$latitude, stn$longitude, maps_link))
 
         tagList(
-          h4(strong("Station context"), style = "margin-top: 1em;"),
+          h4(strong("Station information and landscape context"), style = "margin-top: 1em;"),
           div(
             style = "padding-left: 1em;",
             strong("Selected station:"), stn$station_name, br(),
-            strong("HUC12 sub-watershed:"), stn$sub_watershed, br(),
-            strong("HUC10 watershed:"), stn$watershed, br(),
-            strong("HUC8 sub-basin:"), stn$sub_basin, br(),
-            strong("Major basin: "), stn$major_basin
+            strong("Coordinates:"), coords_html, br(),
+            strong("Waterbody:"), sprintf("%s (WBIC: %s)", stn$waterbody, stn$wbic), br(),
+            strong("Sub-watershed:"), sprintf("%s (HUC12: %s)", stn$sub_watershed, stn$huc12), br(),
+            strong("Watershed:"), sprintf("%s (HUC10: %s)", stn$watershed, stn$huc10), br(),
+            strong("Sub-basin:"), sprintf("%s (HUC8: %s)", stn$sub_basin, stn$huc8), br(),
+            strong("Major basin: "), stn$major_basin, br(),
+            strong("County name:"), stn$county_name, br(),
+            strong("DNR region:"), stn$dnr_region
           ),
           uiOutput(ns("landscapes"))
         )

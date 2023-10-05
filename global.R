@@ -9,6 +9,7 @@ suppressMessages({
   library(janitor)
   library(sf)
   library(rlang)
+  library(markdown)
 
   # shiny
   library(shiny)

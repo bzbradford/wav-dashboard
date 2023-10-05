@@ -1,3 +1,7 @@
+**2023-10-05 **
+
+* Added more station watershed and location context information to the watershed information tab.
+
 **2023-05-17**
 
 * Added a 'bookmarking' toggle, where if enabled, the station id is shown in the browser address bar, and the station title is shown in the page title. This allows sharing or bookmarking a specific station to easily select that station when loading the dashboard.
