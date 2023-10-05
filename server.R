@@ -162,7 +162,7 @@ server <- function(input, output, session) {
     if (bookmarking()) {
       actionButton("toggle_bookmarking", "★", class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
     } else {
-      actionButton("toggle_bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title")
+      actionButton("toggle_bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
     }
   })
 

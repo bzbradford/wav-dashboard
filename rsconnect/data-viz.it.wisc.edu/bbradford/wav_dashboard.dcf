@@ -5,10 +5,8 @@ account: bbradford
 server: data-viz.it.wisc.edu
 hostUrl: https://data-viz.it.wisc.edu/__api__
 appId: 395
-bundleId: 3110
+bundleId: 3212
 url: https://data-viz.it.wisc.edu/wav-dashboard/
-when: 1690566137.4153
-lastSyncTime: 1690566137.41531
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: .RData|.Rprofile|.test/baseline-report.Rmd|.test/test.R
