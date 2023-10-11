@@ -55,7 +55,7 @@ ui <- fluidPage(
           div(
             class = "flex-col",
             title = "Currently selected station",
-            selectInput(
+            selectizeInput(
               inputId = "station",
               label = NULL,
               choices = list()
@@ -86,7 +86,7 @@ ui <- fluidPage(
     tabPanel("Baseline data", baselineDataUI()),
     tabPanel("Nutrient data", nutrientDataUI()),
     tabPanel("Thermistor data", thermistorDataUI()),
-    tabPanel("Watersheds", watershedInfoUI()),
+    tabPanel("Watershed/landscape information", watershedInfoUI()),
     tabPanel("Learn more", moreInfoUI())
   ),
 

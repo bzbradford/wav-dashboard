@@ -39,7 +39,7 @@ f_to_c <- function(f, d = 1) {
 }
 
 colorize <- function(text, color = tolower(text)) {
-  shiny::HTML(paste0("<span style='color: ", color, "'>", text, "</span>"))
+  shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
 }
 
 setURL <- function(id) {
@@ -166,8 +166,8 @@ fmt_area <- function(area) {
 
 stn_colors <- list(
   "baseline" = "green",
-  "thermistor" = "purple",
   "nutrient" = "orange",
+  "thermistor" = "purple",
   "current" = "deepskyblue"
 )
 

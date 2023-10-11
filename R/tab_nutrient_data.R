@@ -171,7 +171,7 @@ nutrientDataServer <- function(cur_stn) {
         outer_months <- c(ISOdate(min_year, 4, 30), ISOdate(max_year, 11, 1))
         data_dates <- unique(df$date)
         all_dates <-  c(outer_months, data_dates)
-        yrange <- suppressWarnings(c(0, max(phoslimit * 1.1, max(df$tp, na.rm = T) * 1.1)))
+        yrange <- suppressWarnings(c(0, max(phoslimit * 1.2, max(df$tp, na.rm = T) * 1.2)))
 
         phos_params <- tibble(
           date = all_dates,

@@ -129,9 +129,9 @@ baselineDataServer <- function(cur_stn) {
 
         yranges <- list(
           d_o = c(0, find_max(df$d_o, 12)),
-          temp = c(0, find_max(c(df$water_temperature, df$ambient_air_temp), 30)),
+          temp = c(0, find_max(c(df$water_temp, df$ambient_air_temp), 30)),
           trans = c(0, 125),
-          cfs = c(0, find_max(df$stream_flow_cfs, 10))
+          cfs = c(0, find_max(df$streamflow_cfs, 10))
         )
 
         do_data <- df %>%
@@ -141,9 +141,19 @@ baselineDataServer <- function(cur_stn) {
             T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
           rowwise() %>%
           mutate(do_color = do_color(d_o))
-        temp_data <- filter(df, !(is.na(water_temperature) & is.na(ambient_air_temp)))
+        temp_data <- filter(df, !(is.na(water_temp) & is.na(ambient_air_temp)))
         trans_data <- filter(df, !is.na(transparency_average))
-        flow_data <- filter(df, !is.na(stream_flow_cfs))
+        flow_data <- filter(df, !is.na(streamflow_cfs))
+
+        # settings for longer date periods
+        years <- as.numeric(max(df$date) - min(df$date)) / 365
+        date_tick <- "M1"
+        marker_opacity <- 1
+        if (years > 3) {
+          date_tick <- "M3"
+          marker_opacity <- 0
+        }
+        if (years > 6) date_tick <- "M6"
 
         df %>%
           plot_ly() %>%
@@ -155,8 +165,8 @@ baselineDataServer <- function(cur_stn) {
             xaxis = list(
               title = "",
               type = "date",
-              fixedrange = T,
-              dtick = "M1",
+              fixedrange = F, # allow user to zoom the axis?
+              dtick = date_tick,
               ticklabelmode = "period",
               hoverformat = "%b %d, %Y",
               domain = c(.1, .9))
@@ -169,7 +179,8 @@ baselineDataServer <- function(cur_stn) {
             text = ~label,
             marker = list(
               color = ~do_color,
-              line = list(color = "black", width = 0.5)),
+              line = list(color = "black", width = 0.5)
+            ),
             type = "bar",
             width = 1000 * 60 * 60 * 24 * 15,
             hovertemplate = "%{y}"
@@ -178,14 +189,15 @@ baselineDataServer <- function(cur_stn) {
             data = temp_data,
             name = "Water temp",
             x = ~date,
-            y = ~water_temperature,
+            y = ~water_temp,
             type = "scatter",
             mode = "lines+markers",
             yaxis = "y2",
             marker = list(
               color = "lightblue",
               size = 10,
-              line = list(color = "white", width = 1)
+              line = list(color = "white", width = 1),
+              opacity = marker_opacity
             ),
             line = list(
               color = "lightblue",
@@ -203,7 +215,8 @@ baselineDataServer <- function(cur_stn) {
             marker = list(
               color = "orange",
               size = 10,
-              line = list(color = "white", width = 1)
+              line = list(color = "white", width = 1),
+              opacity = marker_opacity
             ),
             line = list(color = "orange", width = 3)
           ) %>%
@@ -219,7 +232,8 @@ baselineDataServer <- function(cur_stn) {
               color = "brown",
               size = 10,
               symbol = "square",
-              line = list(color = "white", width = 1)
+              line = list(color = "white", width = 1),
+              opacity = marker_opacity
             ),
             line = list(color = "brown", width = 3)
           ) %>%
@@ -227,7 +241,7 @@ baselineDataServer <- function(cur_stn) {
             data = flow_data,
             name = "Stream flow",
             x = ~date,
-            y = ~stream_flow_cfs,
+            y = ~streamflow_cfs,
             type = "scatter",
             mode = "lines+markers",
             yaxis = "y4",
@@ -235,7 +249,8 @@ baselineDataServer <- function(cur_stn) {
               color = "#48a67b",
               size = 10,
               symbol = "triangle-right",
-              line = list(color = "white", width = 1)
+              line = list(color = "white", width = 1),
+              opacity = marker_opacity
             ),
             line = list(color = "#48a67b", width = 3)
           ) %>%
@@ -289,7 +304,7 @@ baselineDataServer <- function(cur_stn) {
         p(
           style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
           align = "center",
-          em("Click on any of the plot legend items to show or hide it in the plot.",
+          em("Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset).",
             a("Click here to download this plot as a PNG.",
               style = "cursor: pointer;",
               onclick = paste0(
@@ -322,10 +337,10 @@ baselineDataServer <- function(cur_stn) {
       baseline_summary_vars <- tribble(
         ~var, ~parameter, ~units,
         "d_o", "Dissolved oxygen", "mg/L",
-        "water_temperature", "Water temperature", "°C",
+        "water_temp", "Water temperature", "°C",
         "ambient_air_temp", "Air temperature", "°C",
         "transparency_average", "Transparency", "cm",
-        "stream_flow_cfs", "Stream flow", "cfs"
+        "streamflow_cfs", "Stream flow", "cfs"
       ) %>% rowwise()
 
       output$stnSummaryData <- renderTable(

@@ -29,7 +29,7 @@
     },
     "DT": {
       "Package": "DT",
-      "Version": "0.29",
+      "Version": "0.30",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -42,7 +42,7 @@
         "magrittr",
         "promises"
       ],
-      "Hash": "02f42b77a951a5ea7c891ef5c187d774"
+      "Hash": "dffb4d94a00be1b4a4507e53ab95bd90"
     },
     "KernSmooth": {
       "Package": "KernSmooth",
@@ -534,15 +534,15 @@
     },
     "fansi": {
       "Package": "fansi",
-      "Version": "1.0.4",
+      "Version": "1.0.5",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "grDevices",
         "utils"
       ],
-      "Hash": "1d9e7ad3c8312a192dea7d3db0274fde"
+      "Hash": "3e8583a60163b4bc1a80016e63b9959e"
     },
     "farver": {
       "Package": "farver",
@@ -796,7 +796,7 @@
     },
     "htmltools": {
       "Package": "htmltools",
-      "Version": "0.5.6",
+      "Version": "0.5.6.1",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -809,7 +809,7 @@
         "rlang",
         "utils"
       ],
-      "Hash": "a2326a66919a3311f7fbb1e3bf568283"
+      "Hash": "1e12fe667316a76508898839ecfb2d00"
     },
     "htmlwidgets": {
       "Package": "htmlwidgets",
@@ -1071,7 +1071,7 @@
     },
     "markdown": {
       "Package": "markdown",
-      "Version": "1.9",
+      "Version": "1.10",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1080,7 +1080,7 @@
         "utils",
         "xfun"
       ],
-      "Hash": "4dea09e610da59f847c041d887b4dcfc"
+      "Hash": "f00a677e0c006183f1232b6f1e0652d0"
     },
     "memoise": {
       "Package": "memoise",
@@ -1346,14 +1346,14 @@
     },
     "ragg": {
       "Package": "ragg",
-      "Version": "1.2.5",
+      "Version": "1.2.6",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "systemfonts",
         "textshaping"
       ],
-      "Hash": "690bc058ea2b1b8a407d3cfe3dce3ef9"
+      "Hash": "6ba2fa8740abdc2cc148407836509901"
     },
     "rappdirs": {
       "Package": "rappdirs",
@@ -1503,7 +1503,7 @@
     },
     "rsconnect": {
       "Package": "rsconnect",
-      "Version": "1.1.0",
+      "Version": "1.1.1",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1521,7 +1521,7 @@
         "tools",
         "yaml"
       ],
-      "Hash": "ec53d658cf0abbd7cd7ce2d6b9d70337"
+      "Hash": "672fc66985074d17c86b6335105143b8"
     },
     "rstudioapi": {
       "Package": "rstudioapi",
@@ -1795,14 +1795,14 @@
     },
     "systemfonts": {
       "Package": "systemfonts",
-      "Version": "1.0.4",
+      "Version": "1.0.5",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "cpp11"
       ],
-      "Hash": "90b28393209827327de889f49935140a"
+      "Hash": "15b594369e70b975ba9f064295983499"
     },
     "terra": {
       "Package": "terra",
@@ -1818,15 +1818,15 @@
     },
     "textshaping": {
       "Package": "textshaping",
-      "Version": "0.3.6",
+      "Version": "0.3.7",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "cpp11",
         "systemfonts"
       ],
-      "Hash": "1ab6223d3670fac7143202cb6a2d43d5"
+      "Hash": "997aac9ad649e0ef3b97f96cddd5622b"
     },
     "tibble": {
       "Package": "tibble",

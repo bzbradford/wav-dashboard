@@ -4,6 +4,8 @@
 
 server <- function(input, output, session) {
 
+  updateSelectizeInput(session, inputId = "station", server = TRUE)
+
   # Reactives values ----
 
   ## first_run // becomes F after initial station selection ----
@@ -45,16 +47,15 @@ server <- function(input, output, session) {
   ## stn_list ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
-    if (nrow(avail_stns()) > 0)
-      return(all_stn_list[all_stn_list %in% avail_stns()$station_id])
-    return(list())
+    if (nrow(avail_stns()) == 0) return(list())
+    all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
 
   ## cur_stn ----
   # single line data frame with station info for currently selected station
   cur_stn <- reactive({
-    req(input$station)
     req(nrow(avail_stns()) > 0)
+    req(input$station)
 
     filter(all_pts, station_id == input$station)
   })
@@ -105,10 +106,11 @@ server <- function(input, output, session) {
     } else {
       selected <- stations[sample(1:length(stations), 1)]
     }
-    updateSelectInput(
+    updateSelectizeInput(
       inputId = "station",
       choices = stations,
-      selected = selected
+      selected = selected,
+      server = TRUE
     )
   })
 
@@ -133,7 +135,7 @@ server <- function(input, output, session) {
     stns <- stn_list()
     i <- which(stn == stns)[[1]]
     selected <- ifelse(i < length(stns), stns[i + 1], stns[1])
-    updateSelectInput(inputId = "station", selected = selected)
+    updateSelectizeInput(inputId = "station", selected = selected)
   })
 
   ## Next station button ----
@@ -143,7 +145,7 @@ server <- function(input, output, session) {
     stns <- stn_list()
     i <- which(stn == stns)[[1]]
     selected <- ifelse(i > 1, stns[i - 1], stns[length(stns)])
-    updateSelectInput(inputId = "station", selected = selected)
+    updateSelectizeInput(inputId = "station", selected = selected)
   })
 
   ## Random station button ----
@@ -151,8 +153,7 @@ server <- function(input, output, session) {
   observeEvent(input$rnd_stn, {
     req(length(stn_list()) > 0)
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
-    stn <- all_pts %>% filter(station_id == stn_id)
-    updateSelectInput(inputId = "station", selected = stn_id)
+    updateSelectizeInput(inputId = "station", selected = stn_id)
   })
 
   ## Bookmark button ----
@@ -179,7 +180,7 @@ server <- function(input, output, session) {
 
   # select a station when clicked on the map
   observeEvent(map_click(), {
-    updateSelectInput(
+    updateSelectizeInput(
       inputId = "station",
       selected = map_click()
     )

@@ -15,7 +15,7 @@ mapUI <- function() {
   tagList(
     div(
       style = "margin: 0.5em 1em;", align = "center",
-      p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", thermistor stations in ", colorize(stn_colors$thermistor), ", and nutrient stations in ", colorize(stn_colors$nutrient), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
+      p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", total phosphorus monitoring stations in ", colorize(stn_colors$nutrient), ", and temperature logging stations in ", colorize(stn_colors$thermistor), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
     ),
 
     sidebarLayout(
@@ -34,7 +34,7 @@ mapUI <- function() {
               inputId = "stn_years",
               label = NULL,
               choices = data_years,
-              selected = data_years
+              selected = head(data_years, 4)
             )
           ),
           column(

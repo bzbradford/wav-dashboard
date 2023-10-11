@@ -1,4 +1,9 @@
-**2023-10-05 **
+**2023-10-11**
+
+* Added baseline monitoring data collected between 2015 and the present date to the dashboard.
+* Some tweaks to the baseline data chart to improve readability when many years are displayed. Also enabled selecting a discrete date range.
+
+**2023-10-05**
 
 * Added more station watershed and location context information to the watershed information tab.
 
