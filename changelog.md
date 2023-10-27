@@ -1,3 +1,8 @@
+**2023-10-26**
+
+* Added satellite imagery as a basemap option on the map.
+* Added a landscape composition comparison plot on the watersheds/landscape tab and ability to download an image of the landscape plots.
+
 **2023-10-11**
 
 * Added baseline monitoring data collected between 2015 and the present date to the dashboard.
