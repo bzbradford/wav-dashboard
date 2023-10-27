@@ -28,18 +28,21 @@ watershedInfoServer <- function(cur_stn) {
       ns <- session$ns
 
 
-      ## Static vars ----
+      # Static vars ----
 
+      ## mean_landscape ----
       mean_landscape <- landscape_data %>%
         group_by(huc_level, class_name, hex) %>%
         summarize(pct_area = mean(pct_area), .groups = "drop")
 
+      ## watershed_sizes ----
       watershed_sizes <- landscape_data %>%
         group_by(huc_level, huc) %>%
         summarize(area = mean(total_area), .groups = "drop_last") %>%
         summarize(area = mean(area)) %>%
         deframe()
 
+      ## scale_choices ----
       scale_choices <- list(
         "Sub-watershed (HUC12)" = 12,
         "Watershed (HUC10)" = 10,
@@ -47,8 +50,9 @@ watershedInfoServer <- function(cur_stn) {
       )
 
 
-      ## Reactive vars ----
+      # Reactive vars ----
 
+      ## selected_data ----
       selected_data <- reactive({
         req(input$scale)
         col <- paste0("huc", input$scale)
@@ -58,11 +62,33 @@ watershedInfoServer <- function(cur_stn) {
           droplevels()
       })
 
+      ## all_data ----
       all_data <- reactive({
         req(input$scale)
         mean_landscape %>% filter(huc_level == input$scale)
       })
 
+      ## landscape_diff ----
+      landscape_diff <- reactive({
+        all_data() %>%
+          left_join(select(selected_data(), class_name, pct_area2 = pct_area), by = "class_name") %>%
+          replace_na(list(pct_area2 = 0)) %>%
+          mutate(diff = pct_area2 - pct_area) %>%
+          mutate(label = scales::percent(diff, .1)) %>%
+          mutate(label = if_else(substr(label, 1, 1) == "-", label, paste0("+", label))) %>%
+          mutate(label_pos = -1 * sign(diff) * .00001) %>%
+          mutate(hovertext = paste0(
+            "Current watershed: ",
+            scales::percent(pct_area2, .1),
+            "<br>State average: ",
+            scales::percent(pct_area, .1),
+            "<br>Difference: ",
+            label)
+          ) %>%
+          droplevels()
+      })
+
+      ## selected_name ----
       selected_name <- reactive({
         req(input$scale)
         if (input$scale == 12) return(paste(cur_stn()$sub_watershed, "sub-watershed"))
@@ -70,6 +96,7 @@ watershedInfoServer <- function(cur_stn) {
         if (input$scale == 8) return(paste(cur_stn()$sub_basin, "sub-basin"))
       })
 
+      ## all_name ----
       all_name <- reactive({
         req(input$scale)
         if (input$scale == 12) return("All Wisconsin sub-watersheds")
@@ -78,8 +105,9 @@ watershedInfoServer <- function(cur_stn) {
       })
 
 
-      ## Layout ----
+      # Layout ----
 
+      ## content ----
       output$content <- renderUI({
         stn <- cur_stn()
         maps_link <- sprintf("https://www.google.com/maps/search/?api=1&query=%s+%s", stn$latitude, stn$longitude)
@@ -99,16 +127,15 @@ watershedInfoServer <- function(cur_stn) {
             strong("County name:"), stn$county_name, br(),
             strong("DNR region:"), stn$dnr_region
           ),
-          uiOutput(ns("landscapes"))
+          uiOutput(ns("landscapeUI"))
         )
       })
 
-
-      # Landscape composition plots ----
-
-      output$landscapes <- renderUI({
+      ## landscapeUI ----
+      output$landscapeUI <- renderUI({
         tagList(
           h4(strong("Landscape composition"), style = "margin-top: 1em;"),
+          p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", a(href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", "2021 USGS National Land Cover Database", target = "_blank", .noWS = "after"), ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8)."),
           div(
             class = "well flex-row year-btns",
             div(class = "year-btn-text", em("Landscape scale:")),
@@ -120,30 +147,69 @@ watershedInfoServer <- function(cur_stn) {
             )
           ),
           div(
-            class = "flex-row",
-            div(class = "pie-container well", uiOutput(ns("selected_pie"))),
-            div(class = "pie-container well", uiOutput(ns("all_pie")))
-          )
+            id = "landscape-plot-container",
+            div(
+              class = "flex-row",
+              div(class = "pie-container well", uiOutput(ns("curPlotUI"))),
+              div(class = "pie-container well", uiOutput(ns("allPlotUI")))
+            ),
+            uiOutput(ns("diffPlotUI"))
+          ),
+          uiOutput(ns("plotExportUI"))
         )
       })
 
-      output$selected_pie <- renderUI({
+      ## curPlotUI ----
+      output$curPlotUI <- renderUI({
         req(input$scale)
         area <- fmt_area(selected_data()$total_area[1])
         tagList(
           h5(align = "center", strong(selected_name())),
-          plotlyOutput(ns("plot_selected"), height = "300px"),
+          plotlyOutput(ns("curPlot"), height = "300px"),
           div(class = "plot-caption", "Drainage area:", area)
         )
       })
 
-      output$all_pie <- renderUI({
+      ## allPlotUI ----
+      output$allPlotUI <- renderUI({
         req(input$scale)
         area <- fmt_area(watershed_sizes[[as.character(input$scale)]])
         tagList(
           h5(align = "center", strong(all_name())),
-          plotlyOutput(ns("plot_all"), height = "300px"),
+          plotlyOutput(ns("allPlot"), height = "300px"),
           div(class = "plot-caption", "Average drainage:", area)
+        )
+      })
+
+      ## diffPlotUI ----
+      output$diffPlotUI <- renderUI({
+        req(input$scale)
+        tagList(
+          wellPanel(
+            style = "margin-top: 10px;",
+            h5(align = "center", strong("Difference in landscape composition")),
+            div(align = "center", class = "note", "Compared to the statewide average shown above, the landscape composition of the", strong(selected_name()), "differs in each of the following respects:"),
+            plotlyOutput(ns("diffPlot"), height = "500px")
+          )
+        )
+      })
+
+      ## plotExportUI ----
+      output$plotExportUI <- renderUI({
+        p(
+          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
+          align = "center",
+          em(a("Click here to download the landscape plots above as a PNG.",
+              style = "cursor: pointer;",
+              onclick = paste0(
+                "html2canvas(document.querySelector('",
+                "#landscape-plot-container",
+                "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+                "Landscape composition - ", selected_name(), ".png",
+                "')})"
+              )
+            )
+          )
         )
       })
 
@@ -176,14 +242,77 @@ watershedInfoServer <- function(cur_stn) {
       }
 
 
-      # Pie charts ----
+      # Plotly ----
 
-      output$plot_selected <- renderPlotly({
+      ## curPlot ----
+      output$curPlot <- renderPlotly({
         selected_data() %>% make_plot()
       })
 
-      output$plot_all <- renderPlotly({
+      ## allPlot ----
+      output$allPlot <- renderPlotly({
         all_data() %>% make_plot()
+      })
+
+      ## diffPlot ----
+      # shows a barplot of the difference between the current watershed and the state average
+      output$diffPlot <- renderPlotly({
+        df <- landscape_diff()
+        xrange <- with(df, c(min(diff) * 1.2, max(diff) * 1.2))
+        df %>%
+          plot_ly() %>%
+          add_bars(
+            y = ~class_name,
+            x = ~label_pos,
+            marker = list(
+              opacity = 0
+            ),
+            text = ~class_name,
+            textposition = "outside",
+            texttemplate = "<b>%{text}</b>",
+            hoverinfo = "none"
+          ) %>%
+          add_bars(
+            y = ~class_name,
+            x = ~diff,
+            text = ~label,
+            marker = list(
+              opacity = 0
+            ),
+            textposition = "outside",
+            texttemplate = "<b>%{text}</b>"
+          ) %>%
+          add_bars(
+            y = ~class_name,
+            x = ~diff,
+            text = ~hovertext,
+            marker = list(
+              color = ~hex,
+              line = list(color = "#000", width = 1)
+            ),
+            textposition = "none",
+            hovertemplate = "<b>%{y}<br></b>%{text}<extra></extra>"
+          ) %>%
+          layout(
+            barmode = "overlay",
+            xaxis = list(
+              title = "Difference from state average",
+              tickformat = ",.0%",
+              ticks = "outside",
+              fixedrange = T,
+              range = xrange,
+              zerolinewidth = 1.5
+            ),
+            yaxis = list(
+              visible = F,
+              fixedrange = T
+            ),
+            showlegend = F,
+            margin = list(l = 10, r = 10),
+            plot_bgcolor = "rgba(0, 0, 0, 0)",
+            paper_bgcolor = "rgba(0, 0, 0, 0)"
+          ) %>%
+          config(displayModeBar = F)
       })
     }
   )

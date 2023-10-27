@@ -632,7 +632,7 @@
     },
     "ggplot2": {
       "Package": "ggplot2",
-      "Version": "3.4.3",
+      "Version": "3.4.4",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -653,7 +653,7 @@
         "vctrs",
         "withr"
       ],
-      "Hash": "85846544c596e71f8f46483ab165da33"
+      "Hash": "313d31eff2274ecf4c1d3581db7241f9"
     },
     "glue": {
       "Package": "glue",
@@ -828,9 +828,9 @@
     },
     "httpuv": {
       "Package": "httpuv",
-      "Version": "1.6.11",
+      "Version": "1.6.12",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "R6",
@@ -839,7 +839,7 @@
         "promises",
         "utils"
       ],
-      "Hash": "838602f54e32c1a0f8cc80708cefcefa"
+      "Hash": "c992f75861325961c29a188b45e549f7"
     },
     "httr": {
       "Package": "httr",
@@ -960,7 +960,7 @@
     },
     "lattice": {
       "Package": "lattice",
-      "Version": "0.21-9",
+      "Version": "0.22-5",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -971,7 +971,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "5558c61e0136e247252f5f952cdaad6a"
+      "Hash": "7c5e89f04e72d6611c77451f6331a091"
     },
     "lazyeval": {
       "Package": "lazyeval",
@@ -1025,13 +1025,14 @@
     },
     "leaflet.providers": {
       "Package": "leaflet.providers",
-      "Version": "1.13.0",
+      "Version": "2.0.0",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
-        "R"
+        "R",
+        "htmltools"
       ],
-      "Hash": "235cd5abed82d9e6e79eb05eee248983"
+      "Hash": "c0b81ad9d5d932772f7a457ac398cf36"
     },
     "lifecycle": {
       "Package": "lifecycle",
@@ -1071,7 +1072,7 @@
     },
     "markdown": {
       "Package": "markdown",
-      "Version": "1.10",
+      "Version": "1.11",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1080,7 +1081,7 @@
         "utils",
         "xfun"
       ],
-      "Hash": "f00a677e0c006183f1232b6f1e0652d0"
+      "Hash": "82b8d62b5451f8adea7d11a99dfea633"
     },
     "memoise": {
       "Package": "memoise",
@@ -1214,9 +1215,9 @@
     },
     "plotly": {
       "Package": "plotly",
-      "Version": "4.10.2",
+      "Version": "4.10.3",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "RColorBrewer",
@@ -1242,7 +1243,7 @@
         "vctrs",
         "viridisLite"
       ],
-      "Hash": "6c00a09ba7d34917d9a3e28b15dd74e3"
+      "Hash": "56914cc61df53f2d0283d5498680867e"
     },
     "png": {
       "Package": "png",
@@ -1367,9 +1368,9 @@
     },
     "raster": {
       "Package": "raster",
-      "Version": "3.6-23",
+      "Version": "3.6-26",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "Rcpp",
@@ -1377,7 +1378,7 @@
         "sp",
         "terra"
       ],
-      "Hash": "337d6d70f7d6bf78df236a5a53f09db0"
+      "Hash": "7d6eda494f34a644420ac1bfd2a8023a"
     },
     "readr": {
       "Package": "readr",
@@ -1632,7 +1633,7 @@
     },
     "shiny": {
       "Package": "shiny",
-      "Version": "1.7.5",
+      "Version": "1.7.5.1",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1662,7 +1663,7 @@
         "withr",
         "xtable"
       ],
-      "Hash": "438b99792adbe82a8329ad8697d45afe"
+      "Hash": "5ec01cc255f2138fc2f0dc74d2b1a1a1"
     },
     "shinyBS": {
       "Package": "shinyBS",
@@ -1741,7 +1742,7 @@
     },
     "sp": {
       "Package": "sp",
-      "Version": "2.1-0",
+      "Version": "2.1-1",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1754,7 +1755,7 @@
         "stats",
         "utils"
       ],
-      "Hash": "848050eed9bdbd62ee33f1d50d8ed69e"
+      "Hash": "e9090fe4ff468d366aa6a76a9b3ec078"
     },
     "stringi": {
       "Package": "stringi",
@@ -1806,7 +1807,7 @@
     },
     "terra": {
       "Package": "terra",
-      "Version": "1.7-46",
+      "Version": "1.7-55",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
@@ -1814,7 +1815,7 @@
         "Rcpp",
         "methods"
       ],
-      "Hash": "d15182a8a20ffc5880e721bfa1bf4ce9"
+      "Hash": "c011cc748506148c793428eb8ec101f9"
     },
     "textshaping": {
       "Package": "textshaping",
@@ -1939,13 +1940,13 @@
     },
     "tinytex": {
       "Package": "tinytex",
-      "Version": "0.47",
+      "Version": "0.48",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
         "xfun"
       ],
-      "Hash": "8d4ccb733843e513c1c1cdd66a759f0d"
+      "Hash": "8f96d229b7311beb32b94cf413b13f84"
     },
     "tzdb": {
       "Package": "tzdb",
@@ -1971,13 +1972,13 @@
     },
     "utf8": {
       "Package": "utf8",
-      "Version": "1.2.3",
+      "Version": "1.2.4",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R"
       ],
-      "Hash": "1fe17157424bb09c48a8b3b550c753bc"
+      "Hash": "62b65c52671e6665f803ff02954446e9"
     },
     "uuid": {
       "Package": "uuid",
@@ -1991,9 +1992,9 @@
     },
     "vctrs": {
       "Package": "vctrs",
-      "Version": "0.6.3",
+      "Version": "0.6.4",
       "Source": "Repository",
-      "Repository": "CRAN",
+      "Repository": "RSPM",
       "Requirements": [
         "R",
         "cli",
@@ -2001,7 +2002,7 @@
         "lifecycle",
         "rlang"
       ],
-      "Hash": "d0ef2856b83dc33ea6e255caf6229ee2"
+      "Hash": "266c1ca411266ba8f365fcc726444b87"
     },
     "viridis": {
       "Package": "viridis",
@@ -2067,13 +2068,13 @@
     },
     "wk": {
       "Package": "wk",
-      "Version": "0.8.0",
+      "Version": "0.9.0",
       "Source": "Repository",
       "Repository": "RSPM",
       "Requirements": [
         "R"
       ],
-      "Hash": "aaf7e20556e3125a09d53453814ad339"
+      "Hash": "f58cfa8d9c3a78a309d455a647dee853"
     },
     "xfun": {
       "Package": "xfun",
