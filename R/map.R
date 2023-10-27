@@ -152,11 +152,21 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ## Render initial map ----
 
-      basemaps <- list(
-        one = "ESRI Topo",
-        two = "Grey Canvas",
-        three = "OpenStreetMap"
+      basemaps <- tribble(
+        ~label, ~provider,
+        "ESRI Topo", providers$Esri.WorldTopoMap,
+        "Satellite", providers$Esri.WorldImagery,
+        "OpenStreetMap", providers$OpenStreetMap,
+        "Grey Canvas", providers$CartoDB.Positron
       )
+
+      addBasemaps <- function(map) {
+        for (r in 1:nrow(basemaps)) {
+          df <- slice(basemaps, r)
+          map <- addProviderTiles(map, df$provider, group = df$label)
+        }
+        map
+      }
 
       layers <- list(
         counties = "Counties/Regions",
@@ -180,9 +190,7 @@ mapServer <- function(cur_stn, avail_stns) {
             lng1 = -92.9,
             lng2 = -86.8
           ) %>%
-          addProviderTiles(providers$Esri.WorldTopoMap, group = basemaps$one) %>%
-          addProviderTiles(providers$CartoDB.Positron, group = basemaps$two) %>%
-          addProviderTiles(providers$OpenStreetMap, group = basemaps$three) %>%
+          addBasemaps() %>%
           addMapPane("counties", 410) %>%
           addMapPane("cur_huc", 420) %>%
           addMapPane("huc8", 421) %>%
@@ -196,7 +204,7 @@ mapServer <- function(cur_stn, avail_stns) {
           addMapPane("pins", 450) %>%
           hideGroup(hidden_layers) %>%
           addLayersControl(
-            baseGroups = unlist(basemaps, use.names = FALSE),
+            baseGroups = basemaps$label,
             overlayGroups = unlist(layers, use.names = FALSE),
             options = layersControlOptions(collapsed = FALSE)
           ) %>%
@@ -325,9 +333,8 @@ mapServer <- function(cur_stn, avail_stns) {
         delay(3000, {
           map %>%
             addLayersControl(
-              baseGroups = unlist(basemaps, use.names = FALSE),
+              baseGroups = basemaps$label,
               overlayGroups = unlist(layers, use.names = FALSE),
-              options = layersControlOptions(collapsed = TRUE)
             )
         })
       })
