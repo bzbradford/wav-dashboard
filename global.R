@@ -400,9 +400,7 @@ all_stn_list <- all_pts %>%
 
 # Landscape data ----
 
-
 landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progress = F) %>%
   mutate(across(where(is.character), fct_inorder))
 landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
   left_join(landcover_classes, by = "class")
-

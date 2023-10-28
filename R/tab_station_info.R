@@ -56,6 +56,7 @@ stationInfoServer <- function(cur_stn) {
               all_stn_data %>%
                 filter(station_id == cur_stn()$station_id) %>%
                 select(-station_id) %>%
+                arrange(desc(year)) %>%
                 clean_names(case = "title")
             },
             align = "c"

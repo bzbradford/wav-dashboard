@@ -5,7 +5,6 @@
 
 shiny::shinyApp(ui, server, enableBookmarking = "url")
 
-
 #- Dependencies -#
 
 #' app.R

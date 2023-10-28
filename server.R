@@ -4,20 +4,22 @@
 
 server <- function(input, output, session) {
 
-  updateSelectizeInput(session, inputId = "station", server = TRUE)
-
   # Reactives values ----
 
-  ## first_run // becomes F after initial station selection ----
+  ## first_run ----
+  # becomes F after initial station selection
   first_run <- reactiveVal(TRUE)
 
-  ## initial_stn // determines station to select on app load ----
+  ## initial_stn ----
+  # determines station to select on app load
   initial_stn <- reactiveVal(random_baseline_stn())
 
-  ## bookmarking // enable/disable bookmarking features ----
+  ## bookmarking ----
+  # enable/disable bookmarking features
   bookmarking <- reactiveVal(FALSE)
 
-  ## avail_stns // reacts to map sidebar selections ----
+  ## avail_stns ----
+  # reacts to map sidebar selections
   avail_stns <- reactive({
     ids <- list(0)
     coverage = list(
@@ -39,7 +41,6 @@ server <- function(input, output, session) {
     }
 
     avail_ids <- sort(reduce(ids, union))
-
     all_stn_years %>%
       filter(station_id %in% avail_ids)
   })
@@ -51,19 +52,24 @@ server <- function(input, output, session) {
     all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
 
+  ## last_valid_stn ----
+  last_valid_stn <- reactiveVal()
+
   ## cur_stn ----
   # single line data frame with station info for currently selected station
   cur_stn <- reactive({
     req(nrow(avail_stns()) > 0)
     req(input$station)
 
-    filter(all_pts, station_id == input$station)
+    stn <- filter(all_pts, station_id == input$station)
+    last_valid_stn(stn)
+    stn
   })
-
 
   # Event reactives ----
 
-  # On startup // Set initial station ----
+  ## startup => set initial station ----
+  # Checks for URL query string, set initial station to random or requested
   observeEvent(TRUE, once = TRUE, {
     # check for a url query
     query <- parseQueryString(session$clientData$url_search)[['stn']]
@@ -93,28 +99,43 @@ server <- function(input, output, session) {
     }
   })
 
-  ## Update the station selectInput on stn_list() change ----
+  ## stn_list => updateSelectInput ----
   # if the previously selected station is still in the list, keep it selected
   # otherwise pick a random station from the list
   observeEvent(stn_list(), {
     stations <- stn_list()
+    selected <- ""
+
+    # pick the initial station, either from URL or random, on load
     if (first_run()) {
       selected <- initial_stn()
       first_run(FALSE)
+
+    # if current station is still in the list, keep it selected
     } else if (input$station %in% stations) {
       selected <- input$station
-    } else {
-      selected <- stations[sample(1:length(stations), 1)]
+
+    # pick the geographically nearest station
+    } else if (length(stations) > 0) {
+      last_pt <- last_valid_stn()
+      if (nrow(last_pt) == 1) {
+        # find geographically nearest station
+        avail_pts <- all_pts %>% filter(station_id %in% stations)
+        selected <- avail_pts[st_nearest_feature(last_pt, avail_pts),]$station_id
+      } else {
+        selected <- stations[sample(1:length(stations), 1)]
+      }
     }
-    updateSelectizeInput(
+
+    updateSelectInput(
       inputId = "station",
       choices = stations,
-      selected = selected,
-      server = TRUE
+      selected = selected
     )
   })
 
-  ## Set URL and page title when bookmarking enabled ----
+  ## cur_stn & bookmarking => update URL ----
+  # Set URL and page title when bookmarking enabled
   observeEvent(list(cur_stn(), bookmarking()), {
     if (bookmarking()) {
       setURL(cur_stn()$station_id)
@@ -128,45 +149,90 @@ server <- function(input, output, session) {
 
   # Button handlers ----
 
-  ## Prev station button ----
-  # select the next station in the list
+  ## next_stn => Next station button ----
+  # go to the next station east
   observeEvent(input$next_stn, {
-    stn <- cur_stn()$station_id
-    stns <- stn_list()
-    i <- which(stn == stns)[[1]]
-    selected <- ifelse(i < length(stns), stns[i + 1], stns[1])
-    updateSelectizeInput(inputId = "station", selected = selected)
+    req(length(stn_list()) > 0)
+    avail_pts <- filter(all_pts, station_id %in% avail_stns()$station_id)
+    stns_east <- filter(avail_pts, longitude > cur_stn()$longitude)
+    if (nrow(stns_east) == 0) {
+      # circle back around
+      selected <- avail_pts %>%
+        filter(longitude == min(longitude)) %>%
+        pull(station_id)
+    } else {
+      # pick the next easterly station
+      selected <- stns_east %>%
+        slice(st_nearest_feature(cur_stn(), stns_east)) %>%
+        pull(station_id)
+    }
+
+    updateSelectInput(inputId = "station", selected = selected)
   })
 
-  ## Next station button ----
-  # select the previous station in the list
+  ## prev_stn => Prev station button ----
+  # go to the next station west
   observeEvent(input$prev_stn, {
-    stn <- cur_stn()$station_id
-    stns <- stn_list()
-    i <- which(stn == stns)[[1]]
-    selected <- ifelse(i > 1, stns[i - 1], stns[length(stns)])
-    updateSelectizeInput(inputId = "station", selected = selected)
+    req(length(stn_list()) > 0)
+    avail_pts <- all_pts %>% filter(station_id %in% avail_stns()$station_id)
+    stns_west <- avail_pts %>% filter(longitude < cur_stn()$longitude)
+    if (nrow(stns_west) == 0) {
+      # circle back around
+      selected <- avail_pts %>%
+        filter(longitude == max(longitude)) %>%
+        pull(station_id)
+    } else {
+      selected <- stns_west %>%
+        slice(st_nearest_feature(cur_stn(), stns_west)) %>%
+        pull(station_id)
+    }
+
+    updateSelectInput(inputId = "station", selected = selected)
   })
 
-  ## Random station button ----
+  ## rnd_stn => Random station button ----
   # select a random station
   observeEvent(input$rnd_stn, {
     req(length(stn_list()) > 0)
     stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
-    updateSelectizeInput(inputId = "station", selected = stn_id)
+    updateSelectInput(inputId = "station", selected = stn_id)
   })
 
-  ## Bookmark button ----
+  ## bookmarking => toggle state ----
+  observeEvent(input$bookmarking, bookmarking(!bookmarking()))
+
+  ## recent_stn => select a recent station ----
+  # see 'tab_recent_stations.R'
+  observeEvent(input$recent_stn, {
+    id <- input$recent_stn
+
+    if (!(id %in% stn_list())) {
+      # desired station not in list, need to remove restrictions
+      # keep current year select, add the most recent year from the desired station
+      new_years <- union(
+        max(filter(all_stn_years, station_id == id)$year),
+        input$stn_years
+      )
+      updateCheckboxGroupInput(inputId = "stn_types", selected = station_types)
+      updateCheckboxGroupInput(inputId = "stn_years", selected = new_years)
+      updateRadioButtons(inputId = "year_exact_match", selected = FALSE)
+    }
+    updateSelectInput(inputId = "station", selected = id)
+  })
+
+
+  # Rendered UIs ----
+
+  ## bookmark_btn ----
   # enable/disable URL and title to show current station
-  observeEvent(input$toggle_bookmarking, bookmarking(!bookmarking()))
+
   output$bookmark_btn <- renderUI({
     if (bookmarking()) {
-      actionButton("toggle_bookmarking", "★", class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
+      actionButton("bookmarking", "★", class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
     } else {
-      actionButton("toggle_bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
+      actionButton("bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
     }
   })
-
 
 
   # Module servers ----
@@ -180,7 +246,7 @@ server <- function(input, output, session) {
 
   # select a station when clicked on the map
   observeEvent(map_click(), {
-    updateSelectizeInput(
+    updateSelectInput(
       inputId = "station",
       selected = map_click()
     )
@@ -196,7 +262,7 @@ server <- function(input, output, session) {
 
   ## Recent stations ----
   recentStationsServer(
-    cur_stn = reactive(cur_stn()),
+    cur_stn = reactive(last_valid_stn()),
     stn_list = reactive(stn_list())
   )
 

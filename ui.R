@@ -55,7 +55,7 @@ ui <- fluidPage(
           div(
             class = "flex-col",
             title = "Currently selected station",
-            selectizeInput(
+            selectInput(
               inputId = "station",
               label = NULL,
               choices = list()

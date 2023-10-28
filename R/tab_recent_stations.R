@@ -56,7 +56,7 @@ recentStationsServer <- function(cur_stn, stn_list) {
           select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
           mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
           mutate(action = lapply(ids, function(id) {
-            paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent-stations-newId', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
+            paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
           }), .before = everything()) %>%
           mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
           clean_names("title")
@@ -87,25 +87,42 @@ recentStationsServer <- function(cur_stn, stn_list) {
       })
 
       # update current station on button press
-      observeEvent(input$newId, {
-        id <- input$newId
-
-        if (id %in% stn_list()) {
-          updateSelectInput(
-            inputId = "station",
-            selected = id
-          )
-        } else {
-          updateSelectInput(
-            inputId = "stn_types",
-            selected = station_types
-          )
-          updateCheckboxGroupInput(
-            inputId = "stn_years",
-            selected = data_years[1]
-          )
-        }
-      })
+      # observeEvent(input$newId, {
+      #   id <- input$newId
+      #   message(id)
+      #   print(stn_list())
+      #   print(length(stn_list()))
+      #   browser()
+      #
+      #   # station list empty, need to re-enable checkboxes
+      #   if (length(stn_list()) == 0) {
+      #     message('foo')
+      #     updateCheckboxGroupInput(
+      #       session = session,
+      #       inputId = "map-stn_types",
+      #       choices = station_types,
+      #       selected = station_types
+      #     )
+      #     updateCheckboxGroupInput(
+      #       session = session,
+      #       inputId = "stn_years",
+      #       choices = data_years,
+      #       selected = data_years
+      #     )
+      #     updateRadioButtons(
+      #       session = session,
+      #       inputId = "year_exact_match",
+      #       selected = TRUE
+      #     )
+      #   }
+      #
+      #   if (id %in% stn_list()) {
+      #     updateSelectInput(
+      #       inputId = "station",
+      #       selected = id
+      #     )
+      #   }
+      # })
 
       # clear recents on button press
       observeEvent(input$clearList, {

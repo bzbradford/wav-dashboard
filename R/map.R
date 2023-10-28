@@ -132,11 +132,14 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ## Observers ----
 
-      # center map when station changes but only if zoomed in
+      # center map when station changes but only if out of view
       observeEvent(cur_stn(), {
-        req(input$map_zoom)
-        z <- input$map_zoom
-        if (z >= 8) zoomToSite()
+        req(input$map_bounds)
+        bounds <- input$map_bounds
+        in_lat <- between(cur_stn()$latitude, bounds$south, bounds$north)
+        in_long <- between(cur_stn()$longitude, bounds$west, bounds$east)
+        in_view <- in_lat & in_long
+        if (!in_view) zoomToSite()
       })
 
 
@@ -200,7 +203,8 @@ mapServer <- function(cur_stn, avail_stns) {
           addMapPane("baseline", 430) %>%
           addMapPane("thermistor", 431) %>%
           addMapPane("nutrient", 432) %>%
-          addMapPane("cur_point", 440) %>%
+          addMapPane("cur_point_circle", 440) %>%
+          addMapPane("cur_point_marker", 441) %>%
           addMapPane("pins", 450) %>%
           hideGroup(hidden_layers) %>%
           addLayersControl(
@@ -258,13 +262,13 @@ mapServer <- function(cur_stn, avail_stns) {
 
       ## Render watersheds ----
 
-      observeEvent(T, {
+      observeEvent(TRUE, {
         map <- leafletProxy(ns("map"))
         color <- "blue"
         fill_color <- "lightblue"
 
         # Nine Key Elements
-        delay(500, {
+        delay(1000, {
           map %>%
             addPolygons(
               data = nkes,
@@ -281,7 +285,7 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC8
-        delay(500, {
+        delay(1100, {
           map %>%
             addPolygons(
               data = huc8,
@@ -297,7 +301,7 @@ mapServer <- function(cur_stn, avail_stns) {
         })
 
         # HUC10
-        delay(500, {
+        delay(1200, {
           map %>%
             addPolygons(
               data = huc10,
@@ -314,7 +318,7 @@ mapServer <- function(cur_stn, avail_stns) {
 
 
         # HUC12
-        delay(500, {
+        delay(1300, {
           map %>%
             addPolygons(
               data = huc12,
@@ -421,6 +425,7 @@ mapServer <- function(cur_stn, avail_stns) {
         }
       }
 
+      # redraw points when the available stations change or the circles need to change
       observe({
         if (nrow(avail_pts()) > 0) {
           drawPts()
@@ -454,7 +459,7 @@ mapServer <- function(cur_stn, avail_stns) {
             label = label,
             layerId = ~station_id,
             group = "cur_point",
-            options = pathOptions(pane = "cur_point"),
+            options = pathOptions(pane = "cur_point_circle"),
             radius = pt_size() + 1,
             weight = 0.75,
             color = "black",
@@ -469,7 +474,7 @@ mapServer <- function(cur_stn, avail_stns) {
             popup = popup,
             layerId = ~station_id,
             group = "cur_point",
-            options = pathOptions(pane = "cur_point")
+            options = pathOptions(pane = "cur_point_marker")
           )
       }) %>%
         bindEvent(list(avail_stns(), cur_stn(), pt_size()))

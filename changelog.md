@@ -1,3 +1,10 @@
+**2023-10-27**
+
+* Fix issue with recently viewed station selection buttons not working properly.
+* When currently selected station is no longer available due to map selections, the nearest available station is selected, not a random one.
+* The Next/Prev station buttons now go to the next closest station to the East or West.
+* The map doesn't re-center on a station unless it is clicked or is off screen.
+
 **2023-10-26**
 
 * Added satellite imagery as a basemap option on the map.
