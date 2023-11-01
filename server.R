@@ -1,4 +1,4 @@
-## MAIN SERVER ##
+##  server.R  ##
 
 # Server ----
 

@@ -5,10 +5,11 @@
 
 shiny::shinyApp(ui, server, enableBookmarking = "url")
 
+
 #- Dependencies -#
 
 #' app.R
-#' - global.R
+#' - .RData, created by sourcing load.R
 #' - ui.R
 #' - server.R
 #' - modules in ./R
