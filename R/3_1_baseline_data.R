@@ -50,6 +50,8 @@ baselineDataServer <- function(cur_stn) {
       ns <- session$ns
 
       cur_data <- reactive({
+        req(cur_stn())
+
         baseline_data %>%
           filter(station_id == cur_stn()$station_id)
       })
@@ -108,7 +110,6 @@ baselineDataServer <- function(cur_stn) {
           p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
           p(strong("Stream flow:"), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
           br(),
-          # p(strong("Download a PDF report of this station's data:"), downloadBttn("baseline_report")),
           bsCollapse(
             bsCollapsePanel(
               title = "View/download baseline data",
@@ -404,7 +405,7 @@ baselineDataServer <- function(cur_stn) {
           mutate(Parameter = gsub("D o", "D.O.", Parameter)) %>%
           mutate(Parameter = gsub("P h", "pH", Parameter))
 
-        datatable(df, options = list(paging = F))
+        datatable(df, selection = "none", options = list(paging = FALSE))
       },
         server = F)
 

@@ -73,6 +73,8 @@ nutrientDataServer <- function(cur_stn) {
       ## Reactives ----
 
       cur_data <- reactive({
+        req(cur_stn())
+
         filter(nutrient_data, station_id == cur_stn()$station_id)
       })
 

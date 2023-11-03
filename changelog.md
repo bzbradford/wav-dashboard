@@ -1,3 +1,8 @@
+**2023-11-03**
+
+* Added ability to screenshot entire page and download as PNG. Cannot render the map correctly at this time so the map is excluded from the rendered image.
+* Allow the last selected station to remain selected when no stations are available on the map due to filters. The station selection list and data tabs remain populated even when the map has all stations cleared out.
+
 **2023-10-27**
 
 * Fix issue with recently viewed station selection buttons not working properly.

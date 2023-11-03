@@ -45,10 +45,16 @@ server <- function(input, output, session) {
       filter(station_id %in% avail_ids)
   })
 
+  ## stns_avail ----
+  # are any stations available?
+  stns_avail <- reactive({
+    nrow(avail_stns()) > 0
+  })
+
   ## stn_list ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
-    if (nrow(avail_stns()) == 0) return(list())
+    if (!stns_avail()) return(list())
     all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
 
@@ -58,7 +64,7 @@ server <- function(input, output, session) {
   ## cur_stn ----
   # single line data frame with station info for currently selected station
   cur_stn <- reactive({
-    req(nrow(avail_stns()) > 0)
+    req(stns_avail())
     req(input$station)
 
     stn <- filter(all_pts, station_id == input$station)
@@ -125,6 +131,10 @@ server <- function(input, output, session) {
       } else {
         selected <- stations[sample(1:length(stations), 1)]
       }
+    } else {
+      # keep the current station selected in a one-item list
+      stations <- all_stn_list[all_stn_list %in% last_valid_stn()$station_id]
+      selected <- stations
     }
 
     updateSelectInput(
@@ -136,10 +146,10 @@ server <- function(input, output, session) {
 
   ## cur_stn & bookmarking => update URL ----
   # Set URL and page title when bookmarking enabled
-  observeEvent(list(cur_stn(), bookmarking()), {
+  observeEvent(list(last_valid_stn(), bookmarking()), {
     if (bookmarking()) {
-      setURL(cur_stn()$station_id)
-      setTitle(cur_stn()$label)
+      setURL(last_valid_stn()$station_id)
+      setTitle(last_valid_stn()$label)
     } else {
       setURL(NULL)
       setTitle(NULL)
@@ -220,6 +230,41 @@ server <- function(input, output, session) {
     updateSelectInput(inputId = "station", selected = id)
   })
 
+  ## screenshot => download pdf ----
+  observeEvent(stns_avail(), {
+    if (stns_avail()) enable("screenshot") else disable("screenshot")
+  })
+
+  #' use html2canvas to screenshot the main page content
+  #' have to remove the map div for now because leaflet is using svg instead of canvas
+  #' map polygons render in the incorrect location with html2canvas
+  #' once cloned the radio buttons are modified because they didn't appear correctly
+  #' after rendering, the screenshot button is re-enabled
+  observeEvent(input$screenshot, {
+    fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
+    runjs(sprintf("
+      html2canvas(
+        document.querySelector('#main-content'),
+        {
+          scale: 1,
+          crossOrigin: 'anonymous',
+          useCORS: true,
+          imageTimeout: 5000,
+          onclone: (cloneDoc) => {
+            cloneDoc.querySelector('#map-content').style.display = 'none';
+            const style = cloneDoc.createElement('style');
+            style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
+            cloneDoc.body.appendChild(style);
+          }
+        }
+      ).then(canvas => {
+        saveAs(canvas.toDataURL(), '%s.png')
+      });
+    ", fname))
+    enable("screenshot")
+    runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
+  })
+
 
   # Rendered UIs ----
 
@@ -267,21 +312,21 @@ server <- function(input, output, session) {
   )
 
   ## Station info tab ----
-  stationInfoServer(cur_stn = reactive(cur_stn()))
+  stationInfoServer(cur_stn = reactive(last_valid_stn()))
 
   ## Station list tab ----
   stationListServer()
 
   ## Baseline data tab ----
-  baselineDataServer(cur_stn = reactive(cur_stn()))
+  baselineDataServer(cur_stn = reactive(last_valid_stn()))
 
   ## Nutrient data tab ----
-  nutrientDataServer(cur_stn = reactive(cur_stn()))
+  nutrientDataServer(cur_stn = reactive(last_valid_stn()))
 
   ## Thermistor data tab ----
-  thermistorDataServer(cur_stn = reactive(cur_stn()))
+  thermistorDataServer(cur_stn = reactive(last_valid_stn()))
 
   ## Watershed info tab ----
-  watershedInfoServer(cur_stn = reactive(cur_stn()))
+  watershedInfoServer(cur_stn = reactive(last_valid_stn()))
 
 }

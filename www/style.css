@@ -146,10 +146,6 @@ a, a:hover, a:focus {
   text-align: center;
 }
 
-/*.stn-select {
-  flex: 1;
-}*/
-
 @media screen and (max-width: 600px) {
   .stn-select {
     flex-direction: column;

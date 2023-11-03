@@ -396,6 +396,16 @@ landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progr
 landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
   left_join(landcover_classes, by = "class")
 
+mean_landscape <- landscape_data %>%
+  group_by(huc_level, class_name, hex) %>%
+  summarize(pct_area = mean(pct_area), .groups = "drop")
+
+watershed_sizes <- landscape_data %>%
+  group_by(huc_level, huc) %>%
+  summarize(area = mean(total_area), .groups = "drop_last") %>%
+  summarize(area = mean(area)) %>%
+  deframe()
+
 
 # Save environment ----
 

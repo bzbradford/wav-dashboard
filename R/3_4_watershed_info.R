@@ -30,18 +30,6 @@ watershedInfoServer <- function(cur_stn) {
 
       # Static vars ----
 
-      ## mean_landscape ----
-      mean_landscape <- landscape_data %>%
-        group_by(huc_level, class_name, hex) %>%
-        summarize(pct_area = mean(pct_area), .groups = "drop")
-
-      ## watershed_sizes ----
-      watershed_sizes <- landscape_data %>%
-        group_by(huc_level, huc) %>%
-        summarize(area = mean(total_area), .groups = "drop_last") %>%
-        summarize(area = mean(area)) %>%
-        deframe()
-
       ## scale_choices ----
       scale_choices <- list(
         "Sub-watershed (HUC12)" = 12,
@@ -54,7 +42,9 @@ watershedInfoServer <- function(cur_stn) {
 
       ## selected_data ----
       selected_data <- reactive({
+        req(cur_stn())
         req(input$scale)
+
         col <- paste0("huc", input$scale)
         landscape_data %>%
           filter(huc == cur_stn()[[col]]) %>%

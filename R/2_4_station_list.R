@@ -5,9 +5,23 @@
 stationListUI <- function() {
   ns <- NS("station-list")
 
+  createStnPanel <- function(title, btn_id, tbl_id) {
+    bsCollapsePanel(
+      title = title,
+      style = "primary",
+      p(downloadButton(ns(btn_id), "Download this list")),
+      dataTableOutput(ns(tbl_id))
+    )
+  }
+
   tagList(
     p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
-    uiOutput(ns("content"))
+    bsCollapse(
+      createStnPanel("Baseline monitoring stations", "baselineDownload", "baselineTable"),
+      createStnPanel("Nutrient monitoring stations", "nutrientDownload", "nutrientTable"),
+      createStnPanel("Thermistor station stations", "thermistorDownload", "thermistorTable"),
+      createStnPanel("Complete station list", "allDownload", "allTable")
+    )
   )
 }
 
@@ -22,100 +36,38 @@ stationListServer <- function() {
     function(input, output, session) {
       ns <- session$ns
 
-      ## Layout ----
+      ## Defs ----
 
-      output$content <- renderUI({
-        bsCollapse(
-          bsCollapsePanel(
-            title = "Baseline monitoring stations",
-            style = "primary",
-            p(downloadButton(ns("baselineDownload"), "Download this list")),
-            dataTableOutput(ns("baselineTable"))
-          ),
-          bsCollapsePanel(
-            title = "Nutrient monitoring stations",
-            style = "primary",
-            p(downloadButton(ns("nutrientDownload"), "Download this list")),
-            dataTableOutput(ns("nutrientTable"))
-          ),
-          bsCollapsePanel(
-            title = "Thermistor station stations",
-            style = "primary",
-            p(downloadButton(ns("thermistorDownload"), "Download this list")),
-            dataTableOutput(ns("thermistorTable"))
-          ),
-          bsCollapsePanel(
-            title = "Complete station list",
-            style = "primary",
-            p(downloadButton(ns("allDownload"), "Download this list")),
-            dataTableOutput(ns("allTable"))
-          )
-        )
-      })
+      baseline_stns <- filter(all_stns, baseline_stn)
+      nutrient_stns <- filter(all_stns, nutrient_stn)
+      therm_stns <- filter(all_stns, therm_stn)
 
 
       ## Tables ----
 
-      output$baselineTable <- renderDataTable({
-        all_stns %>%
-          filter(baseline_stn) %>%
-          clean_names(case = "big_camel")
-      })
+      renderStnTbl <- function(df) {
+        renderDataTable({
+          df %>% clean_names(case = "big_camel")
+        }, selection = "none")
+      }
 
-      output$nutrientTable <- renderDataTable({
-        all_stns %>%
-          filter(nutrient_stn) %>%
-          clean_names(case = "big_camel")
-      })
-
-      output$thermistorTable <- renderDataTable({
-        all_stns %>%
-          filter(therm_stn) %>%
-          clean_names(case = "big_camel")
-      })
-
-      output$allTable <- renderDataTable({
-        all_stns %>%
-          clean_names(case = "big_camel")
-      })
+      output$baselineTable <- renderStnTbl(baseline_stns)
+      output$nutrientTable <- renderStnTbl(nutrient_stns)
+      output$thermistorTable <- renderStnTbl(therm_stns)
+      output$allTable <- renderStnTbl(all_stns)
 
 
       ## Download handlers ----
 
-      output$baselineDownload <- downloadHandler(
-        "wav-baseline-stations.csv",
-        function(file) {
-          all_stns %>%
-            filter(baseline_stn) %>%
-            write_csv(file)
-        }
-      )
+      createStnDl <- function(fname, df) {
+        downloadHandler(fname, function(file) { write_csv(df, file) } )
+      }
 
-      output$nutrientDownload <- downloadHandler(
-        "wav-nutrient-stations.csv",
-        function(file) {
-          all_stns %>%
-            filter(nutrient_stn) %>%
-            write_csv(file)
-        }
-      )
+      output$baselineDownload <- createStnDl("wav-baseline-stations.csv", baseline_stns)
+      output$nutrientDownload <- createStnDl("wav-nutrient-stations.csv", nutrient_stns)
+      output$thermistorDownload <- createStnDl("wav-thermistor-stations.csv", therm_stns)
+      output$allDownload <- downloadHandler("wav-station-list.csv", all_stns)
 
-      output$thermistorDownload <- downloadHandler(
-        "wav-thermistor-stations.csv",
-        function(file) {
-          all_stns %>%
-            filter(therm_stn) %>%
-            write_csv(file)
-        }
-      )
-
-      output$allDownload <- downloadHandler(
-        "wav-station-list.csv",
-        function(file) {
-          all_stns %>%
-            write_csv(file)
-        }
-      )
     }
   )
 }

@@ -67,7 +67,7 @@ mapUI <- function() {
         )
       ),
       position = "right"
-    ),
+    )
   )
 }
 
@@ -434,8 +434,7 @@ mapServer <- function(cur_stn, avail_stns) {
             clearGroup(layers$baseline) %>%
             clearGroup(layers$therm) %>%
             clearGroup(layers$nutrient) %>%
-            clearGroup(layers$pins) %>%
-            clearGroup("cur_point")
+            clearGroup(layers$pins)
         }
       }) %>% bindEvent(list(avail_pts(), pt_size()))
 
