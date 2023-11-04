@@ -33,7 +33,7 @@ baselineDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("content"))
+    uiOutput(ns("content")) %>% withSpinnerProxy(),
   )
 }
 
@@ -49,6 +49,9 @@ baselineDataServer <- function(cur_stn) {
     function(input, output, session) {
       ns <- session$ns
 
+      # Reactive vals ----
+
+      ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
 
@@ -56,14 +59,17 @@ baselineDataServer <- function(cur_stn) {
           filter(station_id == cur_stn()$station_id)
       })
 
+      ## data_ready ----
       data_ready <- reactive({
         nrow(cur_data()) > 0
       })
 
+      ## cur_years ----
       cur_years <- reactive({
         sort(unique(cur_data()$year))
       })
 
+      ## selected_data ----
       selected_data <- reactive({
         if (input$year == "All") {
           cur_data()
@@ -72,13 +78,15 @@ baselineDataServer <- function(cur_stn) {
         }
       })
 
+      ## selected_data_ready ----
       selected_data_ready <- reactive({
         nrow(selected_data()) > 0
       })
 
 
-      ## Layout ----
+      # Layout ----
 
+      ## content | Primary UI----
       output$content <- renderUI({
         if (!data_ready()) {
           return(div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."))
@@ -87,10 +95,7 @@ baselineDataServer <- function(cur_stn) {
         tagList(
           div(
             class = "well flex-row year-btns",
-            div(
-              class = "year-btn-text",
-              em("Choose year:")
-            ),
+            div(class = "year-btn-text", em("Choose year:")),
             radioGroupButtons(
               inputId = ns("year"),
               label = NULL,
@@ -101,10 +106,10 @@ baselineDataServer <- function(cur_stn) {
           div(
             id = "baseline-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot"))
+            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
           ),
           uiOutput(ns("plotExportUI")),
-          uiOutput(ns("stnSummaryUI")),
+          uiOutput(ns("stnSummaryUI")) %>% withSpinnerProxy(hide.ui = FALSE, proxy.height = 200),
           p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
           p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
           p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
@@ -120,8 +125,9 @@ baselineDataServer <- function(cur_stn) {
       })
 
 
-      ## Plot ----
+      # Plot ----
 
+      ## plot ----
       output$plot <- renderPlotly({
         req(selected_data_ready())
 
@@ -298,9 +304,7 @@ baselineDataServer <- function(cur_stn) {
           config(displayModeBar = F)
       })
 
-
-      ## Plot export ----
-
+      ## plotExportUI ----
       output$plotExportUI <- renderUI({
         p(
           style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
@@ -321,20 +325,29 @@ baselineDataServer <- function(cur_stn) {
       })
 
 
-      ## Summary ----
+      # Station summary box ----
 
+      ## stnSummaryUI ----
       output$stnSummaryUI <- renderUI({
-        req(input$year)
-        req(selected_data_ready())
+        req(stnSummaryData())
 
         div(
           class = "well",
           style = "overflow: auto",
           h4("Station data summary", style = "border-bottom: 2px solid #d0d7d9;"),
-          tableOutput(ns("stnSummaryData"))
+          tableOutput(ns("stnSummaryTable"))
         )
       })
 
+      ## stnSummaryTable ----
+      output$stnSummaryTable <- renderTable(
+        stnSummaryData(),
+        width = "100%",
+        spacing = "xs",
+        align = "lccccc"
+      )
+
+      ## baseline_summary_vars ----
       baseline_summary_vars <- tribble(
         ~var, ~parameter, ~units,
         "d_o", "Dissolved oxygen", "mg/L",
@@ -344,31 +357,27 @@ baselineDataServer <- function(cur_stn) {
         "streamflow_cfs", "Stream flow", "cfs"
       ) %>% rowwise()
 
-      output$stnSummaryData <- renderTable(
-        {
-          req(input$year)
-          req(selected_data_ready())
+      ## stnSummaryData ----
+      stnSummaryData <- reactive({
+        req(input$year)
+        req(selected_data_ready())
 
-          df <- selected_data() %>%
-            distinct(date, .keep_all = T)
-
-          date_fmt <- ifelse(input$year == "All", "%b %e, %Y", "%b %e")
-
-          baseline_summary_vars %>%
-            reframe(pick(everything()), make_min_max(df, var)) %>%
-            mutate(across(c(min, max), ~paste(.x, units))) %>%
-            mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
-            select(-c(var, units)) %>%
-            clean_names("title")
-        },
-        width = "100%",
-        spacing = "xs",
-        align = "lccccc"
-      )
+        df <- selected_data() %>%
+          distinct(date, .keep_all = T)
+        date_fmt <- ifelse(input$year == "All", "%b %e, %Y", "%b %e")
+        baseline_summary_vars %>%
+          reframe(pick(everything()), make_min_max(df, var)) %>%
+          mutate(across(c(min, max), ~paste(.x, units))) %>%
+          mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
+          select(-c(var, units)) %>%
+          clean_names("title")
+      })
 
 
-      ## View data ----
 
+      # View Baseline Data ----
+
+      ## viewDataUI ----
       output$viewDataUI <- renderUI({
         req(input$year)
 
@@ -389,6 +398,7 @@ baselineDataServer <- function(cur_stn) {
         )
       })
 
+      ## dataTable ----
       output$dataTable <- renderDataTable({
         req(selected_data_ready())
 
@@ -409,15 +419,20 @@ baselineDataServer <- function(cur_stn) {
       },
         server = F)
 
+      ## downloadYear ----
       output$downloadYear <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$year, ".csv"),
         function(file) {write_csv(selected_data(), file)}
       )
 
+      ## downloadAll ----
       output$downloadAll <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data.csv"),
         function(file) {write_csv(cur_data(), file)}
       )
+
+      # Return values ----
+      return(reactive(list(year = input$year)))
     }
   )
 }

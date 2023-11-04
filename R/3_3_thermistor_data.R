@@ -8,7 +8,7 @@ thermistorDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("content"))
+    uiOutput(ns("content")) %>% withSpinnerProxy(),
   )
 }
 
@@ -25,22 +25,26 @@ thermistorDataServer <- function(cur_stn) {
       ns <- session$ns
 
 
-      ## Reactives ----
+      # Reactives ----
 
+      ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
 
         filter(therm_data, station_id == cur_stn()$station_id)
       })
 
+      ## data_ready ----
       data_ready <- reactive({
         nrow(cur_data()) > 0
       })
 
+      ## cur_years ----
       cur_years <- reactive({
         sort(unique(cur_data()$year))
       })
 
+      ## selected_data ----
       selected_data <- reactive({
         if (input$year == "All") {
           cur_data()
@@ -49,10 +53,12 @@ thermistorDataServer <- function(cur_stn) {
         }
       })
 
+      ## selected_data_ready ----
       selected_data_ready <- reactive({
         nrow(selected_data()) > 0
       })
 
+      ## logger_serials ----
       logger_serials <- reactive({
         req(input$year)
         req(selected_data_ready())
@@ -70,6 +76,7 @@ thermistorDataServer <- function(cur_stn) {
         }
       })
 
+      ## daily_data ----
       # create station daily totals
       daily_data <- reactive({
         req(selected_data_ready())
@@ -96,6 +103,7 @@ thermistorDataServer <- function(cur_stn) {
           )
       })
 
+      ## summary_data ----
       summary_data <- reactive({
         req(selected_data_ready())
         req(input$year)
@@ -134,8 +142,9 @@ thermistorDataServer <- function(cur_stn) {
       })
 
 
-      ## Layout ----
+      # Layout ----
 
+      ## content ----
       output$content <- renderUI({
         if (!data_ready()) {
           return(div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."))
@@ -156,7 +165,7 @@ thermistorDataServer <- function(cur_stn) {
           div(
             id = "therm-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")),
+            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
             uiOutput(ns("plotCaptionUI"))
           ),
           uiOutput(ns("plotExportUI")),
@@ -174,8 +183,8 @@ thermistorDataServer <- function(cur_stn) {
           bsCollapse(
             bsCollapsePanel(
               title = "View monthly water temperature summary",
-              dataTableOutput(ns("stnSummaryData")),
-              uiOutput(ns("stnSummaryFootnote"))
+              dataTableOutput(ns("stnSummaryDT")),
+              uiOutput(ns("stnSummaryFootnoteUI"))
             )
           ),
           bsCollapse(
@@ -187,9 +196,9 @@ thermistorDataServer <- function(cur_stn) {
         )
       })
 
+      # Plot ----
 
-      ## Plot options ----
-
+      ## plotOptionsUI ----
       output$plotOptionsUI <- renderUI({
         list(
           p(
@@ -223,8 +232,7 @@ thermistorDataServer <- function(cur_stn) {
       })
 
 
-      ## Plot ----
-
+      ## plot ----
       output$plot <- renderPlotly({
         req(selected_data_ready())
         req(input$units)
@@ -341,9 +349,7 @@ thermistorDataServer <- function(cur_stn) {
         plt
       })
 
-
-      ## Plot caption ----
-
+      ## plotCaptionUI ----
       output$plotCaptionUI <- renderUI({
         req(input$units)
         req(input$annotations)
@@ -381,9 +387,7 @@ thermistorDataServer <- function(cur_stn) {
         )
       })
 
-
-      ## Plot export ----
-
+      ## plotExportUI ----
       output$plotExportUI <- renderUI({
         req(input$year)
 
@@ -407,9 +411,10 @@ thermistorDataServer <- function(cur_stn) {
       })
 
 
-      ## Summary ----
+      # Summary ----
 
-      output$stnSummaryData <- renderDT(
+      ## stnSummaryDT ----
+      output$stnSummaryDT <- renderDT(
         summary_data(),
         rownames = F,
         options = list(
@@ -418,7 +423,8 @@ thermistorDataServer <- function(cur_stn) {
         )
       )
 
-      output$stnSummaryFootnote <- renderUI({
+      ## stnSummaryFootnoteUI ----
+      output$stnSummaryFootnoteUI <- renderUI({
         req(input$units)
 
         div(
@@ -428,8 +434,9 @@ thermistorDataServer <- function(cur_stn) {
       })
 
 
-      ## Data table ----
+      # View thermistor data table ----
 
+      ## viewDataUI ----
       output$viewDataUI <- renderUI({
         req(selected_data_ready())
 
@@ -470,15 +477,21 @@ thermistorDataServer <- function(cur_stn) {
         )
       })
 
+      ## downloadDaily ----
       output$downloadDaily <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-therm-daily-data-", input$year, ".csv"),
         function(file) {write_csv(daily_data(), file)}
       )
 
+      ## downloadDaily ----
       output$downloadHourly <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$year, ".csv"),
         function(file) {write_csv(selected_data(), file)}
       )
+
+
+      # Return values ----
+      return(reactive(list(year = input$year)))
     }
   )
 }

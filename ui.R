@@ -71,7 +71,6 @@ ui <- fluidPage(
       h2("Stream Monitoring Data Dashboard", align = "center"),
       br(),
       uiOutput("notice"),
-      br(),
     ),
 
     ## Map and sidebar ----

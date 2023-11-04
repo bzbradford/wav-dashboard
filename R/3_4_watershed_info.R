@@ -11,7 +11,24 @@ watershedInfoUI <- function() {
     h3("Watersheds"),
     p(strong("What is a watershed?"), "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."),
     p(HTML("In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). Use the layers menu (upper right) in the map above or"), strong(a(href = "#map", onclick = "Shiny.setInputValue('map-showWatersheds', 1, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
-    uiOutput(ns("content"))
+    h4(strong("Station information and landscape context"), style = "margin-top: 1em;"),
+    uiOutput(ns("watershedInfoUI")) %>% withSpinnerProxy(proxy.height = 200),
+    h4(strong("Landscape composition"), style = "margin-top: 1em;"),
+    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", a(href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", "2021 USGS National Land Cover Database", target = "_blank", .noWS = "after"), ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8)."),
+    div(class = "well flex-row year-btns",
+      div(class = "year-btn-text", em("Landscape scale:")),
+      radioGroupButtons(
+        inputId = ns("scale"),
+        label = NULL,
+        choices = list(
+          "Sub-watershed (HUC12)" = 12,
+          "Watershed (HUC10)" = 10,
+          "Sub-basin (HUC8)" = 8
+        ),
+        selected = 12
+      )
+    ),
+    uiOutput(ns("landscapePlotsUI")) %>% withSpinnerProxy(),
   )
 }
 
@@ -26,17 +43,6 @@ watershedInfoServer <- function(cur_stn) {
     id = "watershed",
     function(input, output, session) {
       ns <- session$ns
-
-
-      # Static vars ----
-
-      ## scale_choices ----
-      scale_choices <- list(
-        "Sub-watershed (HUC12)" = 12,
-        "Watershed (HUC10)" = 10,
-        "Sub-basin (HUC8)" = 8
-      )
-
 
       # Reactive vars ----
 
@@ -97,14 +103,13 @@ watershedInfoServer <- function(cur_stn) {
 
       # Layout ----
 
-      ## content ----
-      output$content <- renderUI({
+      ## watershedInfoUI ----
+      output$watershedInfoUI <- renderUI({
         stn <- cur_stn()
         maps_link <- sprintf("https://www.google.com/maps/search/?api=1&query=%s+%s", stn$latitude, stn$longitude)
         coords_html <- HTML(sprintf("%.6f, %.6f (<a href='%s' target='_blank'>View on Google Maps</a>)", stn$latitude, stn$longitude, maps_link))
 
         tagList(
-          h4(strong("Station information and landscape context"), style = "margin-top: 1em;"),
           div(
             style = "padding-left: 1em;",
             strong("Selected station:"), stn$station_name, br(),
@@ -116,36 +121,22 @@ watershedInfoServer <- function(cur_stn) {
             strong("Major basin: "), stn$major_basin, br(),
             strong("County name:"), stn$county_name, br(),
             strong("DNR region:"), stn$dnr_region
-          ),
-          uiOutput(ns("landscapeUI"))
+          )
         )
       })
 
-      ## landscapeUI ----
-      output$landscapeUI <- renderUI({
+      ## landscapePlotsUI ----
+      output$landscapePlotsUI <- renderUI({
         tagList(
-          h4(strong("Landscape composition"), style = "margin-top: 1em;"),
-          p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", a(href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", "2021 USGS National Land Cover Database", target = "_blank", .noWS = "after"), ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8)."),
-          div(
-            class = "well flex-row year-btns",
-            div(class = "year-btn-text", em("Landscape scale:")),
-            radioGroupButtons(
-              inputId = ns("scale"),
-              label = NULL,
-              choices = scale_choices,
-              selected = 12
-            )
-          ),
-          div(
-            id = "landscape-plot-container",
-            div(
-              class = "flex-row",
+
+          div(id = "landscape-plot-container",
+            div(class = "flex-row",
               div(class = "pie-container well", uiOutput(ns("curPlotUI"))),
-              div(class = "pie-container well", uiOutput(ns("allPlotUI")))
+              div(class = "pie-container well", uiOutput(ns("allPlotUI"))),
             ),
-            uiOutput(ns("diffPlotUI"))
+            uiOutput(ns("diffPlotUI")),
           ),
-          uiOutput(ns("plotExportUI"))
+          uiOutput(ns("plotExportUI")),
         )
       })
 
@@ -190,22 +181,23 @@ watershedInfoServer <- function(cur_stn) {
           style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
           align = "center",
           em(a("Click here to download the landscape plots above as a PNG.",
-              style = "cursor: pointer;",
-              onclick = paste0(
-                "html2canvas(document.querySelector('",
-                "#landscape-plot-container",
-                "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
-                "Landscape composition - ", selected_name(), ".png",
-                "')})"
-              )
+            style = "cursor: pointer;",
+            onclick = paste0(
+              "html2canvas(document.querySelector('",
+              "#landscape-plot-container",
+              "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
+              "Landscape composition - ", selected_name(), ".png",
+              "')})"
             )
+          )
           )
         )
       })
 
 
-      # Pie chart helper ----
+      # Plots ----
 
+      ## Pie chart helper ----
       make_plot <- function(df) {
         plot_ly(df) %>%
           add_trace(
@@ -230,9 +222,6 @@ watershedInfoServer <- function(cur_stn) {
             displayModeBar = F
           )
       }
-
-
-      # Plotly ----
 
       ## curPlot ----
       output$curPlot <- renderPlotly({
@@ -304,6 +293,10 @@ watershedInfoServer <- function(cur_stn) {
           ) %>%
           config(displayModeBar = F)
       })
+
+
+      # Return values ----
+      return(reactive(list(huc = paste0("HUC", input$scale))))
     }
   )
 }

@@ -9,6 +9,8 @@ library(tidyverse)
 library(lubridate)
 library(janitor)
 library(sf)
+library(shiny)
+library(shinycssloaders)
 
 
 # Clear environment ----
@@ -46,6 +48,10 @@ setTitle <- function(label) {
   } else {
     shinyjs::runjs("document.title = 'WAV Data Dashboard'")
   }
+}
+
+withSpinnerProxy <- function(ui, ...) {
+  ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
 create_popup <- function(data, title) {

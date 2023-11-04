@@ -240,8 +240,21 @@ server <- function(input, output, session) {
   #' map polygons render in the incorrect location with html2canvas
   #' once cloned the radio buttons are modified because they didn't appear correctly
   #' after rendering, the screenshot button is re-enabled
-  observeEvent(input$screenshot, {
+  buildScreenshotFilename <- function() {
+    stn_id <- cur_stn()$station_id
+    tab_name <- input$data_tabs
+    suffix <- ""
+    if (grepl("Baseline", tab_name)) suffix <- baselineReturn()$year
+    else if (grepl("Nutrient", tab_name)) suffix <- NutrientReturn()$year
+    else if (grepl("Thermistor", tab_name)) suffix <- ThermistorReturn()$year
+    else if (grepl("Watershed", tab_name)) suffix <- watershedReturn()$huc
     fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
+    if (!is.null(suffix)) fname <- paste(fname, suffix)
+    fname
+  }
+
+  observeEvent(input$screenshot, {
+    fname <- buildScreenshotFilename()
     runjs(sprintf("
       html2canvas(
         document.querySelector('#main-content'),
@@ -283,23 +296,28 @@ server <- function(input, output, session) {
   # Module servers ----
 
   ## Map ----
-
-  map_click <- mapServer(
+  # returns the station that was clicked
+  mapReturn <- mapServer(
     cur_stn = reactive(cur_stn()),
     avail_stns = reactive(avail_stns())
   )
 
   # select a station when clicked on the map
-  observeEvent(map_click(), {
+  observeEvent(mapReturn(), {
+    stn <- mapReturn()$map_marker_click
+    req(stn)
+
     updateSelectInput(
       inputId = "station",
-      selected = map_click()
+      selected = stn$id
     )
+
     cur_zoom <- input$`map-map_zoom`
+    req(cur_zoom)
     leafletProxy("map-map") %>%
       setView(
-        lat = map_click()$lat,
-        lng = map_click()$lng,
+        lat = stn$lat,
+        lng = stn$lng,
         zoom = max(cur_zoom, 10) # don't zoom out
       )
   })
@@ -312,21 +330,31 @@ server <- function(input, output, session) {
   )
 
   ## Station info tab ----
-  stationInfoServer(cur_stn = reactive(last_valid_stn()))
+  stationInfoServer(
+    cur_stn = reactive(last_valid_stn())
+  )
 
   ## Station list tab ----
   stationListServer()
 
   ## Baseline data tab ----
-  baselineDataServer(cur_stn = reactive(last_valid_stn()))
+  baselineReturn <- baselineDataServer(
+    cur_stn = reactive(last_valid_stn())
+  )
 
   ## Nutrient data tab ----
-  nutrientDataServer(cur_stn = reactive(last_valid_stn()))
+  nutrientReturn <- nutrientDataServer(
+    cur_stn = reactive(last_valid_stn())
+  )
 
   ## Thermistor data tab ----
-  thermistorDataServer(cur_stn = reactive(last_valid_stn()))
+  thermistorReturn <- thermistorDataServer(
+    cur_stn = reactive(last_valid_stn())
+  )
 
   ## Watershed info tab ----
-  watershedInfoServer(cur_stn = reactive(last_valid_stn()))
+  watershedReturn <- watershedInfoServer(
+    cur_stn = reactive(last_valid_stn())
+  )
 
 }

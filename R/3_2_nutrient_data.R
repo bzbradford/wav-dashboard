@@ -53,7 +53,7 @@ nutrientDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("content"))
+    uiOutput(ns("content")) %>% withSpinnerProxy(),
   )
 }
 
@@ -69,23 +69,26 @@ nutrientDataServer <- function(cur_stn) {
     function(input, output, session) {
       ns <- session$ns
 
+      # Reactives ----
 
-      ## Reactives ----
-
+      ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
 
         filter(nutrient_data, station_id == cur_stn()$station_id)
       })
 
+      ## data_ready ----
       data_ready <- reactive({
         nrow(cur_data()) > 0
       })
 
+      ## cur_years ----
       cur_years <- reactive({
         sort(unique(cur_data()$year))
       })
 
+      ## selected_data ----
       selected_data <- reactive({
         if (input$year == "All") {
           cur_data()
@@ -94,16 +97,19 @@ nutrientDataServer <- function(cur_stn) {
         }
       })
 
+      ## selected_data_ready ----
       selected_data_ready <- reactive({
         nrow(cur_data()) > 0
       })
 
+      ## phos_estimate ----
       phos_estimate <- reactive({
         req(selected_data_ready())
 
         get_phos_estimate(selected_data()$tp)
       })
 
+      ## phos_exceedance_text ----
       phos_exceedance_text <- reactive({
         params = phos_estimate()
         get_phos_exceedance(
@@ -114,8 +120,9 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## Layout ----
+      # Layout ----
 
+      ## content ----
       output$content <- renderUI({
         if (!data_ready()) {
           return(div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."))
@@ -135,7 +142,7 @@ nutrientDataServer <- function(cur_stn) {
           div(
             id = "nutrient-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")),
+            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
             uiOutput(ns("plotCaptionUI"))
           ),
           uiOutput(ns("plotExportUI")),
@@ -155,8 +162,9 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## Plot ----
+      # Plot ----
 
+      ## plot ----
       output$plot <- renderPlotly({
         req(selected_data_ready())
 
@@ -280,8 +288,7 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## Plot caption UI ----
-
+      ## plotCaptionUI ----
       output$plotCaptionUI <- renderUI({
         tagList(
           div(
@@ -296,8 +303,7 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## Plot export UI ----
-
+      ## plotExportUI ----
       output$plotExportUI <- renderUI({
         p(
           style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
@@ -319,8 +325,9 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## View data UI ----
+      # View/download nutrient data ----
 
+      ## viewDataUI ----
       output$viewDataUI <- renderUI({
         btn_year <- downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
         btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
@@ -341,6 +348,7 @@ nutrientDataServer <- function(cur_stn) {
         )
       })
 
+      ## dataTable ----
       output$dataTable <- renderDataTable({
         req(selected_data_ready())
 
@@ -349,15 +357,21 @@ nutrientDataServer <- function(cur_stn) {
           clean_names(case = "big_camel")
       })
 
+      ## downloadYear ----
       output$downloadYear <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$year, ".csv"),
         function(file) {write_csv(selected_data(), file)}
       )
 
+      ## downloadAll ----
       output$downloadAll <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-nutrient-data.csv"),
         function(file) {write_csv(cur_data(), file)}
       )
+
+
+      # Return values ----
+      return(reactive(list(year = input$year)))
     }
   )
 }

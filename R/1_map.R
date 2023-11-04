@@ -63,7 +63,7 @@ mapUI <- function() {
         div(
           class = "map-container",
           id = "map",
-          leafletOutput(ns("map"), width = "100%", height = "700px")
+          leafletOutput(ns("map"), width = "100%", height = "700px") %>% withSpinnerProxy(hide.ui = FALSE)
         )
       ),
       position = "right"
@@ -591,7 +591,9 @@ mapServer <- function(cur_stn, avail_stns) {
       ## Return values ----
 
       # return the clicked point to the main session
-      return(reactive(input$map_marker_click))
+      return(reactive(list(
+        map_marker_click = input$map_marker_click
+      )))
     }
   )
 }
