@@ -33,7 +33,6 @@ server <- function(input, output, session) {
   ## stn_list ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
-    message('foo')
     if (!stns_avail()) return(list())
     all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
