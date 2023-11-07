@@ -354,7 +354,8 @@ baselineDataServer <- function(cur_stn) {
         "water_temp", "Water temperature", "°C",
         "ambient_air_temp", "Air temperature", "°C",
         "transparency_average", "Transparency", "cm",
-        "streamflow_cfs", "Stream flow", "cfs"
+        "streamflow_cfs", "Stream flow", "cfs",
+        "average_stream_depth", "Stream depth", "ft",
       ) %>% rowwise()
 
       ## stnSummaryData ----
