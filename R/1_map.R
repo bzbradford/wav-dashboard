@@ -12,6 +12,14 @@
 mapUI <- function() {
   ns <- NS("map")
 
+  # TODO: possibly shorten the list of years shown in the selector
+  # stn_year_choices <- lapply(1:length(data_years), function(i) {
+  #   tibble(ifelse(i < 5, data_years[i], paste0(data_years[5], "-", last(data_years))), data_years[i])
+  # }) %>%
+  #   bind_rows() %>%
+  #   deframe() %>%
+  #   as.list()
+
   tagList(
     div(
       style = "margin: 0.5em 1em;", align = "center",
@@ -21,7 +29,7 @@ mapUI <- function() {
     sidebarLayout(
       sidebarPanel(
         checkboxGroupInput(
-          inputId = "stn_types",
+          inputId = ns("stn_types"),
           label = "Station data types:",
           choices = station_types,
           selected = station_types
@@ -31,7 +39,7 @@ mapUI <- function() {
           column(
             width = 5,
             checkboxGroupInput(
-              inputId = "stn_years",
+              inputId = ns("stn_years"),
               label = NULL,
               choices = data_years,
               selected = head(data_years, 4)
@@ -40,7 +48,7 @@ mapUI <- function() {
           column(
             width = 7,
             radioButtons(
-              inputId = "year_exact_match",
+              inputId = ns("year_exact_match"),
               label = NULL,
               choices = list(
                 "ANY selected year" = FALSE,
@@ -75,15 +83,40 @@ mapUI <- function() {
 # Server ----
 
 #' @param cur_stn a `reactive()` expression containing the currently selected station
-#' @param avail_stns a `reactive()` expression containing the list of available stations
+#' @param main_session main server session
 
-mapServer <- function(cur_stn, avail_stns) {
+mapServer <- function(cur_stn, main_session) {
   moduleServer(
     id = "map",
     function(input, output, session) {
       ns <- session$ns
 
       ## Reactives ----
+
+      avail_stns <- reactive({
+        ids <- list(0)
+        coverage = list(
+          "baseline" = baseline_coverage,
+          "nutrient" = nutrient_coverage,
+          "thermistor" = therm_coverage
+        )
+
+        for (stn_type in input$stn_types) {
+          if (input$year_exact_match) {
+            ids[[stn_type]] <- coverage[[stn_type]] %>%
+              filter(all(input$stn_years %in% data_year_list)) %>%
+              pull(station_id)
+          } else {
+            ids[[stn_type]] <- coverage[[stn_type]] %>%
+              filter(any(input$stn_years %in% data_year_list)) %>%
+              pull(station_id)
+          }
+        }
+
+        avail_ids <- sort(reduce(ids, union))
+        all_stn_years %>%
+          filter(station_id %in% avail_ids)
+      })
 
       any_stns <- reactive({
         nrow(avail_stns()) > 0
@@ -587,12 +620,33 @@ mapServer <- function(cur_stn, avail_stns) {
           )
       })
 
+      ## select a station when clicked on the map ----
+      observeEvent(input$map_marker_click, {
+        stn <- input$map_marker_click
+        req(stn)
+
+        updateSelectInput(
+          session = main_session,
+          inputId = "station",
+          selected = stn$id
+        )
+
+        cur_zoom <- input$map_zoom
+        req(cur_zoom)
+        leafletProxy("map") %>%
+          setView(
+            lat = stn$lat,
+            lng = stn$lng,
+            zoom = max(cur_zoom, 10) # don't zoom out
+          )
+      })
+
 
       ## Return values ----
 
       # return the clicked point to the main session
       return(reactive(list(
-        map_marker_click = input$map_marker_click
+        avail_stns = avail_stns()
       )))
     }
   )

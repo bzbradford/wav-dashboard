@@ -21,28 +21,7 @@ server <- function(input, output, session) {
   ## avail_stns ----
   # reacts to map sidebar selections
   avail_stns <- reactive({
-    ids <- list(0)
-    coverage = list(
-      "baseline" = baseline_coverage,
-      "nutrient" = nutrient_coverage,
-      "thermistor" = therm_coverage
-    )
-
-    for (stn_type in input$stn_types) {
-      if (input$year_exact_match) {
-        ids[[stn_type]] <- coverage[[stn_type]] %>%
-          filter(all(input$stn_years %in% data_year_list)) %>%
-          pull(station_id)
-      } else {
-        ids[[stn_type]] <- coverage[[stn_type]] %>%
-          filter(any(input$stn_years %in% data_year_list)) %>%
-          pull(station_id)
-      }
-    }
-
-    avail_ids <- sort(reduce(ids, union))
-    all_stn_years %>%
-      filter(station_id %in% avail_ids)
+    mapReturn()$avail_stns
   })
 
   ## stns_avail ----
@@ -54,6 +33,7 @@ server <- function(input, output, session) {
   ## stn_list ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
+    message('foo')
     if (!stns_avail()) return(list())
     all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
@@ -212,7 +192,8 @@ server <- function(input, output, session) {
   observeEvent(input$bookmarking, bookmarking(!bookmarking()))
 
   ## recent_stn => select a recent station ----
-  # see 'tab_recent_stations.R'
+  # see 'recent_stations.R'
+  # modify map selections to ensure the station shows up in the available stations
   observeEvent(input$recent_stn, {
     id <- input$recent_stn
 
@@ -221,11 +202,11 @@ server <- function(input, output, session) {
       # keep current year select, add the most recent year from the desired station
       new_years <- union(
         max(filter(all_stn_years, station_id == id)$year),
-        input$stn_years
+        input$`map-stn_years`
       )
-      updateCheckboxGroupInput(inputId = "stn_types", selected = station_types)
-      updateCheckboxGroupInput(inputId = "stn_years", selected = new_years)
-      updateRadioButtons(inputId = "year_exact_match", selected = FALSE)
+      updateCheckboxGroupInput(inputId = "map-stn_types", selected = station_types)
+      updateCheckboxGroupInput(inputId = "map-stn_years", selected = new_years)
+      updateRadioButtons(inputId = "map-year_exact_match", selected = FALSE)
     }
     updateSelectInput(inputId = "station", selected = id)
   })
@@ -299,29 +280,8 @@ server <- function(input, output, session) {
   # returns the station that was clicked
   mapReturn <- mapServer(
     cur_stn = reactive(cur_stn()),
-    avail_stns = reactive(avail_stns())
+    main_session = session
   )
-
-  # select a station when clicked on the map
-  observeEvent(mapReturn(), {
-    stn <- mapReturn()$map_marker_click
-    req(stn)
-
-    updateSelectInput(
-      inputId = "station",
-      selected = stn$id
-    )
-
-    cur_zoom <- input$`map-map_zoom`
-    req(cur_zoom)
-    leafletProxy("map-map") %>%
-      setView(
-        lat = stn$lat,
-        lng = stn$lng,
-        zoom = max(cur_zoom, 10) # don't zoom out
-      )
-  })
-
 
   ## Recent stations ----
   recentStationsServer(
