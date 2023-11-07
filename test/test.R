@@ -438,3 +438,78 @@ therm_data %>%
     max = max(temp, na.rm = T),
     .by = month_name
   )
+
+
+
+# Map => Color by variable ----
+
+#' color map by
+#' n years
+#' n fieldwork
+#' max water_temp
+#' mean d_o
+#' mean transparency_average
+#' mean streamflow_cfs
+
+stn_fieldwork_counts <- bind_rows(
+  baseline_data %>%
+    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+  nutrient_data %>%
+    summarize(n_fieldwork = n(), .by = c(station_id, year)),
+  therm_data %>%
+    summarize(n_fieldwork = 1, .by = c(station_id, year))
+) %>%
+  summarize(
+    n_years = n_distinct(year),
+    n_fieldwork = sum(n_fieldwork),
+    .by = station_id
+  )
+
+
+# baseline means
+# selected from the most recent year
+# should select most recent n observations?
+baseline_means <- baseline_data %>%
+  slice_max(date, n = 10, by = station_id) %>%
+  summarize(
+    max_water_temp = max(water_temp, na.rm = T),
+    mean_d_o = mean(d_o, na.rm = T),
+    avg_transparency = mean(transparency_average, na.rm = T),
+    avg_streamflow = mean(streamflow_cfs, na.rm = T),
+    .by = station_id
+  ) %>% {
+    df <- .
+    df[sapply(df, is.infinite)] <- NA
+    df[sapply(df, is.nan)] <- NA
+    df
+  }
+
+nutrient_means <- nutrient_data %>%
+  drop_na(tp) %>%
+  slice_max(date, n = 12, by = station_id) %>%
+  summarize(
+    mean_tp = mean(tp),
+    log_mean_tp = mean(log10(tp)),
+    .by = station_id)
+
+stn_attr_totals <- stn_fieldwork_counts %>%
+  left_join(baseline_means, join_by(station_id)) %>%
+  left_join(nutrient_means, join_by(station_id))
+
+summary(stn_attr_totals)
+
+stn_color_opts <- tribble(
+  ~label,            ~value,              ~domain,   ~reverse, ~pal,
+  "Years of data",    "n_years",          c(0, 10),  F,        "viridis",
+  "Fieldwork events", "n_fieldwork",      c(0, 100), F,        "viridis",
+  "Max water temp",   "max_water_temp",   c(15, 30), T,        "RdYlBu",
+  "Dissolved oxygen", "mean_d_o",         c(3, 12),  F,        "RdYlBu",
+  "Transparency",     "avg_transparency", c(0, 120), F,        "BrBG",
+  "Streamflow",       "avg_streamflow",   c(0, 50),  T,        "RdBu",
+  "Total phosphorus", "mean_tp",          c(0, .25), T,        "Spectral",
+)
+stn_color_choices <- append(
+  list("Station type" = "stn_type"),
+  deframe(stn_color_opts[,1:2])
+)
+

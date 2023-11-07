@@ -87,6 +87,16 @@ a, a:hover, a:focus {
   border: 1px solid lightgrey;
 }
 
+.total-stns-text {
+  width: 100%;
+  margin: 1em 0;
+  padding: 5px;
+  border: 2px solid grey;
+  border-radius: 5px;
+  text-align: center;
+  font-weight: bold;
+}
+
 .data-tab {
   min-height: 300px;
   margin-top: 1em;

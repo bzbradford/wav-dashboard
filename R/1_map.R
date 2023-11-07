@@ -41,7 +41,7 @@ mapUI <- function() {
             checkboxGroupInput(
               inputId = ns("stn_years"),
               label = NULL,
-              choices = data_years,
+              choices = head(data_years, 4), # << TEMPORARY RESTRICTION
               selected = head(data_years, 4)
             )
           ),
@@ -57,14 +57,21 @@ mapUI <- function() {
             )
           )
         ),
-        hr(),
-        uiOutput(ns("totalStationsText")),
-        hr(),
+        p(strong("Color station markers by:")),
+        radioButtons(
+          inputId = ns("stn_color_by"),
+          label = NULL,
+          choices = stn_color_choices
+        ),
         div(
-          style = "line-height: 3.5em;",
+          class = "total-stns-text",
+          textOutput(ns("totalStnsText")),
+        ),
+        div(
+          style = "line-height: 3em;",
           align = "center",
           actionButton(ns("zoomInBtn"), "Zoom to selected site", width = "100%"), br(),
-          actionButton(ns("zoomAllBtn"), "Zoom out to all sites", width = "100%")
+          actionButton(ns("zoomAllBtn"), "Zoom out to all sites", width = "100%"),
         )
       ),
       mainPanel(
@@ -195,13 +202,11 @@ mapServer <- function(cur_stn, main_session) {
       })
 
 
-      # Station text output ----
+      # Rendered UI elements ----
 
-      output$totalStationsText <- renderUI({
-        div(
-          style = "text-align: center; font-weight: bold; padding: 5px; border: 2px solid grey; border-radius: 5px; width: 100%;",
-          paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
-        )
+      ## totalStnsText ----
+      output$totalStnsText <- renderText({
+        paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
       })
 
 
@@ -319,85 +324,78 @@ mapServer <- function(cur_stn, main_session) {
 
       # Reactive map elements ----
 
-      ## Baseline circle markers ----
-      observe({
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup(layers$baseline)
+      addStnPts <- function(stn_type, stn_types, stns, pt_size, color_by) {
 
-        req(input$stn_types)
-        if (!("baseline" %in% input$stn_types)) return()
+        map <- leafletProxy("map")
+        if (is.null(stn_types) | !(stn_type %in% stn_types) | nrow(stns) == 0) {
+          map %>% clearGroup(layers[[stn_type]])
+          return()
+        }
 
-        stns <- avail_baseline_pts()
-        if (nrow(stns) == 0) return()
+        if (color_by == "stn_type") {
+          stns <- mutate(stns, color = stn_colors[[stn_type]])
+        } else {
+          opts <- filter(stn_color_opts, value == color_by)
+          domain <- unlist(opts$domain)
+          pal <- colorNumeric(opts$pal, domain, reverse = opts$rev)
+          stns <- stns %>%
+            left_join(stn_attr_totals, join_by(station_id)) %>%
+            rename(attr = all_of(color_by)) %>%
+            mutate(attr = pmax(pmin(attr, domain[2]), domain[1])) %>%
+            mutate(color = pal(attr)) %>%
+            arrange(!is.na(attr), attr)
+        }
 
-        pt_size <- pt_size()
+        labels <- all_labels[names(all_labels) %in% stns$station_id] %>% setNames(NULL)
         map %>%
+          clearGroup(layers[[stn_type]]) %>%
           addCircleMarkers(
             data = stns,
-            group = layers$baseline,
-            label = setNames(all_labels[names(all_labels) %in% stns$station_id], NULL),
+            group = layers[[stn_type]],
+            label = labels,
             layerId = ~station_id,
             radius = pt_size,
             color = "black",
             weight = 0.5,
-            fillColor = stn_colors$baseline,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "baseline", sticky = F)
+            fillColor = ~color,
+            fillOpacity = 1,
+            options = markerOptions(pane = stn_type, sticky = F)
           )
+      }
+
+      ## Baseline circle markers ----
+      observe({
+        addStnPts(
+          stn_type = "baseline",
+          stn_types = input$stn_types,
+          stns = avail_baseline_pts(),
+          pt_size = pt_size(),
+          color_by = input$stn_color_by
+        )
       })
 
       ## Nutrient circle markers ----
       observe({
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup(layers$nutrient)
-
-        req(input$stn_types)
-        if (!("nutrient" %in% input$stn_types)) return()
-
-        stns <- avail_nutrient_pts()
-        if (nrow(stns) == 0) return()
-
-        pt_size <- pt_size()
-        map %>%
-          addCircleMarkers(
-            data = stns,
-            group = layers$nutrient,
-            label = setNames(all_labels[names(all_labels) %in% stns$station_id], NULL),
-            layerId = ~station_id,
-            radius = pt_size,
-            color = "black",
-            weight = 0.5,
-            fillColor = stn_colors$nutrient,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "nutrient", sticky = F)
-          )
+        input$stn_types
+        addStnPts(
+          stn_type = "nutrient",
+          stn_types = input$stn_types,
+          stns = avail_nutrient_pts(),
+          pt_size = pt_size(),
+          color_by = input$stn_color_by
+        )
       })
 
       ## Thermistor circle markers ----
       observe({
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup(layers$therm)
-
-        req(input$stn_types)
-        if (!("thermistor" %in% input$stn_types)) return()
-
-        stns <- avail_therm_pts()
-        if (nrow(stns) == 0) return()
-
-        pt_size <- pt_size()
-        map %>%
-          addCircleMarkers(
-            data = stns,
-            group = layers$therm,
-            label = setNames(all_labels[names(all_labels) %in% stns$station_id], NULL),
-            layerId = ~station_id,
-            radius = pt_size,
-            color = "black",
-            weight = 0.5,
-            fillColor = stn_colors$thermistor,
-            fillOpacity = 0.75,
-            options = markerOptions(pane = "thermistor", sticky = F)
-          )
+        input$stn_types
+        addStnPts(
+          stn_type = "thermistor",
+          stn_types = input$stn_types,
+          stns = avail_therm_pts(),
+          pt_size = pt_size(),
+          color_by = input$stn_color_by
+        )
       })
 
       ## Map markers/clusters ----

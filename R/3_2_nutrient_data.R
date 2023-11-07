@@ -175,8 +175,10 @@ nutrientDataServer <- function(cur_stn) {
           drop_na(tp) %>%
           mutate(phoslimit = phoslimit)
 
-        min_year <- min(df$year)
-        max_year <- max(df$year)
+        suppressWarnings({
+          min_year <- min(df$year)
+          max_year <- max(df$year)
+        })
         date_range <- c(ISOdate(min_year, 5, 1), ISOdate(max_year, 10, 31))
         outer_months <- c(ISOdate(min_year, 4, 30), ISOdate(max_year, 11, 1))
         data_dates <- unique(df$date)

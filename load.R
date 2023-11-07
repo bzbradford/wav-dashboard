@@ -395,12 +395,83 @@ all_stn_list <- all_pts %>%
   as.list()
 
 
+# Generate station totals for map coloring ----
+
+#' color map by
+#' n years
+#' n fieldwork
+#' max water_temp
+#' mean d_o
+#' mean transparency_average
+#' mean streamflow_cfs
+
+stn_fieldwork_counts <- bind_rows(
+  baseline_data %>%
+    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+  nutrient_data %>%
+    summarize(n_fieldwork = n(), .by = c(station_id, year)),
+  therm_data %>%
+    summarize(n_fieldwork = 1, .by = c(station_id, year))
+) %>%
+  summarize(
+    n_years = n_distinct(year),
+    n_fieldwork = sum(n_fieldwork),
+    .by = station_id
+  )
+
+# baseline means from 10 most recent fieldwork events
+baseline_means <- baseline_data %>%
+  slice_max(date, n = 10, by = station_id) %>%
+  summarize(
+    water_temp = mean(water_temp, na.rm = T),
+    d_o = mean(d_o, na.rm = T),
+    transparency = mean(transparency_average, na.rm = T),
+    streamflow = mean(streamflow_cfs, na.rm = T),
+    .by = station_id
+  ) %>% {
+    df <- .
+    df[sapply(df, is.infinite)] <- NA
+    df[sapply(df, is.nan)] <- NA
+    df
+  }
+
+# from 12 most recent months
+nutrient_means <- nutrient_data %>%
+  drop_na(tp) %>%
+  slice_max(date, n = 12, by = station_id) %>%
+  summarize(tp = mean(tp), .by = station_id)
+
+stn_attr_totals <- stn_fieldwork_counts %>%
+  left_join(baseline_means, join_by(station_id)) %>%
+  left_join(nutrient_means, join_by(station_id))
+
+# summary(stn_attr_totals)
+
+stn_color_opts <- tribble(
+  ~label,            ~value,          ~domain,   ~rev, ~pal,
+  "Years of data",    "n_years",      c(0, 10),  F,    "viridis",
+  # "Fieldwork events", "n_fieldwork",  c(0, 100), F,    "viridis",
+  "Water temp",       "water_temp",   c(10, 30), T,    "RdYlBu",
+  "Dissolved oxygen", "d_o",          c(3, 12),  F,    "RdYlBu",
+  "Transparency",     "transparency", c(0, 120), F,    "BrBG",
+  "Streamflow",       "streamflow",   c(0, 50),  T,    "RdBu",
+  "Total phosphorus", "tp",           c(0, .25), T,    "Spectral",
+)
+
+stn_color_choices <- append(
+  list("Station type" = "stn_type"),
+  deframe(stn_color_opts[,1:2])
+)
+
+
 # Landscape data ----
 
 landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progress = F) %>%
   mutate(across(where(is.character), fct_inorder))
 landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
-  left_join(landcover_classes, by = "class")
+  left_join(landcover_classes, by = "class") %>%
+  group_by(across(-c(class, area, pct_area))) %>%
+  summarize(across(c(area, pct_area), sum), .groups = "drop")
 
 mean_landscape <- landscape_data %>%
   group_by(huc_level, class_name, hex) %>%
