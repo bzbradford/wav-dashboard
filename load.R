@@ -54,16 +54,17 @@ withSpinnerProxy <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
-create_popup <- function(data, title) {
+create_popups <- function(data) {
+  title <- "<div class=popup-title>Monitoring Station Details</div>"
   data %>% {
     cols <- names(.)
     lapply(1:nrow(.), function(r) {
       row <- .[r,]
       details <-
         lapply(1:length(cols), function(c) {
-          paste0("<br><b>", cols[c], ":</b> ", row[c])
+          paste0("<b>", cols[c], ":</b> ", row[c])
         }) %>%
-        paste0(collapse = "")
+        paste0(collapse = "<br>")
       paste0(title, details)
     }) %>% paste0()
   }
@@ -368,17 +369,17 @@ all_pts <- station_pts %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
   left_join(all_coverage, by = "station_id") %>%
   mutate(
+    station_id = as.numeric(station_id),
     stn_color = case_when(
       baseline_stn ~ stn_colors$baseline,
       therm_stn ~ stn_colors$thermistor,
       nutrient_stn ~ stn_colors$nutrient),
-    station_id = as.numeric(station_id),
-    label = glue::glue("
-      <b>{data_sources} Monitoring Site</b><br>
+    label = paste(station_id, station_name, sep = ": "),
+    map_label = lapply(glue::glue("
+      <b>{data_sources} Monitoring Station</b><br>
       Station ID: {station_id}<br>
       Name: {str_trunc(station_name, 50)}
-    "),
-    label = lapply(label, shiny::HTML)
+    "), shiny::HTML),
   )
 
 all_stns <- all_pts %>%
@@ -389,9 +390,9 @@ all_labels <- setNames(all_pts$label, as.character(all_pts$station_id))
 
 all_popups <- all_pts %>%
   st_set_geometry(NULL) %>%
-  select(-c(baseline_stn, therm_stn, nutrient_stn, label, data_year_list, stn_color)) %>%
+  select(-c(baseline_stn, therm_stn, nutrient_stn, data_year_list, stn_color, label, map_label)) %>%
   clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
-  create_popup("<b>WAV Monitoring Site</b><br>") %>%
+  create_popups() %>%
   setNames(all_pts$station_id)
 
 all_stn_list <- all_pts %>%

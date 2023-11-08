@@ -348,8 +348,7 @@ mapServer <- function(cur_stn, main_session) {
             mutate(attr = pmax(pmin(attr, domain[2]), domain[1])) %>%
             mutate(color = pal(attr)) %>%
             arrange(!is.na(attr), attr) %>%
-            mutate(label = paste0(label, "<br>", opts$label, ": ", attr)) %>%
-            mutate(label = lapply(label, shiny::HTML))
+            mutate(map_label = lapply(paste0(map_label, "<br>", opts$label, ": ", attr), shiny::HTML))
         }
 
         map %>%
@@ -357,7 +356,7 @@ mapServer <- function(cur_stn, main_session) {
           addCircleMarkers(
             data = stns,
             group = layers[[stn_type]],
-            label = ~label,
+            label = ~map_label,
             layerId = ~station_id,
             radius = pt_size,
             color = "black",
@@ -415,7 +414,7 @@ mapServer <- function(cur_stn, main_session) {
           addMarkers(
             data = pts,
             group = layers$pins,
-            label = ~label,
+            label = ~map_label,
             popup = popups,
             layerId = ~station_id,
             clusterOptions = markerClusterOptions()
@@ -436,7 +435,7 @@ mapServer <- function(cur_stn, main_session) {
             data = stn,
             lat = ~latitude,
             lng = ~longitude,
-            label = ~label,
+            label = ~map_label,
             layerId = ~station_id,
             group = "cur_point",
             options = pathOptions(pane = "cur_point_circle"),
@@ -450,7 +449,7 @@ mapServer <- function(cur_stn, main_session) {
             data = stn,
             lat = ~latitude,
             lng = ~longitude,
-            label = ~label,
+            label = ~map_label,
             popup = popup,
             layerId = ~station_id,
             group = "cur_point"
