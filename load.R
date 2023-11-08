@@ -324,6 +324,10 @@ all_stn_years <- bind_rows(
     nutrient_stn = station_id %in% nutrient_pts$station_id)
 
 data_years <- rev(as.character(sort(unique(all_stn_years$year))))
+stn_year_choices <- append(
+  setNames(data_years[1:4], data_years[1:4]),
+  setNames(data_years[5], paste0(last(data_years), "-", data_years[5]))
+)
 
 baseline_tallies <- baseline_data %>%
   count(station_id, year, name = "baseline") %>%
@@ -363,28 +367,30 @@ all_pts <- station_pts %>%
     nutrient_stn = station_id %in% nutrient_pts$station_id) %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
   left_join(all_coverage, by = "station_id") %>%
-  mutate(stn_color = case_when(
-    baseline_stn ~ stn_colors$baseline,
-    therm_stn ~ stn_colors$thermistor,
-    nutrient_stn ~ stn_colors$nutrient)) %>%
-  mutate(station_id = as.numeric(station_id))
+  mutate(
+    stn_color = case_when(
+      baseline_stn ~ stn_colors$baseline,
+      therm_stn ~ stn_colors$thermistor,
+      nutrient_stn ~ stn_colors$nutrient),
+    station_id = as.numeric(station_id),
+    label = glue::glue("
+      <b>{data_sources} Monitoring Site</b><br>
+      Station ID: {station_id}<br>
+      Name: {str_trunc(station_name, 50)}
+    "),
+    label = lapply(label, shiny::HTML)
+  )
 
 all_stns <- all_pts %>%
   select(-c(data_year_list, stn_color)) %>%
   st_set_geometry(NULL)
 
-all_labels <- all_pts %>%
-  st_set_geometry(NULL) %>%
-  mutate(title = paste(data_sources, "Monitoring Site")) %>%
-  mutate(label = paste0("<b>", title, "</b><br>Station ID: ", station_id, "<br>Name: ", station_name)) %>%
-  pull(label) %>%
-  lapply(shiny::HTML) %>%
-  setNames(as.character(all_pts$station_id))
+all_labels <- setNames(all_pts$label, as.character(all_pts$station_id))
 
 all_popups <- all_pts %>%
   st_set_geometry(NULL) %>%
-  select(-c(baseline_stn, therm_stn, nutrient_stn, label, data_year_list)) %>%
-  clean_names(case = "title") %>%
+  select(-c(baseline_stn, therm_stn, nutrient_stn, label, data_year_list, stn_color)) %>%
+  clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
   create_popup("<b>WAV Monitoring Site</b><br>") %>%
   setNames(all_pts$station_id)
 
@@ -433,17 +439,19 @@ baseline_means <- baseline_data %>%
     df[sapply(df, is.infinite)] <- NA
     df[sapply(df, is.nan)] <- NA
     df
-  }
+  } %>%
+  mutate(across(water_temp:streamflow, ~signif(.x, 3)))
 
 # from 12 most recent months
 nutrient_means <- nutrient_data %>%
   drop_na(tp) %>%
   slice_max(date, n = 12, by = station_id) %>%
-  summarize(tp = mean(tp), .by = station_id)
+  summarize(tp = signif(mean(tp), 3), .by = station_id)
 
 stn_attr_totals <- stn_fieldwork_counts %>%
   left_join(baseline_means, join_by(station_id)) %>%
-  left_join(nutrient_means, join_by(station_id))
+  left_join(nutrient_means, join_by(station_id)) %>%
+  mutate(station_id = as.numeric(station_id))
 
 # summary(stn_attr_totals)
 
@@ -451,11 +459,11 @@ stn_color_opts <- tribble(
   ~label,            ~value,          ~domain,   ~rev, ~pal,
   "Years of data",    "n_years",      c(0, 10),  F,    "viridis",
   # "Fieldwork events", "n_fieldwork",  c(0, 100), F,    "viridis",
-  "Water temp",       "water_temp",   c(10, 30), T,    "RdYlBu",
-  "Dissolved oxygen", "d_o",          c(3, 12),  F,    "RdYlBu",
-  "Transparency",     "transparency", c(0, 120), F,    "BrBG",
-  "Streamflow",       "streamflow",   c(0, 50),  T,    "RdBu",
-  "Total phosphorus", "tp",           c(0, .25), T,    "Spectral",
+  "Mean water temp (°C)",       "water_temp",   c(10, 30), T,    "RdYlBu",
+  "Mean dissolved oxygen (mg/L)", "d_o",          c(3, 12),  F,    "RdYlBu",
+  "Mean transparency (cm)",     "transparency", c(0, 120), F,    "BrBG",
+  "Mean streamflow (cfs)",       "streamflow",   c(0, 50),  T,    "RdBu",
+  "Mean phosphorus (mg/L)", "tp",           c(0, .25), T,    "Spectral",
 )
 
 stn_color_choices <- append(

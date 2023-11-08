@@ -195,12 +195,13 @@ server <- function(input, output, session) {
   # modify map selections to ensure the station shows up in the available stations
   observeEvent(input$recent_stn, {
     id <- input$recent_stn
+    stn <- all_stns %>% filter(station_id == id)
 
     if (!(id %in% stn_list())) {
       # desired station not in list, need to remove restrictions
       # keep current year select, add the most recent year from the desired station
       new_years <- union(
-        max(filter(all_stn_years, station_id == id)$year),
+        max(c(stn$max_fw_year, last(stn_year_choices))),
         input$`map-stn_years`
       )
       updateCheckboxGroupInput(inputId = "map-stn_types", selected = station_types)
@@ -208,6 +209,12 @@ server <- function(input, output, session) {
       updateRadioButtons(inputId = "map-year_exact_match", selected = FALSE)
     }
     updateSelectInput(inputId = "station", selected = id)
+    leafletProxy("map-map") %>%
+      setView(
+        lat = stn$latitude,
+        lng = stn$longitude,
+        zoom = 10
+      )
   })
 
   ## screenshot => download pdf ----
