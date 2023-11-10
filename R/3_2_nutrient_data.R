@@ -1,69 +1,19 @@
 ## NUTRIENT TAB ##
 
-# Helpers ----
-
-phoslimit <- 0.075 # mg/L, ppm
-
-get_phos_estimate <- function(vals) {
-  vals <- na.omit(vals)
-  log_vals <- log(vals)
-  n <- length(vals)
-  meanp <- mean(log_vals)
-  se <- sd(log_vals) / sqrt(n)
-  suppressWarnings({
-    tval <- qt(p = 0.90, df = n - 1)
-  })
-
-  params <- list(
-    mean = meanp,
-    median = median(log_vals),
-    lower = meanp - tval * se,
-    upper = meanp + tval * se
-  )
-
-  params <- lapply(params, exp)
-  params <- lapply(params, round, 3)
-  params["n"] <- n
-  params
-}
-
-get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
-  fail_msg <- "Unable to determine phosphorus exceedance type based on the data shown above."
-
-  if (anyNA(c(median, lower, upper))) return(fail_msg)
-
-  if (lower >= limit) {
-    "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit.)"
-  } else if (lower <= limit & median >= limit) {
-    "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit)."
-  } else if (upper >= limit & median <= limit) {
-    "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit)."
-  } else if (upper <= limit) {
-    "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit)."
-  } else {
-    fail_msg
-  }
-}
-
-
-# UI ----
-
 nutrientDataUI <- function() {
   ns <- NS("nutrient")
 
   div(
     class = "data-tab",
-    uiOutput(ns("content")) %>% withSpinnerProxy(),
+    uiOutput(ns("mainUI")) %>% withSpinnerProxy(),
   )
 }
 
 
-# Server ----
-
 #' requires global data frame 'nutrient_data'
 #' @param cur_stn a `reactive()` expression containing the current station
 
-nutrientDataServer <- function(cur_stn) {
+nutrientDataServer <- function(cur_stn, has_focus) {
   moduleServer(
     id = "nutrient",
     function(input, output, session) {
@@ -74,6 +24,7 @@ nutrientDataServer <- function(cur_stn) {
       ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
+        req(has_focus())
 
         filter(nutrient_data, station_id == cur_stn()$station_id)
       })
@@ -120,10 +71,10 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      # Layout ----
+      # Rendered UIs ----
 
-      ## content ----
-      output$content <- renderUI({
+      ## mainUI ----
+      output$mainUI <- renderUI({
         if (!data_ready()) {
           return(div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."))
         }
@@ -147,16 +98,37 @@ nutrientDataServer <- function(cur_stn) {
           ),
           uiOutput(ns("plotExportUI")),
           br(),
-          p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
-          p(HTML("<strong>Exceedance criteria.</strong> A stream site <b><i>clearly exceeds</i></b> the phosphorus limit and the confidence interval band will be shaded <b><span style='color: red'>red</span></b> if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of 0.075 mg/L. A stream site <b><i>may exceed</i></b> the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site <b><i>may meet</i></b> the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site <b><i>clearly meets</i></b> the phosphorus limit, and the shaded confidence interval band in the plot above will be colored <b><span style='color: teal'>teal</span></b>.")),
-          p(strong("Why phosphorus?"), "Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
-          p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another."),
+          uiOutput(ns("infoUI")),
           br(),
           bsCollapse(
             bsCollapsePanel(
               title = "View or download nutrient data data",
               uiOutput(ns("viewDataUI"))
             )
+          )
+        )
+      })
+
+      ## infoUI ----
+      output$infoUI <- renderUI({
+        tagList(
+          p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
+          p(HTML("<strong>Exceedance criteria.</strong> A stream site <b><i>clearly exceeds</i></b> the phosphorus limit and the confidence interval band will be shaded <b><span style='color: red'>red</span></b> if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of 0.075 mg/L. A stream site <b><i>may exceed</i></b> the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site <b><i>may meet</i></b> the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site <b><i>clearly meets</i></b> the phosphorus limit, and the shaded confidence interval band in the plot above will be colored <b><span style='color: teal'>teal</span></b>.")),
+          p(strong("Why phosphorus?"), "Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
+          p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another."),
+        )
+      })
+
+      ## plotCaptionUI ----
+      output$plotCaptionUI <- renderUI({
+        tagList(
+          div(
+            class = "plot-caption",
+            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."
+          ),
+          div(
+            class = "plot-caption",
+            strong(phos_exceedance_text())
           )
         )
       })
@@ -290,19 +262,7 @@ nutrientDataServer <- function(cur_stn) {
       })
 
 
-      ## plotCaptionUI ----
-      output$plotCaptionUI <- renderUI({
-        tagList(
-          div(
-            class = "plot-caption",
-            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."
-          ),
-          div(
-            class = "plot-caption",
-            strong(phos_exceedance_text())
-          )
-        )
-      })
+
 
 
       ## plotExportUI ----

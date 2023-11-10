@@ -431,20 +431,6 @@ mapServer <- function(cur_stn, main_session) {
         popup <- all_popups[names(all_popups) == stn$station_id] %>% setNames(NULL)
 
         map %>%
-          addCircleMarkers(
-            data = stn,
-            lat = ~latitude,
-            lng = ~longitude,
-            label = ~map_label,
-            layerId = ~station_id,
-            group = "cur_point",
-            options = pathOptions(pane = "cur_point_circle"),
-            radius = pt_size() + 1,
-            weight = 3,
-            color = stn_colors$current,
-            opacity = 1,
-            fillColor = "none"
-          ) %>%
           addMarkers(
             data = stn,
             lat = ~latitude,
@@ -454,7 +440,43 @@ mapServer <- function(cur_stn, main_session) {
             layerId = ~station_id,
             group = "cur_point"
           )
-      }) %>% bindEvent(list(cur_stn(), pt_size()))
+
+        # create hollow station icon if coloring by variable
+        if (input$stn_color_by == "stn_type") {
+          map %>%
+            addCircleMarkers(
+              data = stn,
+              lat = ~latitude,
+              lng = ~longitude,
+              label = ~map_label,
+              layerId = ~station_id,
+              group = "cur_point",
+              options = pathOptions(pane = "cur_point_circle"),
+              radius = pt_size() + 1,
+              weight = 1,
+              color = "black",
+              opacity = 1,
+              fillColor = stn_colors$current,
+              fillOpacity = 1
+            )
+        } else {
+          map %>%
+            addCircleMarkers(
+              data = stn,
+              lat = ~latitude,
+              lng = ~longitude,
+              label = ~map_label,
+              layerId = ~station_id,
+              group = "cur_point",
+              options = pathOptions(pane = "cur_point_circle"),
+              radius = pt_size() + 1,
+              weight = 3,
+              color = stn_colors$current,
+              opacity = 1,
+              fillColor = "none"
+            )
+        }
+      })
 
       ## Current station's watersheds ----
       ### HUC8 ----

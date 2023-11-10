@@ -1,8 +1,6 @@
-## MORE INFORMATION TAB ##
+## LEARN MORE TAB ##
 
-# UI ----
-
-moreInfoUI <- function() {
+learnMoreUI <- function() {
   tagList(
     h3("Monitoring Station Types"),
     p("The sites on the map above show established sites where Water Action Volunteers made water quality monitoring measurements. Stations are only shown if we have data available for that station. Stations may have data for more than one kind of the following data collection protocols:"),

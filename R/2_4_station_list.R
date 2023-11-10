@@ -1,7 +1,5 @@
 ## STATION LISTS TAB ##
 
-# UI ----
-
 stationListUI <- function() {
   ns <- NS("station-list")
 
@@ -26,8 +24,6 @@ stationListUI <- function() {
 }
 
 
-# Server ----
-
 #' requires global data frame 'all_stns'
 
 stationListServer <- function() {
@@ -36,18 +32,20 @@ stationListServer <- function() {
     function(input, output, session) {
       ns <- session$ns
 
-      ## Defs ----
+      # Defs ----
 
       baseline_stns <- filter(all_stns, baseline_stn)
       nutrient_stns <- filter(all_stns, nutrient_stn)
       therm_stns <- filter(all_stns, therm_stn)
 
 
-      ## Tables ----
+      # Tables ----
 
       renderStnTbl <- function(df) {
         renderDataTable({
-          df %>% clean_names(case = "big_camel")
+          df %>%
+            select(station_id:major_basin) %>%
+            clean_names(case = "big_camel")
         }, selection = "none")
       }
 
@@ -57,7 +55,7 @@ stationListServer <- function() {
       output$allTable <- renderStnTbl(all_stns)
 
 
-      ## Download handlers ----
+      # Download handlers ----
 
       createStnDl <- function(fname, df) {
         downloadHandler(fname, function(file) { write_csv(df, file) } )

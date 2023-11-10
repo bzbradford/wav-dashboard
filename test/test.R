@@ -513,3 +513,124 @@ stn_color_choices <- append(
   deframe(stn_color_opts[,1:2])
 )
 
+
+
+
+# Station report ----------------------------------------------------------
+
+
+stn <- slice_sample(all_stns, n = 1)
+baseline_coverage %>% filter(station_id == stn$station_id)
+nutrient_coverage %>% filter(station_id == stn$station_id)
+therm_coverage %>% filter(station_id == stn$station_id)
+
+df <- baseline_data %>%
+  filter(station_id == stn$station_id) %>%
+  filter(year == max(year))
+
+
+## Station Info ----
+
+stn$station_name
+stn$station_id
+
+input <- list()
+input$year <- 2023
+selected_data <- list(
+  baseline = baseline_data %>%
+    filter(station_id == stn$station_id, year == input$year),
+  nutrient = nutrient_data %>%
+    filter(station_id == stn$station_id, year == input$year),
+  thermistor = therm_data %>%
+    filter(station_id == stn$station_id, year == input$year)
+)
+
+rows <- sapply(selected_data, function(df) nrow(df))
+rows[rows > 0]
+
+## Station data summary ----
+
+
+
+# temperature
+#' Pages:
+#' - Intro / overview
+#' - Temperature / thermistor?
+#' - Dissolved oxygen
+#' - Streamflow
+#' - Transparency
+#' - Nutrient
+library(ggrepel)
+water_label <- "Water (°C)"
+air_label <- "Air (°C)"
+flow_label <- "Streamflow (cfs)"
+df %>%
+  ggplot(aes(x = date)) +
+  geom_line(
+    aes(y = water_temp, color = water_label),
+    linewidth = 2) +
+  geom_point(
+    aes(y = water_temp, color = water_label),
+    size = 3) +
+  geom_line(
+    aes(y = ambient_air_temp, color = air_label),
+    linewidth = 2) +
+  geom_point(
+    aes(y = ambient_air_temp, color = air_label),
+    size = 3) +
+  geom_text_repel(aes(y = water_temp, label = paste0(water_temp, "°C"))) +
+  geom_text_repel(aes(y = ambient_air_temp, label = paste0(ambient_air_temp, "°C"))) +
+  scale_x_date(
+    name = "Date of observation",
+    breaks = df$date,
+    date_labels = "%b %d") +
+  scale_y_continuous(expand = expansion(c(0, .1))) +
+  scale_color_manual(
+    breaks = c(air_label, water_label),
+    values = c("orange", "lightblue")
+  ) +
+  scale_fill_distiller(palette = "RdBu", direction = 1, limits = c(0, 15)) +
+  labs(
+    y = "Measurement value",
+    color = "Measurement",
+    fill = "Dissolved\noxygen (mg/L)"
+  ) +
+  theme_classic()
+
+df %>%
+  ggplot(aes(x = date)) +
+  geom_col(
+    aes(y = d_o, fill = d_o),
+    color = "black") +
+  geom_text(aes(y = d_o, label = paste(d_o, "mg/L")), vjust = -.5) +
+  geom_line(
+    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    linewidth = 2) +
+  geom_point(
+    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    size = 3) +
+  geom_text_repel(aes(y = d_o_percent_saturation / 10, label = paste0(d_o_percent_saturation, "%"))) +
+  scale_x_date(
+    breaks = df$date,
+    date_labels = "%b %d\n%Y") +
+  scale_y_continuous(
+    name = "Measurement value",
+    limits = c(0, max(df$d_o, 12, na.rm = T)),
+    expand = expansion(c(0, .1)),
+    sec.axis = sec_axis(
+      name = "DO Saturation",
+      trans = ~.*10
+    )
+  ) +
+  scale_color_manual(
+    breaks = c("DO % Sat"),
+    values = c("navy")
+  ) +
+  scale_fill_distiller(palette = "Blues", direction = 1, limits = c(0, 15)) +
+  labs(
+    x = "Date of observation",
+    fill = "Dissolved\noxygen (mg/L)"
+  ) +
+  theme_classic()
+
+view(df)

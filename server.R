@@ -230,11 +230,13 @@ server <- function(input, output, session) {
   buildScreenshotFilename <- function() {
     stn_id <- cur_stn()$station_id
     tab_name <- input$data_tabs
-    suffix <- ""
-    if (grepl("Baseline", tab_name)) suffix <- baselineReturn()$year
-    else if (grepl("Nutrient", tab_name)) suffix <- NutrientReturn()$year
-    else if (grepl("Thermistor", tab_name)) suffix <- ThermistorReturn()$year
-    else if (grepl("Watershed", tab_name)) suffix <- watershedReturn()$huc
+    suffix <- case_match(tab_name,
+      tab_names$baseline ~ baselineReturn()$year,
+      tab_names$nutrient ~ nutrientReturn()$year,
+      tab_names$thermistor ~ thermistorReturn()$year,
+      tab_names$watershed ~ watershedReturn()$huc,
+      .default = ""
+    )
     fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
     if (!is.null(suffix)) fname <- paste(fname, suffix)
     fname
@@ -305,22 +307,32 @@ server <- function(input, output, session) {
 
   ## Baseline data tab ----
   baselineReturn <- baselineDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$baseline)
   )
 
   ## Nutrient data tab ----
   nutrientReturn <- nutrientDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$nutrient)
   )
 
   ## Thermistor data tab ----
   thermistorReturn <- thermistorDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$thermistor)
   )
 
   ## Watershed info tab ----
   watershedReturn <- watershedInfoServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$watershed)
+  )
+
+  ## Station report tab ----
+  stnReportServer(
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$reports)
   )
 
 }

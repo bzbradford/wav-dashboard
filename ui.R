@@ -94,11 +94,12 @@ ui <- fluidPage(
       tabsetPanel(
         id = "data_tabs",
         type = "pills",
-        tabPanel("Baseline data", baselineDataUI()),
-        tabPanel("Nutrient data", nutrientDataUI()),
-        tabPanel("Thermistor data", thermistorDataUI()),
-        tabPanel("Watershed/landscape information", watershedInfoUI()),
-        tabPanel("Learn more", moreInfoUI())
+        tabPanel(tab_names$baseline, baselineDataUI()),
+        tabPanel(tab_names$nutrient, nutrientDataUI()),
+        tabPanel(tab_names$thermistor, thermistorDataUI()),
+        tabPanel(tab_names$watershed, watershedInfoUI()),
+        tabPanel(tab_names$reports, stnReportUI()),
+        tabPanel(tab_names$more, learnMoreUI())
       ),
     ),
 

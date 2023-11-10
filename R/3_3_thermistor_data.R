@@ -1,8 +1,5 @@
 ## THERMISTOR TAB ##
 
-
-# UI ----
-
 thermistorDataUI <- function() {
   ns <- NS("thermistor")
 
@@ -13,12 +10,10 @@ thermistorDataUI <- function() {
 }
 
 
-# Server ----
-
 #' requires global data frame 'therm_data'
 #' @param cur_stn a `reactive()` expression containing the current station
 
-thermistorDataServer <- function(cur_stn) {
+thermistorDataServer <- function(cur_stn, has_focus) {
   moduleServer(
     id = "thermistor",
     function(input, output, session) {
@@ -30,6 +25,7 @@ thermistorDataServer <- function(cur_stn) {
       ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
+        req(has_focus())
 
         filter(therm_data, station_id == cur_stn()$station_id)
       })
@@ -46,11 +42,8 @@ thermistorDataServer <- function(cur_stn) {
 
       ## selected_data ----
       selected_data <- reactive({
-        if (input$year == "All") {
-          cur_data()
-        } else {
-          cur_data() %>% filter(year == input$year)
-        }
+        if (input$year == "All") return(cur_data())
+        cur_data() %>% filter(year == input$year)
       })
 
       ## selected_data_ready ----

@@ -21,38 +21,7 @@ gc() # garbage collect
 
 # Functions ----
 
-c_to_f <- function(c, d = 1) {
-  round(c * 9.0 / 5.0 + 32, d)
-}
-
-f_to_c <- function(f, d = 1) {
-  round((f - 32) * 5.0 / 9.0, d)
-}
-
-colorize <- function(text, color = tolower(text)) {
-  shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
-}
-
-setURL <- function(id) {
-  if (!is.null(id)) {
-    shinyjs::runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
-  } else {
-    shinyjs::runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
-  }
-}
-
-setTitle <- function(label) {
-  if (!is.null(label)) {
-    title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
-    shinyjs::runjs(sprintf("document.title = '%s'", title))
-  } else {
-    shinyjs::runjs("document.title = 'WAV Data Dashboard'")
-  }
-}
-
-withSpinnerProxy <- function(ui, ...) {
-  ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
-}
+## Used here only ----
 
 create_popups <- function(data) {
   title <- "<div class=popup-title>Monitoring Station Details</div>"
@@ -68,33 +37,6 @@ create_popups <- function(data) {
       paste0(title, details)
     }) %>% paste0()
   }
-}
-
-hline <- function(y = 0, color = "black") {
-  list(
-    type = "line",
-    x0 = 0,
-    x1 = 1,
-    xref = "paper",
-    y0 = y,
-    y1 = y,
-    line = list(color = color, dash = "dash")
-  )
-}
-
-rect <- function(ymin, ymax, color = "red") {
-  list(
-    type = "rect",
-    fillcolor = color,
-    line = list(color = color),
-    opacity = 0.1,
-    y0 = ymin,
-    y1 = ymax,
-    xref = "paper",
-    x0 = 0,
-    x1 = 1,
-    layer = "below"
-  )
 }
 
 get_coverage <- function(df) {
@@ -123,21 +65,79 @@ check_missing_stns <- function(data, pts, type) {
   }
 }
 
-year_choices <- function(years) {
-  if (length(years) > 1) {
-    c(years, "All")
+
+## Utility ----
+
+c_to_f <- function(c, d = 1) {
+  round(c * 1.8 + 32, d)
+}
+
+f_to_c <- function(f, d = 1) {
+  round((f - 32) * 5.0 / 9.0, d)
+}
+
+
+## HTML / JS ----
+
+colorize <- function(text, color = tolower(text)) {
+  shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
+}
+
+setURL <- function(id) {
+  if (!is.null(id)) {
+    shinyjs::runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
   } else {
-    years
+    shinyjs::runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
   }
 }
 
-min_max <- function(v) {
-  possibly(
-    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
-    return(c(NA, NA))
+setTitle <- function(label) {
+  if (!is.null(label)) {
+    title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
+    shinyjs::runjs(sprintf("document.title = '%s'", title))
+  } else {
+    shinyjs::runjs("document.title = 'WAV Data Dashboard'")
+  }
+}
+
+withSpinnerProxy <- function(ui, ...) {
+  ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
+}
+
+
+## Plotly helpers ----
+
+hline <- function(y = 0, color = "black") {
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = y,
+    y1 = y,
+    line = list(color = color, dash = "dash")
   )
 }
 
+rect <- function(ymin, ymax, color = "red") {
+  list(
+    type = "rect",
+    fillcolor = color,
+    line = list(color = color),
+    opacity = 0.1,
+    y0 = ymin,
+    y1 = ymax,
+    xref = "paper",
+    x0 = 0,
+    x1 = 1,
+    layer = "below"
+  )
+}
+
+
+## Used in app ----
+
+# pick random baseline station to show initially
 random_baseline_stn <- function() {
   all_pts %>%
     filter(baseline_stn) %>%
@@ -146,6 +146,96 @@ random_baseline_stn <- function() {
     sample(1)
 }
 
+# adds "All" to end of years list
+year_choices <- function(years) {
+  if (length(years) > 1) {
+    c(years, "All")
+  } else {
+    years
+  }
+}
+
+# get the min and max of a vector for plotly axis ranges
+min_max <- function(v) {
+  possibly(
+    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(NA, NA))
+  )
+}
+
+### Baseline tab ----
+
+do_color <- function(do) {
+  i <- min(max(round(do), 1), 11)
+  brewer.pal(11, "RdBu")[i]
+}
+
+find_max <- function(vals, min_val) {
+  vals <- na.omit(vals)
+  if (length(vals) == 0) return(min_val)
+  ceiling(max(min_val, max(vals)) * 1.1)
+}
+
+make_min_max <- function(df, var) {
+  v <- df[[var]]
+  if (length(v) == 0) return(tibble())
+  tibble(
+    observations = length(na.omit(v)),
+    min = df[which.min(v), ][[var]],
+    max = df[which.max(v), ][[var]],
+    date_of_min = df[which.min(v), ]$date,
+    date_of_max = df[which.max(v), ]$date
+  )
+}
+
+
+### Nutrient tab ----
+
+phoslimit <- 0.075 # mg/L or ppm
+
+get_phos_estimate <- function(vals) {
+  vals <- na.omit(vals)
+  log_vals <- log(vals)
+  n <- length(vals)
+  meanp <- mean(log_vals)
+  se <- sd(log_vals) / sqrt(n)
+  suppressWarnings({
+    tval <- qt(p = 0.90, df = n - 1)
+  })
+
+  params <- list(
+    mean = meanp,
+    median = median(log_vals),
+    lower = meanp - tval * se,
+    upper = meanp + tval * se
+  )
+
+  params <- lapply(params, exp)
+  params <- lapply(params, round, 3)
+  params["n"] <- n
+  params
+}
+
+get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
+  fail_msg <- "Unable to determine phosphorus exceedance type based on the data shown above."
+
+  if (anyNA(c(median, lower, upper))) return(fail_msg)
+
+  if (lower >= limit) {
+    "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit.)"
+  } else if (lower <= limit & median >= limit) {
+    "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit)."
+  } else if (upper >= limit & median <= limit) {
+    "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit)."
+  } else if (upper <= limit) {
+    "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit)."
+  } else {
+    fail_msg
+  }
+}
+
+
+### Watershed tab ----
 fmt_area <- function(area) {
   sq_km <- area / 1e6
   sq_mi <- sq_km * 0.3861
@@ -159,13 +249,24 @@ fmt_area <- function(area) {
 
 
 
+
+
 # Defs ----
 
 stn_colors <- list(
-  "baseline" = "green",
-  "nutrient" = "orange",
-  "thermistor" = "purple",
-  "current" = "deepskyblue"
+  baseline = "green",
+  nutrient = "orange",
+  thermistor = "purple",
+  current = "deepskyblue"
+)
+
+tab_names <- list(
+  baseline = "Baseline data",
+  nutrient = "Nutrient data",
+  thermistor = "Thermistor data",
+  watershed = "Watershed/landscape context",
+  reports = "Downloadable reports",
+  more = "Learn more"
 )
 
 

@@ -1,8 +1,5 @@
 ## RECENT STATIONS TAB ##
 
-
-# UI ----
-
 recentStationsUI <- function() {
   ns <- NS("recent-stations")
 
@@ -12,9 +9,6 @@ recentStationsUI <- function() {
     p(actionButton(ns("clearList"), "Clear list"), align = "right", style = "margin-top: 1em;"),
   )
 }
-
-
-# Server ----
 
 #' requires globals:
 #' - all_stns

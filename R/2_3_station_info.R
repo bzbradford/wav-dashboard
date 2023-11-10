@@ -1,7 +1,5 @@
 ## STATION INFO TAB ##
 
-# UI ----
-
 stationInfoUI <- function() {
   ns <- NS("station-info")
 
@@ -20,8 +18,6 @@ stationInfoUI <- function() {
   )
 }
 
-
-# Server ----
 
 #' @param cur_stn a `reactive()` expression containing the currently selected station
 

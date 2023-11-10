@@ -1,8 +1,5 @@
 # Watershed Information
 
-
-# UI ----
-
 watershedInfoUI <- function() {
   ns <- NS("watershed")
 
@@ -33,12 +30,10 @@ watershedInfoUI <- function() {
 }
 
 
-# Server ----
-
 #' Requires global variable `landscape_data`
 #' @param `cur_stn` a `reactive()` expression containing the 1-line data frame `cur_stn()`
 
-watershedInfoServer <- function(cur_stn) {
+watershedInfoServer <- function(cur_stn, has_focus) {
   moduleServer(
     id = "watershed",
     function(input, output, session) {
@@ -49,6 +44,7 @@ watershedInfoServer <- function(cur_stn) {
       ## selected_data ----
       selected_data <- reactive({
         req(cur_stn())
+        req(has_focus())
         req(input$scale)
 
         col <- paste0("huc", input$scale)

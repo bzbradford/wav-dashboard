@@ -10,6 +10,8 @@ suppressMessages({
   library(sf)
   library(rlang)
   library(markdown)
+  library(glue)
+  library(knitr)
 
   # shiny
   library(shiny)

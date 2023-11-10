@@ -1,49 +1,18 @@
 ## BASELINE TAB ##
 
-# Helpers ----
-
-do_color <- function(do) {
-  i <- min(max(round(do), 1), 11)
-  brewer.pal(11, "RdBu")[i]
-}
-
-find_max <- function(vals, min_val) {
-  vals <- na.omit(vals)
-  if (length(vals) == 0) return(min_val)
-  ceiling(max(min_val, max(vals)) * 1.1)
-}
-
-make_min_max <- function(df, var) {
-  v <- df[[var]]
-  if (length(v) == 0) return(tibble())
-  tibble(
-    observations = length(na.omit(v)),
-    min = df[which.min(v), ][[var]],
-    max = df[which.max(v), ][[var]],
-    date_of_min = df[which.min(v), ]$date,
-    date_of_max = df[which.max(v), ]$date
-  )
-}
-
-
-# UI ----
-
 baselineDataUI <- function() {
   ns <- NS("baseline")
 
   div(
     class = "data-tab",
-    uiOutput(ns("content")) %>% withSpinnerProxy(),
+    uiOutput(ns("mainUI")) %>% withSpinnerProxy(),
   )
 }
-
-
-# Server ----
 
 #' requires global data frame 'baseline_data'
 #' @param cur_stn a `reactive()` single line data frame
 
-baselineDataServer <- function(cur_stn) {
+baselineDataServer <- function(cur_stn, has_focus) {
   moduleServer(
     id = "baseline",
     function(input, output, session) {
@@ -84,10 +53,10 @@ baselineDataServer <- function(cur_stn) {
       })
 
 
-      # Layout ----
+      # Rendered UI ----
 
-      ## content | Primary UI----
-      output$content <- renderUI({
+      ## mainUI ----
+      output$mainUI <- renderUI({
         if (!data_ready()) {
           return(div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."))
         }
@@ -109,11 +78,8 @@ baselineDataServer <- function(cur_stn) {
             plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
           ),
           uiOutput(ns("plotExportUI")),
-          uiOutput(ns("stnSummaryUI")) %>% withSpinnerProxy(hide.ui = FALSE, proxy.height = 200),
-          p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
-          p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
-          p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
-          p(strong("Stream flow:"), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
+          uiOutput(ns("stnSummaryUI")),
+          uiOutput(ns("infoUI")),
           br(),
           bsCollapse(
             bsCollapsePanel(
@@ -121,6 +87,16 @@ baselineDataServer <- function(cur_stn) {
               uiOutput(ns("viewDataUI"))
             )
           )
+        )
+      })
+
+      ## infoUI ----
+      output$infoUI <- renderUI({
+        tagList(
+          p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
+          p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
+          p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
+          p(strong("Stream flow:"), "Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the", a("USGS Water Dashboard", href = "https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi", target = "_blank", .noWS = "after"), "."),
         )
       })
 
@@ -306,21 +282,17 @@ baselineDataServer <- function(cur_stn) {
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
+        fname <- paste0("baseline-plot-", cur_stn()$station_id, "-", input$year, ".png")
+        onclick <- sprintf("
+          html2canvas(
+            document.querySelector('#baseline-plot-container'),
+            {scale: 3}
+          ).then(
+            canvas => {saveAs(canvas.toDataURL(), '%s')}
+          )", fname)
         p(
-          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
-          align = "center",
-          em("Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset).",
-            a("Click here to download this plot as a PNG.",
-              style = "cursor: pointer;",
-              onclick = paste0(
-                "html2canvas(document.querySelector('",
-                "#baseline-plot-container",
-                "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
-                paste("baseline-plot", cur_stn()$station_id, input$year, sep = "-"),
-                ".png",
-                "')})")
-            )
-          )
+          class = "plot-export", align = "center",
+          em("Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset).", a("Click here to download this plot as a PNG.", style = "cursor: pointer;", onclick = onclick))
         )
       })
 

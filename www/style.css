@@ -166,6 +166,21 @@ a, a:hover, a:focus {
   text-align: center;
 }
 
+.plot-export {
+  margin-left: 2em;
+  margin-right: 2em;
+  font-size: smaller;
+}
+
+.report-tbl * > table>thead>tr>th {
+  vertical-align: middle;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.report-tbl * > table>tbody>tr>td {
+  vertical-align: middle;
+}
+
 @media screen and (max-width: 600px) {
   .stn-select {
     flex-direction: column;

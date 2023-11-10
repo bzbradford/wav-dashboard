@@ -1,0 +1,64 @@
+---
+title: "Baseline Monitoring Report"
+author: "Water Action Volunteers"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+params:
+  year: NA
+  stn: NA
+  data: NA
+---
+
+```{r setup, include=FALSE}
+stn <- params$stn
+
+
+```
+
+
+# Water Action Volunteers
+
+Station name: `r stn$station_name`
+Station ID: `r stn$station_id`
+Location: `r stn$latitude`, `r stn$longitude`
+County: `r stn$county_name` County
+Region: `r stn$dnr_region`
+Waterbody: `r stn$waterbody`
+WBIC: `r stn$wbic`
+Subwatershed: `r stn$sub_watershed` (`r stn$huc12`)
+Watershed: `r stn$watershed` (`r stn$huc10`)
+Subbasin: `r stn$sub_basin` (`r stn$huc8`)
+Basin: `r stn$major_basin`
+
+
+## Baseline data summary
+
+```{r}
+df <- params$data$baseline %>%
+  filter(station_id == stn$station_id)
+
+options(knitr.kable.NA = "-")
+
+df %>%
+  select(
+    `Date` = date,
+    `Fieldwork #` = fieldwork_seq_no,
+    `Air temp (°C)` = ambient_air_temp,
+    `Water temp (°)` = water_temp,
+    `Dissolved oxygen (mg/L)` = d_o,
+    `DO % saturation` = d_o_percent_saturation,
+    `pH` = ph,
+    `Transparency (cm)` = transparency_average,
+    `Stream width (ft)` = stream_width,
+    `Average depth (ft)` = average_stream_depth,
+    `Surface velocity (ft/s)` = average_surface_velocity,
+    `Streamflow (cfs)` = streamflow_cfs,
+    `Weather` = weather_last_2_days
+  ) %>% knitr::kable()
+```
+
+
+## Water Temperature
+
