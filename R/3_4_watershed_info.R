@@ -102,25 +102,11 @@ watershedInfoServer <- function(cur_stn, has_focus) {
 
       ## watershedInfoUI ----
       output$watershedInfoUI <- renderUI({
-        stn <- cur_stn()
-        maps_link <- sprintf("https://www.google.com/maps/search/?api=1&query=%s+%s", stn$latitude, stn$longitude)
-        coords_html <- HTML(sprintf("%.6f, %.6f | <a href='%s' target='_blank'>View on Google Maps</a>", stn$latitude, stn$longitude, maps_link))
-        wbic_link <- sprintf("https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC=%s", stn$wbic)
-        wbic_html <- HTML(sprintf("%s (WBIC: %s) | <a href='%s' target='_blank'>Learn more at the DNR's Water Data page</a>", stn$waterbody, stn$wbic, wbic_link))
-
         wellPanel(
-          strong("Watershed context for selected station:"),
+          h4("Watershed context for selected station:", style = "margin-top: 0px;"),
           div(
             style = "padding-left: 1em;",
-            strong("Selected station:"), stn$station_name, br(),
-            strong("Coordinates:"), coords_html, br(),
-            strong("Waterbody:"), wbic_html, br(),
-            strong("Sub-watershed:"), sprintf("%s (HUC12: %s)", stn$sub_watershed, stn$huc12), br(),
-            strong("Watershed:"), sprintf("%s (HUC10: %s)", stn$watershed, stn$huc10), br(),
-            strong("Sub-basin:"), sprintf("%s (HUC8: %s)", stn$sub_basin, stn$huc8), br(),
-            strong("Major basin: "), stn$major_basin, br(),
-            strong("County name:"), stn$county_name, br(),
-            strong("DNR region:"), stn$dnr_region
+            HTML(fmt_watershed_info(cur_stn()))
           )
         )
       })

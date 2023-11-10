@@ -11,6 +11,7 @@ library(janitor)
 library(sf)
 library(shiny)
 library(shinycssloaders)
+library(glue)
 
 
 # Clear environment ----
@@ -217,12 +218,12 @@ get_phos_estimate <- function(vals) {
 }
 
 get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
-  fail_msg <- "Unable to determine phosphorus exceedance type based on the data shown above."
+  fail_msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
 
   if (anyNA(c(median, lower, upper))) return(fail_msg)
 
   if (lower >= limit) {
-    "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit.)"
+    "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit)."
   } else if (lower <= limit & median >= limit) {
     "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit)."
   } else if (upper >= limit & median <= limit) {
@@ -247,8 +248,27 @@ fmt_area <- function(area) {
   )
 }
 
-
-
+fmt_watershed_info <- function(stn) {
+  require(glue)
+  maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
+  wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
+  ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
+  usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
+  paste(
+    glue("<b>Station name:</b> {stn$station_name}"),
+    glue("<b>Station ID:</b> {stn$station_id}"),
+    glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
+    glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
+    glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
+    glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
+    glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
+    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8}) | {usgs_huc8_link}"),
+    glue("<b>Major basin:</b> {stn$major_basin}"),
+    glue("<b>County name:</b> {stn$county_name} County"),
+    glue("<b>DNR region:</b> {stn$dnr_region}"),
+    sep = "<br>"
+  )
+}
 
 
 # Defs ----

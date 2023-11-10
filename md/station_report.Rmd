@@ -30,7 +30,7 @@ baseline <- params$data$baseline %>%
   mutate(formatted_date = format(date, "%b %d"))
 ```
 
-# Water Action Volunteers
+## Station information:
 
 Station name: `r stn$station_name`\
 Station ID: `r stn$station_id`\
@@ -75,6 +75,7 @@ baseline %>%
     `Streamflow (cfs)` = streamflow_cfs
   ) %>% kable()
 ```
+
 
 ## Water Temperature
 
