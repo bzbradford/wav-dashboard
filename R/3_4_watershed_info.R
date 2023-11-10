@@ -2,16 +2,17 @@
 
 watershedInfoUI <- function() {
   ns <- NS("watershed")
+  link1 <- a("2021 USGS National Land Cover Database", href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", target = "_blank", .noWS = "outside")
+  link2 <- a("Click here", href = "https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description", target = "_blank", .noWS = "outside")
 
   div(
     class = "data-tab",
     h3("Watersheds"),
     p(strong("What is a watershed?"), "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."),
     p(HTML("In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). Use the layers menu (upper right) in the map above or"), strong(a(href = "#map", onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
-    h4(strong("Station information and landscape context"), style = "margin-top: 1em;"),
     uiOutput(ns("watershedInfoUI")) %>% withSpinnerProxy(proxy.height = 200),
-    h4(strong("Landscape composition"), style = "margin-top: 1em;"),
-    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", a(href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", "2021 USGS National Land Cover Database", target = "_blank", .noWS = "after"), ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8)."),
+    h4(strong("Landscape composition")),
+    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", link1, ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ", link2, " for more information and specific definitions of each land cover class."),
     div(class = "well flex-row year-btns",
       div(class = "year-btn-text", em("Landscape scale:")),
       radioGroupButtons(
@@ -103,14 +104,17 @@ watershedInfoServer <- function(cur_stn, has_focus) {
       output$watershedInfoUI <- renderUI({
         stn <- cur_stn()
         maps_link <- sprintf("https://www.google.com/maps/search/?api=1&query=%s+%s", stn$latitude, stn$longitude)
-        coords_html <- HTML(sprintf("%.6f, %.6f (<a href='%s' target='_blank'>View on Google Maps</a>)", stn$latitude, stn$longitude, maps_link))
+        coords_html <- HTML(sprintf("%.6f, %.6f | <a href='%s' target='_blank'>View on Google Maps</a>", stn$latitude, stn$longitude, maps_link))
+        wbic_link <- sprintf("https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC=%s", stn$wbic)
+        wbic_html <- HTML(sprintf("%s (WBIC: %s) | <a href='%s' target='_blank'>Learn more at the DNR's Water Data page</a>", stn$waterbody, stn$wbic, wbic_link))
 
-        tagList(
+        wellPanel(
+          strong("Watershed context for selected station:"),
           div(
             style = "padding-left: 1em;",
             strong("Selected station:"), stn$station_name, br(),
             strong("Coordinates:"), coords_html, br(),
-            strong("Waterbody:"), sprintf("%s (WBIC: %s)", stn$waterbody, stn$wbic), br(),
+            strong("Waterbody:"), wbic_html, br(),
             strong("Sub-watershed:"), sprintf("%s (HUC12: %s)", stn$sub_watershed, stn$huc12), br(),
             strong("Watershed:"), sprintf("%s (HUC10: %s)", stn$watershed, stn$huc10), br(),
             strong("Sub-basin:"), sprintf("%s (HUC8: %s)", stn$sub_basin, stn$huc8), br(),

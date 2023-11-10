@@ -1,0 +1,80 @@
+---
+date: "Downloaded on `r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+fontsize: 11pt
+geometry: left=0.75in, right = 0.75in, top=0.75in, bottom=0.75in
+header-includes:
+  \usepackage{colortbl}
+  \usepackage{booktabs}
+  \usepackage{tabu}
+  \usepackage{longtable}
+  \usepackage{enumitem}
+  \renewcommand{\familydefault}{\sfdefault}
+params:
+  year: NA
+  stn: NA
+  data: NA
+title: "`r params$stn$label`"
+author: "`r params$year` Fieldwork Report"
+---
+
+```{r setup, include = FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = "-")
+options(scipen = 999)
+stn <- params$stn
+baseline <- params$data$baseline %>%
+  mutate(formatted_date = format(date, "%b %d"))
+```
+
+# Water Action Volunteers
+
+Station name: `r stn$station_name`\
+Station ID: `r stn$station_id`\
+Location: `r stn$latitude`, `r stn$longitude`\
+County: `r stn$county_name` County\
+Region: `r stn$dnr_region`\
+Waterbody: `r stn$waterbody`\
+WBIC: `r stn$wbic`\
+Subwatershed: `r stn$sub_watershed` (HUC12: `r stn$huc12`)\
+Watershed: `r stn$watershed` (HUC10: `r stn$huc10`)\
+Subbasin: `r stn$sub_basin` (HUC08: `r stn$huc8`)\
+Basin: `r stn$major_basin`
+
+## Baseline data summary
+
+```{r}
+baseline %>%
+  select(
+    `Date` = formatted_date,
+    # `Fieldwork #` = fieldwork_seq_no,
+    `Air temp (°C)` = ambient_air_temp,
+    `Water temp (°)` = water_temp,
+    `Dissolved oxygen (mg/L)` = d_o,
+    `DO % sat.` = d_o_percent_saturation,
+    `pH` = ph,
+    `Transparency (cm)` = transparency_average,
+    `Weather` = weather_last_2_days
+  ) %>% kable()
+```
+
+
+## Streamflow summary
+
+```{r}
+baseline %>%
+  select(
+    `Date` = formatted_date,
+    # `Fieldwork #` = fieldwork_seq_no,
+    `Stream width (ft)` = stream_width,
+    `Average depth (ft)` = average_stream_depth,
+    `Surface velocity (ft/s)` = average_surface_velocity,
+    `Streamflow (cfs)` = streamflow_cfs
+  ) %>% kable()
+```
+
+## Water Temperature
+

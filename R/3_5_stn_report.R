@@ -24,45 +24,40 @@ stnReportServer <- function(cur_stn, has_focus) {
       stn_data <- reactive({
         req(cur_stn())
         req(has_focus())
+        stn_id <- cur_stn()$station_id
 
         list(
-          baseline = baseline_data %>%
-            filter(station_id == cur_stn()$station_id),
-          nutrient = nutrient_data %>%
-            filter(station_id == cur_stn()$station_id),
-          thermistor = therm_data %>%
-            filter(station_id == cur_stn()$station_id)
+          baseline = filter(baseline_data, station_id == stn_id),
+          nutrient = filter(nutrient_data, station_id == stn_id),
+          thermistor = filter(therm_data, station_id == stn_id)
         )
       })
 
       ## avail_years ----
       avail_years <- reactive({
-        years <- stn_data() %>%
-          lapply(function(df) unique(df$year)) %>%
-          unlist() %>%
-          unique() %>%
-          sort()
+        req(cur_stn())
+        as.numeric(unlist(filter(all_coverage, station_id == cur_stn()$station_id)$data_year_list))
       })
-      observe(print(avail_years()))
 
-      # selected_year <- reactive({
-      #   req(input$download_year)
-      #   input$download_year
-      # })
-      #
-      # observe(print(selected_year()))
+      ## report ----
+      report <- reactiveValues()
 
-      selected_data <- reactive({
-        req(input$year)
-        sapply(stn_data(), function(df) {
-          filter(df, year == input$year)
-        })
-      })
-      observe(print(selected_data()))
-
+      ## reacts to button clicks to download a year's report ----
       observeEvent(input$year, {
         message(input$year)
-        # runjs(sprintf("document.querySelector('#report-btn-%s').disabled = false", input$year))
+
+        report$filename <- paste0(
+          "WAV ", input$year, " Report for ",
+          cur_stn()$station_id, " ",
+          str_trunc(fs::path_sanitize(cur_stn()$station_name), 30),
+          ".pdf"
+        )
+        report$stn <- cur_stn()
+        report$data <- sapply(stn_data(), function(df) {
+          filter(df, year == input$year)
+        })
+
+        # trigger the downloadbutton once data is set up
         click("download")
       })
 
@@ -70,17 +65,28 @@ stnReportServer <- function(cur_stn, has_focus) {
       ## mainUI ----
       output$mainUI <- renderUI({
         tagList(
-          h4("Downloads for", cur_stn()$station_name, align = "center"),
+          h4("Downloads for", cur_stn()$label, align = "center"),
           div(
             align = "center",
             class = "report-tbl",
-            tableOutput(ns("avail_reports_tbl")),
+            style = "overflow: auto;",
+            tableOutput(ns("avail_reports_tbl")) %>% withSpinnerProxy(),
           ),
           div(
             style = "visibility: hidden; height: 0px;",
-            downloadButton(ns("download"))
+            downloadButton(ns("download")),
+          ),
+          div(
+            id = "report-msg-container",
+            class = "notice notice-error",
+            style = "margin-top: 1em; display: none;",
+            div(
+              HTML("&#10006;"),
+              style = "float: right; cursor: pointer;",
+              onclick = "this.parentElement.style.display = 'none';"
+            ),
+            div(id = "report-msg")
           )
-
         )
       })
 
@@ -107,74 +113,63 @@ stnReportServer <- function(cur_stn, has_focus) {
               "Download PDF",
               id = paste0("report-btn-", yr),
               class = "btn btn-default btn-sm",
-              onclick = sprintf("Shiny.setInputValue('%s', %s, {priority: 'event'}); this.disabled = true;", ns("year"), yr)
+              onclick = sprintf("
+                Shiny.setInputValue('%s', %s, {priority: 'event'});
+                this.disabled = true;
+                this.innerHTML = 'Please wait...';
+              ", ns("year"), yr)
             ) %>% as.character()
           }))
       })
 
+      ## avail_reports_tbl ----
       output$avail_reports_tbl <- renderTable(
         avail_reports(),
         striped = T,
         hover = T,
+        width = "100%",
         align = "c",
         na = "-",
         sanitize.text.function = identity
       )
 
-      # output$avail_reports_tbl <- renderDataTable(
-      #   avail_reports(),
-      #   escape = FALSE,
-      #   options = list(
-      #     preDrawCallback = JS('function() { Shiny.unbindAll(this.api().table().node()); }'),
-      #     drawCallback = JS('function() { Shiny.bindAll(this.api().table().node()); } ')
-      #   )
-      # )
-
-      # glue("{yr}-{stn_id}-{stn_name}.pdf")
+      ## download ----
       output$download <- downloadHandler(
-        filename = function() {
-          fname <- str_trim(paste0(
-            "WAV ", input$year, " Report for ",
-            cur_stn()$station_id, " ",
-            str_trunc(fs::path_sanitize(cur_stn()$station_name), 25)
-          ))
-          fname <- paste0(fname, ".csv")
-          print(fname)
-          fname
-          # "foo.csv"
-        },
+        filename = function() { report$filename },
         content = function(file) {
-          # yr <- input$download_year
-          # disable(paste0("report-btn-", yr))
-          # stn <- cur_stn()
-          # stn_id <- stn$station_id
-          # stn_name <- str_trunc(fs::path_sanitize(stn$station_name), 25, ellipsis = "")
-          # report_data <- sapply(stn_data(), function(df) { filter(df, year == yr) })
-          # message(yr)
-          # print(report_data)
-          # fpath <- file.path(tempdir(), fname)
-          # if (file.exists(fpath)) return(file.copy(fpath, file))
-          #
-          # tempfile <- tempfile()
-          # template <- "./Rmd/station_report.Rmd"
-          # # rmarkdown::render(
-          # #   input = template,
-          # #   output_file = tempfile,
-          # #   params = list(
-          # #     year = yr,
-          # #     stn = stn,
-          # #     data = report_data
-          # #   )
-          # # )
-          # message("foo")
-          #
-          # # file.remove(tempfile)
-          # # file.copy(tempfile, fpath)
-          # # file.copy(fpath, file)
-          # enable(paste0("report-btn-", yr))
-          # write.csv(data.frame(x = runif(5), y = rnorm(5)), file)
-          write_csv(selected_data()$baseline, file)
-          runjs(sprintf("document.querySelector('#report-btn-%s').disabled = false", input$year))
+          final_out <- file.path(tempdir(), report$filename)
+          use_existing <- FALSE
+          if (file.exists(final_out) & use_existing) {
+            message('file existed')
+            file.copy(final_out, file)
+          } else {
+            tryCatch({
+              template <- file.path("md", "station_report.Rmd")
+              temp_dir <- tempdir()
+              temp_in <- file.path(temp_dir, "report.Rmd")
+              file.copy(template, temp_in, overwrite = TRUE)
+              rmarkdown::render(
+                input = temp_in,
+                output_file = final_out,
+                params = list(
+                  year = input$year,
+                  stn = report$stn,
+                  data = report$data
+                )
+              )
+              file.copy(final_out, file)
+            }, error = function(cond) {
+              runjs(sprintf("
+                document.querySelector('#report-msg').innerHTML = 'Failed to create report: %s';
+                document.querySelector('#report-msg-container').style.display = null;
+              ", cond$message))
+            })
+          }
+          runjs(sprintf("
+            let btn = document.querySelector('#report-btn-%s');
+            btn.disabled = false;
+            btn.innerHTML = 'Download PDF';
+          ", input$year))
         }
       )
 

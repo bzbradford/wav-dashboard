@@ -98,7 +98,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
           ),
           uiOutput(ns("plotExportUI")),
           br(),
-          uiOutput(ns("infoUI")),
+          uiOutput(ns("moreInfoUI")),
           br(),
           bsCollapse(
             bsCollapsePanel(
@@ -109,14 +109,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         )
       })
 
-      ## infoUI ----
-      output$infoUI <- renderUI({
-        tagList(
-          p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval."),
-          p(HTML("<strong>Exceedance criteria.</strong> A stream site <b><i>clearly exceeds</i></b> the phosphorus limit and the confidence interval band will be shaded <b><span style='color: red'>red</span></b> if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of 0.075 mg/L. A stream site <b><i>may exceed</i></b> the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site <b><i>may meet</i></b> the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site <b><i>clearly meets</i></b> the phosphorus limit, and the shaded confidence interval band in the plot above will be colored <b><span style='color: teal'>teal</span></b>.")),
-          p(strong("Why phosphorus?"), "Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams. Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result."),
-          p(strong("Volunteer monitoring protocol."), "To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another."),
-        )
+      ## moreInfoUI ----
+      output$moreInfoUI <- renderUI({
+        includeMarkdown("md/nutrient_info.md")
       })
 
       ## plotCaptionUI ----
