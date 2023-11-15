@@ -1,15 +1,23 @@
 makeReportPlots <- function(df, type) {
   try({
+    require(ggrepel)
+
     date_limits <- get_report_date_range(df$date)
+    opts <- list(
+      repel.text.size = 3.5,
+      date.label.fmt = "%b\n%Y"
+    )
+
+    date_scale <- scale_x_date(
+      breaks = "months",
+      limits = date_limits,
+      oob = scales::oob_keep,
+      date_labels = opts$date.label.fmt)
 
     # Temperature ----
     if (type == "temp") {
       df <- df %>%
-        select(
-          date,
-          Air = ambient_air_temp,
-          Water = water_temp,
-        ) %>%
+        select(date, Air = ambient_air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
         pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_c") %>%
         mutate(temp_f = c_to_f(temp_c)) %>%
@@ -19,20 +27,9 @@ makeReportPlots <- function(df, type) {
         ggplot(aes(x = date, y = temp_c)) +
         geom_line(aes(color = measure), linewidth = 1.5) +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
-        ggrepel::geom_text_repel(
-          aes(label = label),
-          box.padding = unit(.5, "lines"),
-          min.segment.length = unit(0, "lines"),
-          size = 3.5,
-          seed = 1) +
-        scale_x_date(
-          breaks = "months",
-          limits = date_limits,
-          oob = scales::oob_keep,
-          date_labels = "%b\n%Y") +
-        scale_y_continuous(
-          limits = c(0, find_max(df$temp_c, 30)),
-          expand = expansion()) +
+        geom_text_repel(aes(label = label), size = 3.5, box.padding = unit(.5, "lines"), min.segment.length = unit(0, "lines"), seed = 1) +
+        date_scale +
+        scale_y_continuous(limits = c(0, find_max(df$temp_c, 30)), expand = expansion()) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
         labs(x = NULL, y = "Temperature (°C)", fill = "Measurement", color = "Measurement") +
@@ -45,12 +42,8 @@ makeReportPlots <- function(df, type) {
     # Dissolved oxygen ----
     if (type == "do") {
       df <- df %>%
-        select(
-          date,
-          do = d_o,
-          do_sat = d_o_percent_saturation
-        ) %>%
-        filter(!is.na(do) | !is.na(do_sat)) %>%
+        select(date, do = d_o, do_sat = d_o_percent_saturation) %>%
+        drop_na(do) %>%
         mutate(
           do_color = map_chr(do, do_color),
           label = paste0(do, "mg/L\n(", do_sat, "% sat)"))
@@ -58,19 +51,9 @@ makeReportPlots <- function(df, type) {
       plt <- df %>%
         ggplot(aes(x = date, y = do)) +
         geom_col(aes(fill = do_color), color = "black", width = 15) +
-        ggrepel::geom_text_repel(
-          aes(label = label),
-          vjust = -.25,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        scale_x_date(
-          breaks = "months",
-          limits = date_limits,
-          oob = scales::oob_keep,
-          date_labels = "%b\n%Y") +
-        scale_y_continuous(
-          limits = c(0, find_max(df$do, 10)),
-          expand = expansion()) +
+        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .25, min.segment.length = unit(0, "lines"), seed = 1) +
+        date_scale +
+        scale_y_continuous(limits = c(0, find_max(df$do, 10)), expand = expansion()) +
         scale_fill_identity() +
         labs(x = NULL, y = "Dissolved oxygen (mg/L)") +
         theme_classic()
@@ -78,32 +61,19 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
+    # Transparency ----
     if (type == "trans") {
       df <- df %>%
-        select(
-          date,
-          trans = transparency_average,
-          tube = transparency_tube_length
-        ) %>%
-        mutate(label = if_else(
-          trans == tube,
-          paste0(trans, "+ cm"),
-          paste0(trans, " cm")))
+        select(date, trans = transparency_average, tube = transparency_tube_length) %>%
+        drop_na(trans) %>%
+        mutate(label = if_else(trans == tube, paste0(trans, "+ cm"), paste0(trans, " cm")))
 
       plt <- df %>%
         ggplot(aes(x = date, y = trans)) +
         geom_col(aes(y = tube), color = "grey50", fill = "grey95", width = 15) +
         geom_col(aes(fill = trans), color = "black", width = 15) +
-        ggrepel::geom_text_repel(
-          aes(label = label),
-          nudge_y = 1,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        scale_x_date(
-          breaks = "months",
-          limits = date_limits,
-          oob = scales::oob_keep,
-          date_labels = "%b\n%Y") +
+        geom_text_repel(aes(label = label), size = 3.5, nudge_y = 1, min.segment.length = unit(0, "lines"), seed = 1) +
+        date_scale +
         scale_y_continuous(
           breaks = seq(0, 120, 20),
           limits = c(0, find_max(df$trans, 120)),
@@ -116,31 +86,89 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
+    # Streamflow ----
     if (type == "flow") {
       df <- df %>%
         select(date, flow = streamflow_cfs) %>%
+        drop_na(flow) %>%
         mutate(label = paste(flow, " cfs"))
 
       plt <- df %>%
         ggplot(aes(x = date, y = flow)) +
         geom_line(color = "cadetblue", linewidth = 2) +
         geom_point(color = "black", fill = "cadetblue", shape = 21, size = 4) +
-        ggrepel::geom_text_repel(
-          aes(label = label),
-          nudge_y = .5,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        scale_x_date(
-          breaks = "months",
-          limits = date_limits,
-          oob = scales::oob_keep,
-          date_labels = "%b\n%Y") +
+        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .5, min.segment.length = unit(0, "lines"), seed = 1) +
+        date_scale +
         scale_y_continuous(
           limits = c(0, find_max(df$flow, 10)),
           expand = expansion()) +
         labs(x = NULL, y = "Streamflow (cfs)") +
         theme_classic() +
         theme(legend.position = "none")
+
+      return(plt)
+    }
+
+    # Total phosphorus ----
+    if (type == "nutrient") {
+      dates <- df$date
+      yr <- lubridate::year(dates[1])
+      eoy_date <- as.Date(paste0(yr, "-12-1"))
+      df <- df %>%
+        select(date, tp) %>%
+        drop_na(tp) %>%
+        mutate(exceeds = tp > phoslimit) %>%
+        mutate(label = paste(signif(tp, 3), "mg/L"))
+      est <- getPhosEstimate(df$tp)
+      est_labels <- tribble(
+        ~value, ~label,
+        est$lower, "Lower 90% CI",
+        est$median, "Median value",
+        est$upper, "Upper 90% CI",
+        est$limit, "State limit",
+      ) %>% mutate(date = eoy_date)
+
+      ci <- est$n > 1
+      plt <- df %>%
+        ggplot(aes(x = date, y = tp)) +
+        {
+          if (ci) c(
+            geom_rect(
+              aes(fill = est$median > phoslimit),
+              xmin = -Inf, xmax = Inf,
+              ymin = est$lower, ymax = est$upper,
+              alpha = .05),
+            geom_hline(yintercept = est$lower),
+            geom_hline(yintercept = est$upper),
+            geom_hline(yintercept = est$median, linetype = "dashed")
+          )
+        } +
+        geom_hline(yintercept = phoslimit, linewidth = 1, color = "red") +
+        geom_col(aes(fill = exceeds), color = "black") +
+        { if (ci) geom_text_repel(
+            data = est_labels,
+            aes(y = value, label = label),
+            size = 3.5,
+            nudge_x = 1,
+            min.segment.length = unit(0, "lines"),
+            seed = 1
+          ) } +
+        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .001, seed = 1) +
+        scale_x_date(
+          breaks = dates,
+          limits = c(dates[1] - 15, eoy_date + 15),
+          date_labels = "%b\n%Y") +
+        scale_y_continuous(
+          breaks = scales::pretty_breaks(),
+          limits = c(0, find_max(df$tp, .2)),
+          expand = expansion()) +
+        scale_fill_manual(
+          breaks = c(T, F),
+          values = c("#ff8e68", "#52c2a6"),
+          labels = c("Yes", "No")) +
+        labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L limit?") +
+        theme_classic() +
+        theme(legend.position = "bottom")
 
       return(plt)
     }

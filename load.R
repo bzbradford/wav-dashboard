@@ -174,7 +174,8 @@ do_color <- function(do) {
 find_max <- function(vals, min_val) {
   vals <- na.omit(vals)
   if (length(vals) == 0) return(min_val)
-  ceiling(max(min_val, max(vals)) * 1.1)
+  # ceiling(max(min_val, max(vals)) * 1.1)
+  max(min_val, max(vals)) * 1.1
 }
 
 make_min_max <- function(df, var) {
@@ -214,7 +215,8 @@ getPhosEstimate <- function(vals) {
 
   params <- lapply(params, exp)
   params <- lapply(params, round, 3)
-  params["n"] <- n
+  params$n <- n
+  params$limit <- phoslimit
   params
 }
 
@@ -222,22 +224,22 @@ getPhosEstimate <- function(vals) {
 #' @param lower lower confidence limit
 #' @param upper upper confidence limit
 #' @param limit state phosphorus exceedance limit
-getPhosExceedanceText <- function(median, lower, upper, limit = phoslimit) {
-  fail_msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
+getPhosExceedanceText <- function(vals, limit = phoslimit) {
+  median <- vals$median
+  lower <- vals$lower
+  upper <- vals$upper
 
-  if (anyNA(c(median, lower, upper))) return(fail_msg)
+  msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
+  if (anyNA(c(median, lower, upper))) return(msg)
 
-  if (lower >= limit) {
-    "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit)."
-  } else if (lower <= limit & median >= limit) {
-    "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit)."
-  } else if (upper >= limit & median <= limit) {
-    "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit)."
-  } else if (upper <= limit) {
-    "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit)."
-  } else {
-    fail_msg
-  }
+  msg <- case_when(
+    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit).",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit).",
+    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit).",
+    .default = msg
+  )
+  msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))
 }
 
 
@@ -275,8 +277,8 @@ get_report_date_range <- function(dates) {
   yr <- format(dates[1], "%Y")
   default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
   c(
-    min(dates, default_range[1]),
-    max(dates, default_range[2])
+    min(dates - 10, default_range[1]),
+    max(dates + 10, default_range[2])
   )
 }
 

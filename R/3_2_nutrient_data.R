@@ -59,16 +59,6 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         getPhosEstimate(selected_data()$tp)
       })
 
-      ## phos_exceedance_text ----
-      phos_exceedance_text <- reactive({
-        est <- phos_estimate()
-        getPhosExceedanceText(
-          median = est$median,
-          lower = est$lower,
-          upper = est$upper
-        )
-      })
-
 
       # Rendered UIs ----
 
@@ -118,7 +108,10 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             class = "plot-caption",
             "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."
           ),
-          div(class = "plot-caption", strong(phos_exceedance_text()))
+          div(
+            class = "plot-caption",
+            strong(getPhosExceedanceText(phos_estimate()))
+          )
         )
       })
 

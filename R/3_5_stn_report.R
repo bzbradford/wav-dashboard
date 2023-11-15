@@ -145,12 +145,15 @@ stnReportServer <- function(cur_stn, has_focus) {
             file.copy(final_out, file)
           } else {
             tryCatch({
-              template <- file.path("md", "station_report.Rmd")
               temp_dir <- tempdir()
-              temp_in <- file.path(temp_dir, "report.Rmd")
-              file.copy(template, temp_in, overwrite = TRUE)
+              rmd <- "md/station_report.Rmd"
+              hdr <- "md/report-header.png"
+              temp_rmd <- file.path(temp_dir, "report.Rmd")
+              temp_hdr <- file.path(temp_dir, "header.png")
+              file.copy(rmd, temp_rmd, overwrite = T)
+              file.copy(hdr, temp_hdr)
               rmarkdown::render(
-                input = temp_in,
+                input = temp_rmd,
                 output_file = final_out,
                 params = list(
                   year = input$year,

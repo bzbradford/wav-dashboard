@@ -6,6 +6,7 @@ output:
 fontsize: 11pt
 geometry: left=.75in, right=.75in, top=1in, bottom=1in
 header-includes:
+  - \usepackage{color}
   - \usepackage{longtable}
   - \usepackage{fancyhdr} # page header and footer
   - \usepackage{lastpage} # allow page 'X of Y'
@@ -24,7 +25,8 @@ options(knitr.kable.NA = "-")
 options(scipen = 999)
 stn <- params$stn
 baseline <- params$data$baseline %>%
-  mutate(formatted_date = format(date, "%b %d")) # nbsp = alt+255
+  mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
+  mutate(across(where(is.character), xtable::sanitize))
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
 n_baseline <- nrow(baseline)
@@ -40,7 +42,11 @@ n_thermistor <- n_distinct(thermistor$date)
 \lfoot{\url{https://wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
-\title{Water Action Volunteers}
+
+```{r}
+knitr::include_graphics("header.png", error = F)
+```
+
 
 # `r params$year` WAV Fieldwork Report - `r stn$station_name`
 
@@ -96,43 +102,71 @@ baseline %>%
 
 cat("\n\n# Additional fieldwork details\n")
 baseline %>%
+  mutate(formatted_date = format(date, "%b %d")) %>%
   select(
     `Date` = formatted_date,
-    `Fieldwork #` = fieldwork_seq_no,
+    # `Fieldwork #` = fieldwork_seq_no,
     `Group name(s)` = group_desc,
     `Weather conditions` = weather_conditions,
     `Weather last 2 days` = weather_last_2_days,
     `Fieldwork comments` = fieldwork_comment,
-    `Streamflow comments` = streamflow_comments
+    `Additional comments` = additional_comments
   ) %>% kable() %>% print()
 
-cat("\n\\newpage\n")
-cat("\n# Temperature\n\n")
-
+cat("\n\\newpage\n# Temperature\n\n")
 makeReportPlots(baseline, type = "temp") %>% print()
+cat("
+  
+  **Temperature:** The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.
+  
+  ")
 
-cat("\n\n**Temperature:** The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.\n")
-
-cat("\n\\newpage\n")
-cat("\n# Dissolved Oxygen\n\n")
+cat("\n\\newpage\n\n# Dissolved Oxygen\n\n")
 makeReportPlots(baseline, type = "do") %>% print()
-cat("\n\n**Dissolved Oxygen:** The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.\n")
+cat("
 
-cat("\n\\newpage\n")
-cat("\n# Transparency / Water clarity\n\n")
+**Dissolved Oxygen:** The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.
+
+")
+
+cat("\n\\newpage\n\n# Transparency / Water clarity\n\n")
 makeReportPlots(baseline, type = "trans") %>% print()
-cat("\n\n**Transparency:** These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.\n")
+cat("
+  
+  **Transparency:** These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.
+  
+  ")
 
-cat("\n\\newpage\n")
-cat("\n# Streamflow\n\n")
+cat("\n\\newpage\n\n# Streamflow\n\n")
 makeReportPlots(baseline, type = "flow") %>% print()
-cat("\n\n**Stream flow:** Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.\n")
+cat("
+  
+  **Stream flow:** Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.
+  
+  ")
 
 ```
 
 ```{r nutrient, eval=n_nutrient>0}
-cat("\n\\newpage\n")
-cat("\n# Nutrient monitoring summary\n")
+cat("\n\\newpage\n\n# Nutrient monitoring summary\n\n")
+phos_estimate <- getPhosEstimate(nutrient$tp)
+phos_exceedance_text <- getPhosExceedanceText(phos_estimate)
+makeReportPlots(nutrient, type = "nutrient")
+cat("
+  
+The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval.
+
+**Exceedance criteria:** A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **<span style='color: red'>red</span>** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **<span style='color: teal'>teal</span>**.
+
+**Why phosphorus?** Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams.
+
+Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result.
+
+**Volunteer monitoring protocol:** To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another.
+  
+")
+
+
 ```
 
 ```{r thermistor, eval=n_thermistor>0}
