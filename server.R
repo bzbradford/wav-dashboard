@@ -127,11 +127,11 @@ server <- function(input, output, session) {
   # Set URL and page title when bookmarking enabled
   observeEvent(list(last_valid_stn(), bookmarking()), {
     if (bookmarking()) {
-      setURL(last_valid_stn()$station_id)
-      setTitle(last_valid_stn()$label)
+      set_page_url(last_valid_stn()$station_id)
+      set_page_title(last_valid_stn()$label)
     } else {
-      setURL(NULL)
-      setTitle(NULL)
+      set_page_url(NULL)
+      set_page_title(NULL)
     }
   })
 

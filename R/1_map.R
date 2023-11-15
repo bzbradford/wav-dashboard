@@ -44,8 +44,8 @@ mapUI <- function() {
               inputId = ns("year_exact_match"),
               label = NULL,
               choices = list(
-                "ANY selected year" = FALSE,
-                "ALL selected years" = TRUE
+                "ANY selected year" = F,
+                "ALL selected years" = T
               )
             )
           )
@@ -70,7 +70,7 @@ mapUI <- function() {
         div(
           class = "map-container",
           id = "map",
-          leafletOutput(ns("map"), width = "100%", height = "720px") %>% withSpinnerProxy(hide.ui = TRUE)
+          leafletOutput(ns("map"), width = "100%", height = "720px") %>% withSpinnerProxy(hide.ui = T)
         )
       ),
       position = "right"
@@ -103,7 +103,7 @@ mapServer <- function(cur_stn, main_session) {
       # Reactive vals ----
 
       ## user_loc_shown ----
-      user_loc_shown <- reactiveVal(FALSE)
+      user_loc_shown <- reactiveVal(F)
 
       ## avail_stns ----
       avail_stns <- reactive({
@@ -272,10 +272,10 @@ mapServer <- function(cur_stn, main_session) {
           hideGroup(hidden_layers) %>%
           addLayersControl(
             baseGroups = basemaps$label,
-            overlayGroups = unlist(layers, use.names = FALSE),
-            options = layersControlOptions(collapsed = FALSE)
+            overlayGroups = unlist(layers, use.names = F),
+            options = layersControlOptions(collapsed = F)
           ) %>%
-          addFullscreenControl(pseudoFullscreen = TRUE) %>%
+          addFullscreenControl(pseudoFullscreen = T) %>%
           addEasyButtonBar(
             easyButton(
               position = "topleft",

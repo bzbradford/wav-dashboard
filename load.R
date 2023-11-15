@@ -84,7 +84,7 @@ colorize <- function(text, color = tolower(text)) {
   shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
 }
 
-setURL <- function(id) {
+set_page_url <- function(id) {
   if (!is.null(id)) {
     shinyjs::runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
   } else {
@@ -92,7 +92,7 @@ setURL <- function(id) {
   }
 }
 
-setTitle <- function(label) {
+set_page_title <- function(label) {
   if (!is.null(label)) {
     title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
     shinyjs::runjs(sprintf("document.title = '%s'", title))
@@ -136,7 +136,7 @@ rect <- function(ymin, ymax, color = "red") {
 }
 
 
-## Used in app ----
+## Server ----
 
 # pick random baseline station to show initially
 random_baseline_stn <- function() {
@@ -164,7 +164,7 @@ min_max <- function(v) {
   )
 }
 
-### Baseline tab ----
+## Baseline tab ----
 
 do_color <- function(do) {
   i <- min(max(round(do), 1), 11)
@@ -190,11 +190,12 @@ make_min_max <- function(df, var) {
 }
 
 
-### Nutrient tab ----
+## Nutrient tab ----
 
 phoslimit <- 0.075 # mg/L or ppm
 
-get_phos_estimate <- function(vals) {
+#' @param vals vector of phosphorus readings
+getPhosEstimate <- function(vals) {
   vals <- na.omit(vals)
   log_vals <- log(vals)
   n <- length(vals)
@@ -217,7 +218,11 @@ get_phos_estimate <- function(vals) {
   params
 }
 
-get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
+#' @param median median of phosphorus observations
+#' @param lower lower confidence limit
+#' @param upper upper confidence limit
+#' @param limit state phosphorus exceedance limit
+getPhosExceedanceText <- function(median, lower, upper, limit = phoslimit) {
   fail_msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
 
   if (anyNA(c(median, lower, upper))) return(fail_msg)
@@ -236,25 +241,18 @@ get_phos_exceedance <- function(median, lower, upper, limit = phoslimit) {
 }
 
 
-### Watershed tab ----
-fmt_area <- function(area) {
-  sq_km <- area / 1e6
-  sq_mi <- sq_km * 0.3861
-  paste0(
-    formatC(sq_km, format = "f", big.mark = ",", digits = 1),
-    " sq km (",
-    formatC(sq_mi, format = "f", big.mark = ",", digits = 1),
-    " sq mi)"
-  )
-}
 
-fmt_watershed_info <- function(stn) {
+## Watershed/Landscape tab ----
+
+buildWatershedInfo <- function(stn) {
   require(glue)
+
   maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
   wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
   ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
-  usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
-  paste(
+  # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
+
+  shiny::HTML(paste(
     glue("<b>Station name:</b> {stn$station_name}"),
     glue("<b>Station ID:</b> {stn$station_id}"),
     glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
@@ -262,13 +260,27 @@ fmt_watershed_info <- function(stn) {
     glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
     glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
     glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
-    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8}) | {usgs_huc8_link}"),
+    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
     glue("<b>Major basin:</b> {stn$major_basin}"),
     glue("<b>County name:</b> {stn$county_name} County"),
     glue("<b>DNR region:</b> {stn$dnr_region}"),
     sep = "<br>"
+  ))
+}
+
+
+## Reports ----
+
+get_report_date_range <- function(dates) {
+  yr <- format(dates[1], "%Y")
+  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
+  c(
+    min(dates, default_range[1]),
+    max(dates, default_range[2])
   )
 }
+
+
 
 
 # Defs ----
@@ -292,6 +304,17 @@ tab_names <- list(
 
 
 # Load shapefiles ----
+
+# also used in watershed tab
+fmt_area <- function(area) {
+  sq_km <- area / 1e6
+  sq_mi <- sq_km * 0.3861
+  sprintf(
+    "%s sq km (%s sq mi)",
+    formatC(sq_km, format = "f", big.mark = ",", digits = 1),
+    formatC(sq_mi, format = "f", big.mark = ",", digits = 1)
+  )
+}
 
 counties <- readRDS("data/shp/counties")
 nkes <- readRDS("data/shp/nkes") %>%

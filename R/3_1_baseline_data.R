@@ -75,7 +75,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
           div(
             id = "baseline-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
+            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = F),
           ),
           uiOutput(ns("plotExportUI")),
           uiOutput(ns("stnSummaryUI")),
@@ -93,6 +93,12 @@ baselineDataServer <- function(cur_stn, has_focus) {
       ## infoUI ----
       output$infoUI <- renderUI({
         includeMarkdown("md/baseline_info.md")
+        # div(
+        #   p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
+        #   p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
+        #   p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
+        #   p(strong("Stream flow:"), HTML("Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the <a href='https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi', target = '_blank'>USGS Water Dashboard</a>."))
+        # )
       })
 
 
@@ -101,178 +107,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
       ## plot ----
       output$plot <- renderPlotly({
         req(selected_data_ready())
-
-        df <- selected_data() %>%
-          distinct(date, .keep_all = T)
-
-        yranges <- list(
-          d_o = c(0, find_max(df$d_o, 12)),
-          temp = c(0, find_max(c(df$water_temp, df$ambient_air_temp), 30)),
-          trans = c(0, 125),
-          cfs = c(0, find_max(df$streamflow_cfs, 10))
-        )
-
-        do_data <- df %>%
-          filter(!is.na(d_o)) %>%
-          mutate(label = case_when(
-            is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
-            T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
-          rowwise() %>%
-          mutate(do_color = do_color(d_o))
-        temp_data <- filter(df, !(is.na(water_temp) & is.na(ambient_air_temp)))
-        trans_data <- filter(df, !is.na(transparency_average))
-        flow_data <- filter(df, !is.na(streamflow_cfs))
-
-        # settings for longer date periods
-        years <- as.numeric(max(df$date) - min(df$date)) / 365
-        date_tick <- "M1"
-        marker_opacity <- 1
-        if (years > 3) {
-          date_tick <- "M3"
-          marker_opacity <- 0
-        }
-        if (years > 6) date_tick <- "M6"
-
-        df %>%
-          plot_ly() %>%
-          layout(
-            title = "Baseline Measurements",
-            hovermode = "x unified",
-            margin = list(t = 50, r = 50),
-            legend = list(orientation = "h"),
-            xaxis = list(
-              title = "",
-              type = "date",
-              fixedrange = F, # allow user to zoom the axis?
-              dtick = date_tick,
-              ticklabelmode = "period",
-              hoverformat = "%b %d, %Y",
-              domain = c(.1, .9))
-          ) %>%
-          add_trace(
-            data = do_data,
-            name = "D.O.",
-            x = ~date,
-            y = ~d_o,
-            text = ~label,
-            marker = list(
-              color = ~do_color,
-              line = list(color = "black", width = 0.5)
-            ),
-            type = "bar",
-            width = 1000 * 60 * 60 * 24 * 15,
-            hovertemplate = "%{y}"
-          ) %>%
-          add_trace(
-            data = temp_data,
-            name = "Water temp",
-            x = ~date,
-            y = ~water_temp,
-            type = "scatter",
-            mode = "lines+markers",
-            yaxis = "y2",
-            marker = list(
-              color = "lightblue",
-              size = 10,
-              line = list(color = "white", width = 1),
-              opacity = marker_opacity
-            ),
-            line = list(
-              color = "lightblue",
-              width = 3
-            )
-          ) %>%
-          add_trace(
-            data = temp_data,
-            name = "Air temp",
-            x = ~date,
-            y = ~ambient_air_temp,
-            type = "scatter",
-            mode = "lines+markers",
-            yaxis = "y2",
-            marker = list(
-              color = "orange",
-              size = 10,
-              line = list(color = "white", width = 1),
-              opacity = marker_opacity
-            ),
-            line = list(color = "orange", width = 3)
-          ) %>%
-          add_trace(
-            data = trans_data,
-            name = "Transparency",
-            x = ~date,
-            y = ~transparency_average,
-            type = "scatter",
-            mode = "lines+markers",
-            yaxis = "y3",
-            marker = list(
-              color = "brown",
-              size = 10,
-              symbol = "square",
-              line = list(color = "white", width = 1),
-              opacity = marker_opacity
-            ),
-            line = list(color = "brown", width = 3)
-          ) %>%
-          add_trace(
-            data = flow_data,
-            name = "Stream flow",
-            x = ~date,
-            y = ~streamflow_cfs,
-            type = "scatter",
-            mode = "lines+markers",
-            yaxis = "y4",
-            marker = list(
-              color = "#48a67b",
-              size = 10,
-              symbol = "triangle-right",
-              line = list(color = "white", width = 1),
-              opacity = marker_opacity
-            ),
-            line = list(color = "#48a67b", width = 3)
-          ) %>%
-          layout(
-            yaxis = list(
-              title = "Dissolved oxygen",
-              ticksuffix = " mg/L",
-              range = yranges$d_o,
-              fixedrange = T
-            ),
-            yaxis2 = list(
-              title = "Temperature",
-              overlaying = "y",
-              side = "left",
-              ticksuffix = "&deg;C",
-              position = 0,
-              showgrid = F,
-              zeroline = F,
-              range = yranges$temp,
-              fixedrange = T
-            ),
-            yaxis3 = list(
-              title = "Transparency",
-              overlaying = "y",
-              side = "right",
-              ticksuffix = " cm",
-              showgrid = F,
-              zeroline = F,
-              range = yranges$trans,
-              fixedrange = T
-            ),
-            yaxis4 = list(
-              title = "Stream flow",
-              overlaying = "y",
-              side = "right",
-              ticksuffix = " cfs",
-              position = 1,
-              showgrid = F,
-              zeroline = F,
-              range = yranges$cfs,
-              fixedrange = T
-            )
-          ) %>%
-          config(displayModeBar = F)
+        makeBaselinePlot(selected_data())
       })
 
       ## plotExportUI ----
@@ -374,7 +209,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
         df <- selected_data() %>%
           arrange(date) %>%
-          distinct(date, .keep_all = TRUE) %>%
+          distinct(date, .keep_all = T) %>%
           clean_names(case = "title") %>%
           mutate(label = format(Date, date_fmt)) %>%
           mutate(across(everything(), as.character)) %>%
@@ -383,7 +218,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
           mutate(Parameter = gsub("D o", "D.O.", Parameter)) %>%
           mutate(Parameter = gsub("P h", "pH", Parameter))
 
-        datatable(df, selection = "none", options = list(paging = FALSE))
+        datatable(df, selection = "none", options = list(paging = F))
       },
         server = F)
 

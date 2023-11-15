@@ -81,6 +81,11 @@ a, a:hover, a:focus {
   font-style: italic;
 }
 
+.narrow {
+  margin-left: 2em;
+  margin-right: 2em;
+}
+
 .map-container {
   max-width: 1000px;
   margin: auto;

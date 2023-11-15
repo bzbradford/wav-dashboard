@@ -117,6 +117,7 @@ stnReportServer <- function(cur_stn, has_focus) {
                 Shiny.setInputValue('%s', %s, {priority: 'event'});
                 this.disabled = true;
                 this.innerHTML = 'Please wait...';
+                document.querySelector('#report-msg-container').style.display = 'none';
               ", ns("year"), yr)
             ) %>% as.character()
           }))
