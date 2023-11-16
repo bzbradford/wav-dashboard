@@ -211,3 +211,16 @@ case_when(
   max_temp < 25 ~ "coolwater",
   .default = "warmwater"
   )
+
+
+
+stn <- slice_sample(all_stns, n = 1)
+yr <- stn$max_fw_year
+data <- list(
+  baseline = baseline_data %>% filter(station_id == stn$station_id, year == yr),
+  nutrient = nutrient_data %>% filter(station_id == stn$station_id, year == yr),
+  thermistor = therm_data %>% filter(station_id == stn$station_id, year == yr)
+)
+
+
+test <- buildReportSummary(stn$max_fw_year, stn, data)

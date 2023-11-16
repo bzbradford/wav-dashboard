@@ -18,7 +18,12 @@ stnReportServer <- function(cur_stn, has_focus) {
     function(input, output, session) {
       ns <- session$ns
 
+      temp_dir <- tempdir()
+
       # Reactive values ----
+
+      ## report ----
+      report <- reactiveValues()
 
       ## stn_data ----
       stn_data <- reactive({
@@ -39,28 +44,37 @@ stnReportServer <- function(cur_stn, has_focus) {
         as.numeric(unlist(filter(all_coverage, station_id == cur_stn()$station_id)$data_year_list))
       })
 
-      ## report ----
-      report <- reactiveValues()
-
-      ## reacts to button clicks to download a year's report ----
-      observeEvent(input$year, {
-        message(input$year)
-
-        report$filename <- paste0(
-          "WAV ", input$year, " Report for ",
-          cur_stn()$station_id, " ",
-          str_trunc(fs::path_sanitize(cur_stn()$station_name), 30),
-          ".pdf"
+      ## avail_reports ----
+      avail_reports <- reactive({
+        df <- stn_data()
+        obs <- list(
+          baseline = df$baseline %>%
+            count(year, name = "Baseline data<br>fieldwork events"),
+          nutrient = df$nutrient %>%
+            count(year, name = "Nutrient monitoring<br>monthly observations"),
+          thermistor = df$thermistor %>%
+            count(year, date) %>%
+            count(year, name = "Temperature logger<br>days deployed")
         )
-        report$stn <- cur_stn()
-        report$data <- sapply(stn_data(), function(df) {
-          filter(df, year == input$year)
-        })
-
-        # trigger the downloadbutton once data is set up
-        click("download")
+        tibble(year = avail_years()) %>%
+          left_join(obs$baseline, join_by(year)) %>%
+          left_join(obs$nutrient, join_by(year)) %>%
+          left_join(obs$thermistor, join_by(year)) %>%
+          mutate(year = as.character(year)) %>%
+          rename(Year = year) %>%
+          mutate(`Download<br>report` = lapply(Year, function(yr) {
+            tags$button(
+              HTML("<i class='fas fa-download'></i>"),
+              "Download PDF",
+              id = paste0("report-btn-", yr),
+              class = "btn btn-default btn-sm",
+              onclick = sprintf("Shiny.setInputValue('%s', %s, {priority: 'event'});", ns("year"), yr)
+            ) %>% as.character()
+          }))
       })
 
+
+      # UI components ----
 
       ## mainUI ----
       output$mainUI <- renderUI({
@@ -90,39 +104,6 @@ stnReportServer <- function(cur_stn, has_focus) {
         )
       })
 
-      ## avail_reports ----
-      avail_reports <- reactive({
-        df <- stn_data()
-        obs <- list(
-          baseline = df$baseline %>%
-            count(year, name = "Baseline data<br>fieldwork events"),
-          nutrient = df$nutrient %>%
-            count(year, name = "Nutrient monitoring<br>monthly observations"),
-          thermistor = df$thermistor %>%
-            count(year, date) %>%
-            count(year, name = "Temperature logger<br>days deployed")
-        )
-        tibble(year = avail_years()) %>%
-          left_join(obs$baseline, join_by(year)) %>%
-          left_join(obs$nutrient, join_by(year)) %>%
-          left_join(obs$thermistor, join_by(year)) %>%
-          mutate(year = as.character(year)) %>%
-          rename(Year = year) %>%
-          mutate(`Download<br>report` = lapply(Year, function(yr) {
-            tags$button(
-              "Download PDF",
-              id = paste0("report-btn-", yr),
-              class = "btn btn-default btn-sm",
-              onclick = sprintf("
-                Shiny.setInputValue('%s', %s, {priority: 'event'});
-                this.disabled = true;
-                this.innerHTML = 'Please wait...';
-                document.querySelector('#report-msg-container').style.display = 'none';
-              ", ns("year"), yr)
-            ) %>% as.character()
-          }))
-      })
-
       ## avail_reports_tbl ----
       output$avail_reports_tbl <- renderTable(
         avail_reports(),
@@ -134,48 +115,73 @@ stnReportServer <- function(cur_stn, has_focus) {
         sanitize.text.function = identity
       )
 
+
+      # Handle downloads ----
+
+      disableBtns <- function() {
+
+      }
+
+      ## reacts to button clicks to download a year's report ----
+      observeEvent(input$year, {
+        yr <- input$year
+        stn <- cur_stn()
+        stndata <- stn_data()
+
+        report$filename <- sprintf(
+          "WAV %s Report for %s.pdf",
+          yr,
+          gsub("[^A-Za-z0-9]", "", substr(stn$station_name, 1, 30))
+        )
+        report$stn <- stn
+        report$data <- sapply(stndata, function(df) filter(df, year == yr))
+
+        # trigger the downloadbutton once data is set up
+        click("download")
+      })
+
       ## download ----
       output$download <- downloadHandler(
         filename = function() { report$filename },
-        content = function(file) {
-          final_out <- file.path(tempdir(), report$filename)
-          use_existing <- FALSE
-          if (file.exists(final_out) & use_existing) {
-            message('file existed')
-            file.copy(final_out, file)
-          } else {
-            tryCatch({
-              temp_dir <- tempdir()
-              rmd <- "md/station_report.Rmd"
-              hdr <- "md/report-header.png"
-              temp_rmd <- file.path(temp_dir, "report.Rmd")
-              temp_hdr <- file.path(temp_dir, "header.png")
-              file.copy(rmd, temp_rmd, overwrite = T)
-              file.copy(hdr, temp_hdr)
-              rmarkdown::render(
-                input = temp_rmd,
-                output_file = final_out,
-                params = list(
-                  year = input$year,
-                  stn = report$stn,
-                  data = report$data
-                )
-              )
-              file.copy(final_out, file)
-            }, error = function(cond) {
-              runjs(sprintf("
-                document.querySelector('#report-msg').innerHTML = 'Failed to create report: %s';
-                document.querySelector('#report-msg-container').style.display = null;
-              ", cond$message))
-            })
-          }
-          runjs(sprintf("
-            let btn = document.querySelector('#report-btn-%s');
-            btn.disabled = false;
-            btn.innerHTML = 'Download PDF';
-          ", input$year))
-        }
+        content = createReport
       )
+
+      createReport <- function(file) {
+        yr <- input$year
+        fname <- gsub(" ", "", (fs::path_sanitize(report$filename)), fixed = T)
+        final_out <- file.path(temp_dir, fname)
+        print(final_out)
+        runjs("document.querySelector('#report-msg-container').style.display = 'none';")
+        runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})")
+        use_existing <- F
+        if (file.exists(final_out) & use_existing) {
+          file.copy(final_out, file)
+        } else {
+          tryCatch({
+            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
+            temp_rmd <- file.path(temp_dir, "report.Rmd")
+            temp_hdr <- file.path(temp_dir, "header.png")
+            file.copy("md/station_report.Rmd", temp_rmd, overwrite = T)
+            file.copy("md/report-header.png", temp_hdr)
+            rmarkdown::render(
+              input = temp_rmd,
+              output_file = final_out,
+              params = list(
+                year = yr,
+                stn = report$stn,
+                data = report$data
+              )
+            )
+            file.copy(final_out, file)
+            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
+          }, error = function(cond) {
+            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
+            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff with this information and we will get it fixed.';", yr, report$stn$label))
+            runjs("document.querySelector('#report-msg-container').style.display = null;")
+          })
+        }
+        runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = false;});")
+      }
 
 
       # end

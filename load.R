@@ -332,6 +332,7 @@ buildWatershedInfo <- function(stn) {
 
 ## Reports ----
 
+# used for x axis in plots
 get_report_date_range <- function(dates) {
   yr <- format(dates[1], "%Y")
   default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
@@ -341,6 +342,85 @@ get_report_date_range <- function(dates) {
   )
 }
 
+# summary table
+makeReportBaselineTable <- function(df) {
+  df %>%
+    select(
+      `Date` = formatted_date,
+      `Air temp (°C)` = ambient_air_temp,
+      `Water temp (°C)` = water_temp,
+      `DO (mg/L)` = d_o,
+      `DO % sat.` = d_o_percent_saturation,
+      `pH` = ph,
+      `Spec. cond. (μS/cm)` = specific_cond,
+      `Transparency (cm)` = transparency_average,
+      `Streamflow (cfs)` = streamflow_cfs
+    )
+}
+
+# summary table
+makeReportStreamflowTable <- function(df) {
+  df %>%
+    mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
+    select(
+      `Date` = formatted_date,
+      `Stream width (ft)` = stream_width,
+      `Average depth (ft)` = average_stream_depth,
+      `Surface velocity (ft/s)` = average_surface_velocity,
+      `Streamflow (cfs)` = streamflow_cfs,
+      `Flow method` = flow_method_used
+    )
+}
+
+# summary table
+makeReportFieldworkTable <- function(df) {
+  df %>%
+    # mutate(formatted_date = format(date, "%b %d")) %>%
+    select(
+      `Date` = formatted_date,
+      `Group name(s)` = group_desc,
+      `Weather conditions` = weather_conditions,
+      `Weather last 2 days` = weather_last_2_days,
+      `Fieldwork comments` = fieldwork_comment,
+      `Additional comments` = additional_comments
+    )
+}
+
+# creates a paragraph of text describing the data
+buildReportSummary <- function(yr, stn, data) {
+  counts <- list(
+    baseline = nrow(data$baseline),
+    nutrient = sum(!is.na(data$nutrient$tp)),
+    thermistor = n_distinct(data$thermistor$date)
+  )
+
+  baseline_count_cols <- list(
+    ambient_air_temp = "air temperature",
+    water_temp = "water temperature",
+    d_o = "dissolved oxygen",
+    ph = "ph",
+    specific_cond = "specific conductivity",
+    transparency_average = "water transparency",
+    streamflow_cfs = "streamflow"
+  )
+
+  for (var in names(baseline_count_cols)) {
+    counts[[var]] = sum(!is.na(data$baseline[[var]]))
+  }
+
+  msg <- paste0("In ", yr, ", this station had ", counts$baseline, " baseline fieldwork events, ", counts$nutrient, " total phosphorus samples collected, and ", ifelse(counts$thermistor > 0, paste0("had a temperature logger deployed for ", counts$thermistor, "days."), "did not have a temperature logger deployed."))
+
+  if (counts$baseline > 0) {
+    baseline_counts <- lapply(names(baseline_count_cols), function(col) {
+      count <- counts[[col]]
+      str <- paste(count, baseline_count_cols[[col]], "measurement")
+      ifelse(count == 1, str, paste0(str, "s"))
+    }) %>% knitr::combine_words()
+    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
+  }
+
+  msg
+}
 
 
 

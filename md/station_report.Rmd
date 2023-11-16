@@ -18,29 +18,28 @@ params:
 ---
 
 ```{r setup, include = FALSE}
-library(knitr)
+
 knitr::opts_chunk$set(echo = F, warning = F, results = "asis")
 options(knitr.kable.NA = "-")
 options(scipen = 999)
+p <- function(content) cat("\n\n", content, "\n\n", sep = "")
+pg <- function() p("\\newpage")
+
 stn <- params$stn
+safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label)
+
 baseline <- params$data$baseline %>%
   mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
   mutate(across(where(is.character), xtable::sanitize))
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
-counts <- list(
-  baseline = nrow(baseline),
-  nutrient = length(na.omit(nutrient$tp)),
-  thermistor = n_distinct(thermistor$date)
-)
-p <- function(content) cat("\n\n", content, "\n\n", sep = "")
-pg <- function() p("\\newpage")
+
 ```
 
 \pagestyle{fancy}
 \setlength{\headheight}{14pt}
-\lhead{`r str_trunc(stn$label, 65)`}
-\rhead{`r params$year` WAV Fieldwork Report}
+\lhead{Station `r str_trunc(safe_label, 65)`}
+\rhead{`r params$year` Fieldwork Report}
 \lfoot{\url{https://wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
@@ -68,9 +67,8 @@ Major Basin: `r stn$major_basin`
 
 # Data collection summary
 
-Baseline monitoring: `r counts$baseline` fieldwork events\
-Nutrient monitoring: `r counts$nutrient` monthly samples\
-Temperature logger: `r counts$thermistor` days deployed
+`r buildReportSummary(params$year, params$stn, params$data)`
+
 
 \newpage
 
@@ -78,72 +76,56 @@ Temperature logger: `r counts$thermistor` days deployed
 
 ### BASELINE ###
 
-if (counts$baseline > 0) {
+has_baseline <- nrow(baseline) > 0
+if (has_baseline) {
   
   p("# Baseline monitoring summary")
-  baseline %>%
-    select(
-      `Date` = formatted_date,
-      `Air temp (°C)` = ambient_air_temp,
-      `Water temp (°C)` = water_temp,
-      `DO (mg/L)` = d_o,
-      `DO % sat.` = d_o_percent_saturation,
-      `pH` = ph,
-      `Spec. cond. (μS/cm)` = specific_cond,
-      `Transparency (cm)` = transparency_average,
-      `Streamflow (cfs)` = streamflow_cfs
-    ) %>% kable() %>% print()
+  makeReportBaselineTable(baseline) %>% kable() %>% print()
   
   p("# Streamflow details")
-  baseline %>%
-    mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
-    select(
-      `Date` = formatted_date,
-      `Stream width (ft)` = stream_width,
-      `Average depth (ft)` = average_stream_depth,
-      `Surface velocity (ft/s)` = average_surface_velocity,
-      `Streamflow (cfs)` = streamflow_cfs,
-      `Flow method` = flow_method_used
-    ) %>% kable() %>% print()
+  makeReportStreamflowTable(baseline) %>% kable() %>% print()
   
   p("# Additional fieldwork details")
-  baseline %>%
-    mutate(formatted_date = format(date, "%b %d")) %>%
-    select(
-      `Date` = formatted_date,
-      `Group name(s)` = group_desc,
-      `Weather conditions` = weather_conditions,
-      `Weather last 2 days` = weather_last_2_days,
-      `Fieldwork comments` = fieldwork_comment,
-      `Additional comments` = additional_comments
-    ) %>% kable() %>% print()
+  makeReportFieldworkTable(baseline) %>% kable() %>% print()
   
-  pg()
-  p("# Temperature")
-  makeReportPlots(baseline, type = "temp") %>% print()
-  p("**Temperature:** The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.")
-  
-  pg()
-  p("# Dissolved Oxygen")
-  makeReportPlots(baseline, type = "do") %>% print()
-  p("**Dissolved Oxygen:** The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.")
-  
-  pg()
-  p("# Transparency / Water clarity")
-  makeReportPlots(baseline, type = "trans") %>% print()
-  p("**Transparency:** These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.")
+  has_temp <- with(baseline, sum(!is.na(ambient_air_temp)) + sum(!is.na(water_temp)) > 0)
+  if (has_temp) {
+    pg()
+    p("# Temperature")
+    makeReportPlots(baseline, type = "temp") %>% print()
+    p("**Temperature:** The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.")
+  }
 
-  pg()
-  p("# Streamflow")
-  makeReportPlots(baseline, type = "flow") %>% print()
-  p("**Stream flow:** Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.")
-  
+  has_do <- with(baseline, sum(!is.na(d_o)) > 0)
+  if (has_do) {
+    pg()
+    p("# Dissolved Oxygen")
+    makeReportPlots(baseline, type = "do") %>% print()
+    p("**Dissolved Oxygen:** The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.")
+  }
+
+  has_trans <- with(baseline, sum(!is.na(transparency_average)) > 0)
+  if (has_trans) {
+    pg()
+    p("# Transparency / Water clarity")
+    makeReportPlots(baseline, type = "trans") %>% print()
+    p("**Transparency:** These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.")
+  }
+
+  has_flow <- with(baseline, sum(!is.na(streamflow_cfs)) > 0)
+  if (has_flow) {
+    pg()
+    p("# Streamflow")
+    makeReportPlots(baseline, type = "flow") %>% print()
+    p("**Stream flow:** Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.")
+  }
 }
 
 
 ### NUTRIENT ###
 
-if (counts$nutrient > 0) {
+has_nutrient <- with(nutrient, sum(!is.na(tp)))
+if (has_nutrient) {
   
   phos_estimate <- getPhosEstimate(nutrient$tp)
   phos_exceedance_text <- getPhosExceedanceText(phos_estimate)
@@ -160,7 +142,8 @@ if (counts$nutrient > 0) {
 
 ### THERMISTOR ###
 
-if (counts$thermistor > 0) {
+has_therm <- n_distinct(thermistor$date) > 0
+if (has_therm) {
   
   max_temp <- thermistor %>%
   summarize(temp_c = mean(temp_c), .by = date) %>%
