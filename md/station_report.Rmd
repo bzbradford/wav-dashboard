@@ -105,7 +105,6 @@ baseline %>%
   mutate(formatted_date = format(date, "%b %d")) %>%
   select(
     `Date` = formatted_date,
-    # `Fieldwork #` = fieldwork_seq_no,
     `Group name(s)` = group_desc,
     `Weather conditions` = weather_conditions,
     `Weather last 2 days` = weather_last_2_days,
@@ -156,13 +155,7 @@ cat("
   
 The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval.
 
-**Exceedance criteria:** A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **<span style='color: red'>red</span>** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **<span style='color: teal'>teal</span>**.
-
-**Why phosphorus?** Phosphorus is an essential nutrient responsible for plant growth, but it is also the most visible, widespread water pollutant in lakes. Small increases in phosphorus levels can bring about substantial increases in aquatic plant and algae growth, which in turn can reduce the recreational use and biodiversity. When the excess plants die and are decomposed, oxygen levels in the water drop dramatically which can lead to fish kills. Additionally, one of the most common impairments in Wisconsin’s streams is excess sediment that covers stream bottoms. Since phosphorus moves attached to sediments, it is intimately connected with this source of pollution in our streams.
-
-Phosphorus originates naturally from rocks, but its major sources in streams and lakes today are usually associated with human activities: soil erosion, human and animal wastes, septic systems, and runoff from farmland or lawns. Phosphorus-containing contaminants from urban streets and parking lots such as food waste, detergents, and paper products are also potential sources of phosphorus pollution from the surrounding landscape. The impact that phosphorus can have in streams is less apparent than in lakes due to the overall movement of water, but in areas with low velocity, where sediment can settle and deposit along the bottom substrate, algae blooms can result.
-
-**Volunteer monitoring protocol:** To assess in-stream phosphorus levels, WAV volunteers collected water samples that were analyzed for total phosphorus (TP) at the State Lab of Hygiene during the growing season. Following Wisconsin Department of Natural Resources (WDNR) methods, six phosphorus water samples were collected at each monitoring site - one per month for six months during the growing season. The monthly water samples were collected approximately 30 days apart and no samples were collected within 15 days of one another.
+**Exceedance criteria:** A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **red** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **teal**.
   
 ")
 
@@ -170,8 +163,31 @@ Phosphorus originates naturally from rocks, but its major sources in streams and
 ```
 
 ```{r thermistor, eval=n_thermistor>0}
-cat("\n\\newpage\n")
-cat("\n# Temperature logger summary\n")
+max_temp <- thermistor %>%
+  summarize(temp_c = mean(temp_c), .by = date) %>%
+  pull(temp_c) %>% max()
+
+stream_type <- case_when(
+  max_temp < 22.2 ~ "coldwater",
+  max_temp < 25 ~ "coolwater",
+  .default = "warmwater"
+)
+
+cat("\n\\newpage\n\n# Temperature logger summary\n")
+
+makeReportPlots(thermistor, type = "thermistor")
+
+cat("\n\n***Based on the maximum daily average water temperature of ", signif(max_temp, 3), "°C (", signif(c_to_f(max_temp), 3), "°F), this is a ", stream_type, " stream.***", sep = "")
+
+cat("
+  
+  **What does water temperature tell us?** Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support.
+  
+  It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.
+  
+  Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.
+  
+  On the chart above, the cutoffs for a stream's temperature classification are shown as shaded areas. ***Coldwater*** streams have typical maximum summer temperatures below 22.2°C (72°F). ***Coolwater*** streams have maximum summer temperatures between 22.2°C and 25°C (77°F). ***Warmwater*** streams have maximum summer temperatures above 25°C.
+  
+  ")
 ```
-
-

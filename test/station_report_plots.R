@@ -118,3 +118,96 @@ df %>%
 
 makeReportPlots(test_nutrient, type = "nutrient")
 
+
+
+# Thermistor ----
+
+test_stn <- all_pts %>%
+  filter(station_id == 10031935)
+test_stn <- all_pts %>%
+  filter(station_id %in% therm_data$station_id) %>%
+  slice_sample(n = 1)
+test_therm <- therm_data %>%
+  filter(station_id == test_stn$station_id) %>%
+  filter(year == max(year)) %>%
+  mutate(formatted_date = format(date, "%b %d"))
+
+daily_min <- test_therm %>%
+  slice_min(order_by = temp_c, by = date) %>%
+  select(date_time, min = temp_c)
+daily_max <- test_therm %>%
+  slice_max(order_by = temp_c, by = date) %>%
+  select(date_time, max = temp_c)
+
+daily_range <- bind_rows(daily_min, daily_max) %>%
+  arrange(date_time) %>%
+  mutate(across(c(min, max), ~zoo::na.spline(.x))) %>%
+  mutate(mean = (min + max) / 2) %>%
+  na.omit()
+
+daily_mean <- test_therm %>%
+  summarize(mean = mean(temp_c), .by = date) %>%
+  mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
+
+add_rect <- function(ymin, ymax, color) {
+  annotate("rect",
+    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
+    ymin = ymin, ymax = ymax, fill = color,
+    alpha = .08
+  )
+}
+
+test_therm %>%
+  slice_max(temp_c, n = 24) %>%
+  pull(temp_c) %>% mean()
+
+library(ggrepel)
+
+daily_range %>%
+  ggplot(aes(x = date_time)) +
+  add_rect(-Inf, 22.2, "blue") +
+  add_rect(22.2, 25, "cornflowerblue") +
+  add_rect(25, Inf, "darkorange") +
+  geom_hline(yintercept = 22.2, color = alpha("blue", .25)) +
+  geom_hline(yintercept = 25, color = alpha("cornflowerblue", .25)) +
+  geom_text_repel(
+    data = tibble(
+      x = as.POSIXct(Inf),
+      y = c(22.2, 25),
+      label = c(
+        "Cold-cool transition\n(22.2°C / 72°F)",
+        "Cool-warm transition\n(25°C / 77°F)")),
+    aes(x, y, label = label),
+    seed = 1) +
+  geom_ribbon(
+    aes(ymin = min, ymax = max),
+    color = NA, fill = alpha("lightblue", .1)) +
+  geom_line(
+    data = test_therm,
+    aes(y = temp_c),
+    color = alpha("#1f77b4", .5),
+    linewidth = .25) +
+  geom_ribbon(
+    aes(ymin = min, ymax = max),
+    color = alpha("#2590da", .25), fill = NA) +
+  geom_line(
+    aes(y = mean),
+    color = "orange",
+    linewidth = 1) +
+  scale_x_datetime(
+    breaks = "weeks",
+    date_labels = "%b %d") +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(),
+    labels = ~sprintf("%s°C\n(%s°F)", .x, c_to_f(.x))) +
+  labs(x = NULL, y = "Water temperature (°C)") +
+  theme_classic()
+
+makeReportPlots(test_therm, "thermistor")
+
+max_temp = 27
+case_when(
+  max_temp < 22.2 ~ "coldwater",
+  max_temp < 25 ~ "coolwater",
+  .default = "warmwater"
+  )

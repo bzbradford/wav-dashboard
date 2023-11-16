@@ -134,10 +134,11 @@ makeReportPlots <- function(df, type) {
         {
           if (ci) c(
             geom_rect(
+              data = tibble(), inherit.aes = F,
               aes(fill = est$median > phoslimit),
               xmin = -Inf, xmax = Inf,
               ymin = est$lower, ymax = est$upper,
-              alpha = .05),
+              alpha = .2),
             geom_hline(yintercept = est$lower),
             geom_hline(yintercept = est$upper),
             geom_hline(yintercept = est$median, linetype = "dashed")
@@ -145,14 +146,17 @@ makeReportPlots <- function(df, type) {
         } +
         geom_hline(yintercept = phoslimit, linewidth = 1, color = "red") +
         geom_col(aes(fill = exceeds), color = "black") +
-        { if (ci) geom_text_repel(
+        {
+          if (ci) geom_text_repel(
             data = est_labels,
             aes(y = value, label = label),
             size = 3.5,
             nudge_x = 1,
+            box.padding = unit(.5, "lines"),
             min.segment.length = unit(0, "lines"),
             seed = 1
-          ) } +
+          )
+        } +
         geom_text_repel(aes(label = label), size = 3.5, nudge_y = .001, seed = 1) +
         scale_x_date(
           breaks = dates,
@@ -169,6 +173,77 @@ makeReportPlots <- function(df, type) {
         labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L limit?") +
         theme_classic() +
         theme(legend.position = "bottom")
+
+      return(plt)
+    }
+
+    if (type == "thermistor") {
+      daily_min <- df %>%
+        slice_min(order_by = temp_c, by = date) %>%
+        select(date_time, min = temp_c)
+      daily_max <- df %>%
+        slice_max(order_by = temp_c, by = date) %>%
+        select(date_time, max = temp_c)
+
+      daily_range <- bind_rows(daily_min, daily_max) %>%
+        arrange(date_time) %>%
+        mutate(across(c(min, max), ~zoo::na.spline(.x))) %>%
+        mutate(mean = (min + max) / 2) %>%
+        na.omit()
+
+      add_rect <- function(ymin, ymax, color) {
+        annotate("rect",
+          xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
+          ymin = ymin, ymax = ymax, fill = color,
+          alpha = .08
+        )
+      }
+
+      transition_labels <- tibble(
+        x = as.POSIXct(Inf),
+        y = c(22.2, 25),
+        label.size = 2,
+        label = c(
+          "Cold-cool transition\n(22.2°C / 72°F)",
+          "Cool-warm transition\n(25°C / 77°F)"
+        )
+      )
+      plt <- daily_range %>%
+        ggplot(aes(x = date_time)) +
+        add_rect(-Inf, 22.2, "blue") +
+        add_rect(22.2, 25, "cornflowerblue") +
+        add_rect(25, Inf, "darkorange") +
+        geom_hline(yintercept = 22.2, color = alpha("blue", .25)) +
+        geom_hline(yintercept = 25, color = alpha("cornflowerblue", .25)) +
+        geom_ribbon(
+          aes(ymin = min, ymax = max),
+          color = NA, fill = alpha("lightblue", .1)) +
+        geom_line(
+          data = df,
+          aes(y = temp_c),
+          color = alpha("#1f77b4", .5),
+          linewidth = .25) +
+        geom_ribbon(
+          aes(ymin = min, ymax = max),
+          color = alpha("#2590da", .25), fill = NA) +
+        geom_line(
+          aes(y = mean),
+          color = "orange",
+          linewidth = 1) +
+        geom_text_repel(
+          data = transition_labels,
+          aes(x, y, label = label),
+          size = 2.5,
+          seed = 1) +
+        scale_x_datetime(
+          breaks = "weeks",
+          date_labels = "%b %d") +
+        scale_y_continuous(
+          breaks = scales::pretty_breaks(),
+          labels = ~sprintf("%s°C\n(%s°F)", .x, c_to_f(.x))) +
+        labs(x = NULL, y = "Water temperature") +
+        theme_classic() +
+        theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
       return(plt)
     }

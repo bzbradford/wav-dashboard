@@ -73,65 +73,18 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       # create station daily totals
       daily_data <- reactive({
         req(selected_data_ready())
+        req(cur_stn())
         req(input$units)
 
-        units <- input$units
-        temp_col <- paste0("temp_", tolower(units))
-
-        selected_data() %>%
-          group_by(date) %>%
-          summarise(
-            hours = n(),
-            min = min(!!sym(temp_col)),
-            max = max(!!sym(temp_col)),
-            mean = round(mean(!!sym(temp_col)), 2),
-            units = units,
-            lat = latitude[1],
-            long = longitude[1]
-          ) %>%
-          mutate(
-            station_id = cur_stn()$station_id,
-            station_name = cur_stn()$station_name,
-            .before = lat
-          )
+        createDailyThermData(selected_data(), input$units, cur_stn())
       })
 
       ## summary_data ----
       summary_data <- reactive({
         req(selected_data_ready())
-        req(input$year)
         req(input$units)
 
-        temp_col <- ifelse(input$units == "F", "temp_f", "temp_c")
-        monthly <- selected_data() %>%
-          mutate(temp = .[[temp_col]]) %>%
-          arrange(month) %>%
-          mutate(name = fct_inorder(format(date, "%B"))) %>%
-          summarize(
-            days = n_distinct(date),
-            min = round(min(temp, na.rm = T), 1),
-            q10 = round(quantile(temp, .1, na.rm = T), 1),
-            mean = round(mean(temp, na.rm = T), 1),
-            q90 = round(quantile(temp, .9, na.rm = T), 1),
-            max = round(max(temp, na.rm = T), 1),
-            .by = c(month, name)
-          ) %>%
-          clean_names("title")
-
-        total <- selected_data() %>%
-          mutate(temp = .[[temp_col]]) %>%
-          summarize(
-            name = "Total",
-            days = n_distinct(date),
-            min = round(min(temp, na.rm = T), 1),
-            q10 = round(quantile(temp, .1, na.rm = T), 1),
-            mean = round(mean(temp, na.rm = T), 1),
-            q90 = round(quantile(temp, .9, na.rm = T), 1),
-            max = round(max(temp, na.rm = T), 1)
-          ) %>%
-          clean_names("title")
-
-        bind_rows(monthly, total)
+        createThermSummary(selected_data(), input$units)
       })
 
 

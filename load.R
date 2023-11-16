@@ -244,6 +244,65 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
 
 
 
+## Thermistor tab ----
+
+createDailyThermData <- function(df, units, stn) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  df %>%
+    group_by(date) %>%
+    summarise(
+      hours = n(),
+      min = min(!!sym(temp_col)),
+      max = max(!!sym(temp_col)),
+      mean = round(mean(!!sym(temp_col)), 2),
+      units = units,
+      lat = latitude[1],
+      long = longitude[1]
+    ) %>%
+    mutate(
+      station_id = stn$station_id,
+      station_name = stn$station_name,
+      .before = lat
+    )
+}
+
+createThermSummary <- function(df, units) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  monthly <- df %>%
+    mutate(temp = .[[temp_col]]) %>%
+    arrange(month) %>%
+    mutate(name = fct_inorder(format(date, "%B"))) %>%
+    summarize(
+      days = n_distinct(date),
+      min = round(min(temp, na.rm = T), 1),
+      q10 = round(quantile(temp, .1, na.rm = T), 1),
+      mean = round(mean(temp, na.rm = T), 1),
+      q90 = round(quantile(temp, .9, na.rm = T), 1),
+      max = round(max(temp, na.rm = T), 1),
+      .by = c(month, name)
+    ) %>%
+    clean_names("title")
+
+  total <- df %>%
+    mutate(temp = .[[temp_col]]) %>%
+    summarize(
+      name = "Total",
+      days = n_distinct(date),
+      min = round(min(temp, na.rm = T), 1),
+      q10 = round(quantile(temp, .1, na.rm = T), 1),
+      mean = round(mean(temp, na.rm = T), 1),
+      q90 = round(quantile(temp, .9, na.rm = T), 1),
+      max = round(max(temp, na.rm = T), 1)
+    ) %>%
+    clean_names("title")
+
+  bind_rows(monthly, total)
+}
+
+
+
 ## Watershed/Landscape tab ----
 
 buildWatershedInfo <- function(stn) {
