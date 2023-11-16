@@ -27,7 +27,12 @@ makeReportPlots <- function(df, type) {
         ggplot(aes(x = date, y = temp_c)) +
         geom_line(aes(color = measure), linewidth = 1.5) +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
-        geom_text_repel(aes(label = label), size = 3.5, box.padding = unit(.5, "lines"), min.segment.length = unit(0, "lines"), seed = 1) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3.5,
+          box.padding = unit(.5, "lines"),
+          min.segment.length = unit(0, "lines"),
+          seed = 1) +
         date_scale +
         scale_y_continuous(limits = c(0, find_max(df$temp_c, 30)), expand = expansion()) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
@@ -44,14 +49,18 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, do = d_o, do_sat = d_o_percent_saturation) %>%
         drop_na(do) %>%
-        mutate(
-          do_color = map_chr(do, do_color),
-          label = paste0(do, "mg/L\n(", do_sat, "% sat)"))
+        mutate(do_color = map_chr(do, do_color)) %>%
+        mutate(label = paste0(do, "mg/L\n(", do_sat, "% sat)"))
 
       plt <- df %>%
         ggplot(aes(x = date, y = do)) +
         geom_col(aes(fill = do_color), color = "black", width = 15) +
-        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .25, min.segment.length = unit(0, "lines"), seed = 1) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3.5,
+          nudge_y = .25,
+          min.segment.length = unit(0, "lines"),
+          seed = 1) +
         date_scale +
         scale_y_continuous(limits = c(0, find_max(df$do, 10)), expand = expansion()) +
         scale_fill_identity() +
@@ -72,7 +81,12 @@ makeReportPlots <- function(df, type) {
         ggplot(aes(x = date, y = trans)) +
         geom_col(aes(y = tube), color = "grey50", fill = "grey95", width = 15) +
         geom_col(aes(fill = trans), color = "black", width = 15) +
-        geom_text_repel(aes(label = label), size = 3.5, nudge_y = 1, min.segment.length = unit(0, "lines"), seed = 1) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3.5,
+          nudge_y = 1,
+          min.segment.length = unit(0, "lines"),
+          seed = 1) +
         date_scale +
         scale_y_continuous(
           breaks = seq(0, 120, 20),
@@ -97,7 +111,12 @@ makeReportPlots <- function(df, type) {
         ggplot(aes(x = date, y = flow)) +
         geom_line(color = "cadetblue", linewidth = 2) +
         geom_point(color = "black", fill = "cadetblue", shape = 21, size = 4) +
-        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .5, min.segment.length = unit(0, "lines"), seed = 1) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3.5,
+          nudge_y = .5,
+          min.segment.length = unit(0, "lines"),
+          seed = 1) +
         date_scale +
         scale_y_continuous(
           limits = c(0, find_max(df$flow, 10)),
@@ -117,6 +136,7 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, tp) %>%
         drop_na(tp) %>%
+        filter(tp > 0) %>% # true zeros shouldn't exist in this data
         mutate(exceeds = tp > phoslimit) %>%
         mutate(label = paste(signif(tp, 3), "mg/L"))
       est <- getPhosEstimate(df$tp)
@@ -147,17 +167,21 @@ makeReportPlots <- function(df, type) {
         geom_hline(yintercept = phoslimit, linewidth = 1, color = "red") +
         geom_col(aes(fill = exceeds), color = "black") +
         {
-          if (ci) geom_text_repel(
+          if (ci) ggrepel::geom_text_repel(
             data = est_labels,
             aes(y = value, label = label),
-            size = 3.5,
+            size = 3,
             nudge_x = 1,
             box.padding = unit(.5, "lines"),
             min.segment.length = unit(0, "lines"),
             seed = 1
           )
         } +
-        geom_text_repel(aes(label = label), size = 3.5, nudge_y = .001, seed = 1) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3,
+          nudge_y = .001,
+          seed = 1) +
         scale_x_date(
           breaks = dates,
           limits = c(dates[1] - 15, eoy_date + 15),
@@ -230,7 +254,7 @@ makeReportPlots <- function(df, type) {
           aes(y = mean),
           color = "orange",
           linewidth = 1) +
-        geom_text_repel(
+        ggrepel::geom_text_repel(
           data = transition_labels,
           aes(x, y, label = label),
           size = 2.5,
