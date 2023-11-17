@@ -112,18 +112,18 @@ ui <- fluidPage(
     id = "footer-content",
     br(),
     hr(),
-    div(
-      align = "center",
-      actionButton(
-        "screenshot",
-        "Download a screenshot of the entire page (except map)",
-        title = "Screenshot does not currently include the map",
-        class = "btn-xs",
-        onclick = "this.disabled = true; document.querySelector('#screenshot-msg').style.display = null;"
-      ),
-      div(id = "screenshot-msg", style = "padding: 5px; font-style: italic; font-size: small; display: none;", "Generating screenshot, please wait...")
-    ),
-    br(),
+    # div(
+    #   align = "center",
+    #   actionButton(
+    #     "screenshot",
+    #     "Download a screenshot of the entire page (except map)",
+    #     title = "Screenshot does not currently include the map",
+    #     class = "btn-xs",
+    #     onclick = "this.disabled = true; document.querySelector('#screenshot-msg').style.display = null;"
+    #   ),
+    #   div(id = "screenshot-msg", style = "padding: 5px; font-style: italic; font-size: small; display: none;", "Generating screenshot, please wait...")
+    # ),
+    # br(),
     p(
       style = "color: grey; font-size: smaller; font-style: italic;",
       align = "center",
