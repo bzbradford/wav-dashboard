@@ -25,7 +25,6 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
-        req(has_focus())
 
         filter(therm_data, station_id == cur_stn()$station_id)
       })
@@ -42,6 +41,8 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## selected_data ----
       selected_data <- reactive({
+        req(input$year)
+
         if (input$year == "All") return(cur_data())
         cur_data() %>% filter(year == input$year)
       })

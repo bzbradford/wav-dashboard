@@ -40,6 +40,8 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## selected_data ----
       selected_data <- reactive({
+        req(input$year)
+
         if (input$year == "All") {
           cur_data()
         } else {

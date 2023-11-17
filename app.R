@@ -2,8 +2,8 @@
 # Ben Bradford, UW-Madison
 # Requires data prep in separate RProj
 
-
 shiny::shinyApp(ui, server, enableBookmarking = "url")
+
 
 
 #- Dependencies -#
@@ -22,3 +22,9 @@ shiny::shinyApp(ui, server, enableBookmarking = "url")
 # renv::clean()        # remove unused packages
 # renv::update()       # update project libraries
 # renv::snapshot()     # save updated lock file to project
+
+
+#- Testing -#
+
+# shiny::devmode(TRUE)
+# shiny::devmode(FALSE)

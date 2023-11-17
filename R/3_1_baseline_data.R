@@ -40,6 +40,8 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
       ## selected_data ----
       selected_data <- reactive({
+        req(input$year)
+
         if (input$year == "All") {
           cur_data()
         } else {
@@ -93,12 +95,6 @@ baselineDataServer <- function(cur_stn, has_focus) {
       ## infoUI ----
       output$infoUI <- renderUI({
         includeMarkdown("md/baseline_info.md")
-        # div(
-        #   p(strong("Dissolved Oxygen:"), "The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition."),
-        #   p(strong("Temperature:"), "The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Learn more about water temperature on the", strong("Thermistor"), "data tab."),
-        #   p(strong("Transparency:"), "These measurements reflect the turbidity of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae."),
-        #   p(strong("Stream flow:"), HTML("Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will 'pulse' after rain and storm events, returning to baseflow after several days. For more stream flow data check out the <a href='https://dashboard.waterdata.usgs.gov/app/nwd/?aoi=state-wi', target = '_blank'>USGS Water Dashboard</a>."))
-        # )
       })
 
 

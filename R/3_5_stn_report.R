@@ -28,7 +28,6 @@ stnReportServer <- function(cur_stn, has_focus) {
       ## stn_data ----
       stn_data <- reactive({
         req(cur_stn())
-        req(has_focus())
         stn_id <- cur_stn()$station_id
 
         list(

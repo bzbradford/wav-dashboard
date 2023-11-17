@@ -607,7 +607,7 @@ all_coverage <- bind_rows(
   mutate(therm_coverage, source = "Thermistor")) %>%
   group_by(station_id) %>%
   summarise(
-    data_sources = paste(source, collapse = ", "),
+    data_sources = paste(source, collapse = "/"),
     data_years = paste(data_years, collapse = ", "),
     max_fw_year = max(max_fw_year),
     max_fw_date = as.character(max(max_fw_date))) %>%
@@ -691,27 +691,24 @@ all_pts <- station_pts %>%
   left_join(all_coverage, by = "station_id") %>%
   mutate(
     station_id = as.numeric(station_id),
-    stn_color = case_when(
-      baseline_stn ~ stn_colors$baseline,
-      therm_stn ~ stn_colors$thermistor,
-      nutrient_stn ~ stn_colors$nutrient),
     label = paste(station_id, station_name, sep = ": "),
     map_label = lapply(glue::glue("
       <b>{data_sources} Monitoring Station</b><br>
       Station ID: {station_id}<br>
-      Name: {str_trunc(station_name, 50)}
-    "), shiny::HTML),
+      Name: {str_trunc(station_name, 50)}<br>
+      Most recent data: {format(as.Date(max_fw_date), '%b %d, %Y')}
+    "), shiny::HTML)
   )
 
 all_stns <- all_pts %>%
-  select(-c(data_year_list, stn_color)) %>%
+  select(-c(data_year_list)) %>%
   st_set_geometry(NULL)
 
 all_labels <- setNames(all_pts$label, as.character(all_pts$station_id))
 
 all_popups <- all_pts %>%
   st_set_geometry(NULL) %>%
-  select(-c(baseline_stn, therm_stn, nutrient_stn, data_year_list, stn_color, label, map_label)) %>%
+  select(-c(baseline_stn, therm_stn, nutrient_stn, data_year_list, label, map_label)) %>%
   clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
   create_popups() %>%
   setNames(all_pts$station_id)

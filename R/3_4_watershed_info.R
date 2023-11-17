@@ -45,7 +45,6 @@ watershedInfoServer <- function(cur_stn, has_focus) {
       ## selected_data ----
       selected_data <- reactive({
         req(cur_stn())
-        # req(has_focus())
         req(input$scale)
 
         col <- paste0("huc", input$scale)
