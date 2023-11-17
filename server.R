@@ -103,7 +103,7 @@ server <- function(input, output, session) {
     # pick the geographically nearest station
     } else if (length(stations) > 0) {
       last_pt <- last_valid_stn()
-      if (nrow(last_pt) == 1) {
+      if (!is.null(last_pt)) {
         # find geographically nearest station
         avail_pts <- all_pts %>% filter(station_id %in% stations)
         selected <- avail_pts[st_nearest_feature(last_pt, avail_pts),]$station_id
@@ -227,45 +227,45 @@ server <- function(input, output, session) {
   #' map polygons render in the incorrect location with html2canvas
   #' once cloned the radio buttons are modified because they didn't appear correctly
   #' after rendering, the screenshot button is re-enabled
-  buildScreenshotFilename <- function() {
-    stn_id <- cur_stn()$station_id
-    tab_name <- input$data_tabs
-    suffix <- case_match(tab_name,
-      tab_names$baseline ~ baselineReturn()$year,
-      tab_names$nutrient ~ nutrientReturn()$year,
-      tab_names$thermistor ~ thermistorReturn()$year,
-      tab_names$watershed ~ watershedReturn()$huc,
-      .default = ""
-    )
-    fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
-    if (!is.null(suffix)) fname <- paste(fname, suffix)
-    fname
-  }
+  # buildScreenshotFilename <- function() {
+  #   stn_id <- cur_stn()$station_id
+  #   tab_name <- input$data_tabs
+  #   suffix <- case_match(tab_name,
+  #     tab_names$baseline ~ baselineReturn()$year,
+  #     tab_names$nutrient ~ nutrientReturn()$year,
+  #     tab_names$thermistor ~ thermistorReturn()$year,
+  #     tab_names$watershed ~ watershedReturn()$huc,
+  #     .default = ""
+  #   )
+  #   fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
+  #   if (!is.null(suffix)) fname <- paste(fname, suffix)
+  #   fname
+  # }
 
-  observeEvent(input$screenshot, {
-    fname <- buildScreenshotFilename()
-    runjs(sprintf("
-      html2canvas(
-        document.querySelector('#main-content'),
-        {
-          scale: 1,
-          crossOrigin: 'anonymous',
-          useCORS: true,
-          imageTimeout: 5000,
-          onclone: (cloneDoc) => {
-            cloneDoc.querySelector('#map-content').style.display = 'none';
-            const style = cloneDoc.createElement('style');
-            style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
-            cloneDoc.body.appendChild(style);
-          }
-        }
-      ).then(canvas => {
-        saveAs(canvas.toDataURL(), '%s.png')
-      });
-    ", fname))
-    enable("screenshot")
-    runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
-  })
+  # observeEvent(input$screenshot, {
+  #   fname <- buildScreenshotFilename()
+  #   runjs(sprintf("
+  #     html2canvas(
+  #       document.querySelector('#main-content'),
+  #       {
+  #         scale: 1,
+  #         crossOrigin: 'anonymous',
+  #         useCORS: true,
+  #         imageTimeout: 5000,
+  #         onclone: (cloneDoc) => {
+  #           cloneDoc.querySelector('#map-content').style.display = 'none';
+  #           const style = cloneDoc.createElement('style');
+  #           style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
+  #           cloneDoc.body.appendChild(style);
+  #         }
+  #       }
+  #     ).then(canvas => {
+  #       saveAs(canvas.toDataURL(), '%s.png')
+  #     });
+  #   ", fname))
+  #   enable("screenshot")
+  #   runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
+  # })
 
 
   # Rendered UIs ----
