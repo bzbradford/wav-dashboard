@@ -34,6 +34,9 @@ baseline <- params$data$baseline %>%
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
 
+report_summary <- buildReportSummary(params)
+has <- report_summary$has
+
 ```
 
 \pagestyle{fancy}
@@ -50,7 +53,7 @@ knitr::include_graphics("header.png", error = F)
 
 # `r params$year` WAV Fieldwork Report - `r stn$station_name`
 
-```{r stn-map, fig.height=3}
+```{r stn-map, fig.height=3.5}
 makeReportMap(stn)
 ```
 
@@ -67,7 +70,7 @@ Major Basin: `r stn$major_basin`
 
 # Data collection summary
 
-`r buildReportSummary(params$year, params$stn, params$data)`
+`r report_summary$message`
 
 
 \newpage
@@ -76,47 +79,45 @@ Major Basin: `r stn$major_basin`
 
 ### BASELINE ###
 
-has_baseline <- nrow(baseline) > 0
-if (has_baseline) {
+if (has$baseline) {
   
   p("# Baseline monitoring summary")
   makeReportBaselineTable(baseline) %>% kable() %>% print()
   
-  p("# Streamflow details")
-  makeReportStreamflowTable(baseline) %>% kable() %>% print()
+  if (has$streamflow) {
+    p("# Streamflow details")
+    makeReportStreamflowTable(baseline) %>% kable() %>% print()
+  }
   
   p("# Additional fieldwork details")
-  makeReportFieldworkTable(baseline) %>% kable() %>% print()
+  # makeReportFieldworkTable(baseline) %>% kable() %>% print()
+  buildReportFieldworkComments(baseline) %>% paste(collapse = "\n\n") %>% cat
   
-  has_temp <- with(baseline, sum(!is.na(ambient_air_temp)) + sum(!is.na(water_temp)) > 0)
-  if (has_temp) {
+  if (has$air_temp | has$water_temp) {
     pg()
     p("# Temperature")
-    makeReportPlots(baseline, type = "temp") %>% print()
+    baseline %>% makeReportPlots(type = "temp") %>% print()
     p("**Temperature:** The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.")
   }
 
-  has_do <- with(baseline, sum(!is.na(d_o)) > 0)
-  if (has_do) {
+  if (has$d_o) {
     pg()
     p("# Dissolved Oxygen")
-    makeReportPlots(baseline, type = "do") %>% print()
+    baseline %>% makeReportPlots(type = "do") %>% print()
     p("**Dissolved Oxygen:** The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.")
   }
 
-  has_trans <- with(baseline, sum(!is.na(transparency_average)) > 0)
-  if (has_trans) {
+  if (has$transparency) {
     pg()
     p("# Transparency / Water clarity")
-    makeReportPlots(baseline, type = "trans") %>% print()
+    baseline %>% makeReportPlots(type = "trans") %>% print()
     p("**Transparency:** These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.")
   }
 
-  has_flow <- with(baseline, sum(!is.na(streamflow_cfs)) > 0)
-  if (has_flow) {
+  if (has$streamflow) {
     pg()
     p("# Streamflow")
-    makeReportPlots(baseline, type = "flow") %>% print()
+    baseline %>% makeReportPlots(type = "flow") %>% print()
     p("**Stream flow:** Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.")
   }
 }
@@ -124,26 +125,24 @@ if (has_baseline) {
 
 ### NUTRIENT ###
 
-has_nutrient <- with(nutrient, sum(!is.na(tp)))
-if (has_nutrient) {
+if (has$nutrient) {
   
   phos_estimate <- getPhosEstimate(nutrient$tp)
   phos_exceedance_text <- getPhosExceedanceText(phos_estimate)
   
   pg()
-  p("# Nutrient monitoring summary")
-  makeReportPlots(nutrient, type = "nutrient") %>% print()
+  p("# Total phosphorus monitoring summary")
+  nutrient %>% makeReportPlots(type = "nutrient") %>% print()
   p("The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval.")
-  p("**Exceedance criteria:** A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **red** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **teal**.")
-  p(sprintf("***%s***", phos_exceedance_text))
+  p("**Exceedance criteria:** A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **\\textcolor{red}{red}** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **\\textcolor{teal}{teal}**.")
+  p(sprintf("***Data interpretation:*** %s", phos_exceedance_text))
   
 }
 
 
 ### THERMISTOR ###
 
-has_therm <- n_distinct(thermistor$date) > 0
-if (has_therm) {
+if (has$thermistor) {
   
   max_temp <- thermistor %>%
   summarize(temp_c = mean(temp_c), .by = date) %>%
@@ -157,12 +156,12 @@ if (has_therm) {
   
   pg()
   p("# Temperature logger summary")
-  makeReportPlots(thermistor, type = "thermistor") %>% print()
-  p(sprintf("***Based on the maximum daily average water temperature of %s°C (%s°F), this is a %s stream.***", signif(max_temp, 3), signif(c_to_f(max_temp), 3), stream_type))
+  thermistor %>% makeReportPlots(type = "thermistor") %>% print()
   p("**What does water temperature tell us?** Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support.")
   p("It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
   p("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.")
   p("On the chart above, the cutoffs for a stream's temperature classification are shown as shaded areas. ***Coldwater*** streams have typical average summer temperatures below 22.2°C (72°F). ***Coolwater*** streams have maximum temperatures between 22.2°C and 25°C (77°F). ***Warmwater*** streams have maximum temperatures above 25°C.")
+  p(sprintf("***Data interpretation:*** Based on the maximum daily average water temperature of %s°C (%s°F), this is a %s stream.", signif(max_temp, 3), signif(c_to_f(max_temp), 3), stream_type))
   
 }
 

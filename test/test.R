@@ -171,7 +171,7 @@ cur_baseline_data %>%
   plot_ly() %>%
   add_trace(
     x = ~date,
-    y = ~ambient_air_temp_field,
+    y = ~air_temp_field,
     type = "scatter",
     mode = "lines+markers",
     name = "Water",
@@ -218,8 +218,8 @@ df <- cur_baseline_data %>%
   mutate(do_color = brewer.pal(11, "RdBu")[floor(min(d_o, 11))])
 
 do_data <- df %>% filter(!(is.na(d_o) & is.na(d_o_percent_saturation)))
-temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
-trans_data <- df %>% filter(!is.na(transparency_average))
+temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(air_temp_field)))
+trans_data <- df %>% filter(!is.na(transparency))
 flow_data <- df %>% filter(!is.na(stream_flow_cfs))
 
 
@@ -260,7 +260,7 @@ df %>%
     data = temp_data,
     name = "Air temp",
     x = ~date,
-    y = ~ambient_air_temp_field,
+    y = ~air_temp_field,
     type = "scatter",
     mode = "lines+markers",
     yaxis = "y2",
@@ -275,7 +275,7 @@ df %>%
     data = trans_data,
     name = "Transparency",
     x = ~date,
-    y = ~transparency_average,
+    y = ~transparency,
     type = "scatter",
     mode = "lines+markers",
     yaxis = "y3",
@@ -358,8 +358,8 @@ baseline_data %>%
   select(
     d_o,
     water_temperature,
-    ambient_air_temp,
-    transparency_average,
+    air_temp,
+    transparency,
     stream_flow_cfs
   ) %>%
   pivot_longer(everything()) %>%
@@ -407,8 +407,8 @@ summary_vars <- tribble(
   ~var, ~name, ~units,
   "d_o", "Dissolved oxygen", "mg/L",
   "water_temperature", "Water temperature", "°C",
-  "ambient_air_temp", "Air temperature", "°C",
-  "transparency_average", "Transparency", "cm",
+  "air_temp", "Air temperature", "°C",
+  "transparency", "Transparency", "cm",
   "stream_flow_cfs", "Stream flow", "cfs"
 ) %>% rowwise()
 
@@ -448,8 +448,8 @@ therm_data %>%
 #' n fieldwork
 #' max water_temp
 #' mean d_o
-#' mean transparency_average
-#' mean streamflow_cfs
+#' mean transparency
+#' mean streamflow
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
@@ -474,8 +474,8 @@ baseline_means <- baseline_data %>%
   summarize(
     max_water_temp = max(water_temp, na.rm = T),
     mean_d_o = mean(d_o, na.rm = T),
-    avg_transparency = mean(transparency_average, na.rm = T),
-    avg_streamflow = mean(streamflow_cfs, na.rm = T),
+    avg_transparency = mean(transparency, na.rm = T),
+    avg_streamflow = mean(streamflow, na.rm = T),
     .by = station_id
   ) %>% {
     df <- .
@@ -573,13 +573,13 @@ df %>%
     aes(y = water_temp, color = water_label),
     size = 3) +
   geom_line(
-    aes(y = ambient_air_temp, color = air_label),
+    aes(y = air_temp, color = air_label),
     linewidth = 2) +
   geom_point(
-    aes(y = ambient_air_temp, color = air_label),
+    aes(y = air_temp, color = air_label),
     size = 3) +
   geom_text_repel(aes(y = water_temp, label = paste0(water_temp, "°C"))) +
-  geom_text_repel(aes(y = ambient_air_temp, label = paste0(ambient_air_temp, "°C"))) +
+  geom_text_repel(aes(y = air_temp, label = paste0(air_temp, "°C"))) +
   scale_x_date(
     name = "Date of observation",
     breaks = df$date,

@@ -343,38 +343,81 @@ get_report_date_range <- function(dates) {
 }
 
 # summary table
-makeReportBaselineTable <- function(df) {
-  df %>%
+makeReportBaselineTable <- function(baseline) {
+  baseline %>%
     select(
       `Date` = formatted_date,
-      `Air temp (°C)` = ambient_air_temp,
+      `Air temp (°C)` = air_temp,
       `Water temp (°C)` = water_temp,
       `DO (mg/L)` = d_o,
       `DO % sat.` = d_o_percent_saturation,
       `pH` = ph,
       `Spec. cond. (μS/cm)` = specific_cond,
-      `Transparency (cm)` = transparency_average,
-      `Streamflow (cfs)` = streamflow_cfs
+      `Transparency (cm)` = transparency,
+      `Streamflow (cfs)` = streamflow
     )
 }
 
 # summary table
-makeReportStreamflowTable <- function(df) {
-  df %>%
+makeReportStreamflowTable <- function(baseline) {
+  baseline %>%
     mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
     select(
       `Date` = formatted_date,
       `Stream width (ft)` = stream_width,
       `Average depth (ft)` = average_stream_depth,
       `Surface velocity (ft/s)` = average_surface_velocity,
-      `Streamflow (cfs)` = streamflow_cfs,
+      `Streamflow (cfs)` = streamflow,
       `Flow method` = flow_method_used
     )
 }
 
+
+
+# creates a paragraph of text describing the data
+buildReportSummary <- function(params) {
+  yr <- params$year
+  data <- params$data
+
+  counts <- list(
+    baseline = nrow(data$baseline),
+    nutrient = sum(!is.na(data$nutrient$tp)),
+    thermistor = n_distinct(data$thermistor$date)
+  )
+
+  baseline_count_cols <- list(
+    air_temp = "air temperature",
+    water_temp = "water temperature",
+    d_o = "dissolved oxygen",
+    ph = "ph",
+    specific_cond = "specific conductivity",
+    transparency = "water transparency",
+    streamflow = "streamflow"
+  )
+
+  for (var in names(baseline_count_cols)) {
+    counts[[var]] = sum(!is.na(data$baseline[[var]]))
+  }
+
+  has <- sapply(counts, function(n) { n > 0 }, simplify = F)
+
+  msg <- paste0("In ", yr, ", this station had ", counts$baseline, " baseline fieldwork events, ", counts$nutrient, " total phosphorus samples collected, and ", ifelse(has$thermistor, paste0("had a temperature logger deployed for ", counts$thermistor, "days."), "did not have a temperature logger deployed."))
+
+  if (has$baseline) {
+    baseline_counts <- lapply(names(baseline_count_cols), function(col) {
+      count <- counts[[col]]
+      str <- paste(count, baseline_count_cols[[col]], "measurement")
+      ifelse(count == 1, str, paste0(str, "s"))
+    }) %>% knitr::combine_words()
+    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
+  }
+
+  list(counts = counts, has = has, message = msg)
+}
+
 # summary table
-makeReportFieldworkTable <- function(df) {
-  df %>%
+makeReportFieldworkTable <- function(baseline) {
+  baseline %>%
     # mutate(formatted_date = format(date, "%b %d")) %>%
     select(
       `Date` = formatted_date,
@@ -386,42 +429,30 @@ makeReportFieldworkTable <- function(df) {
     )
 }
 
-# creates a paragraph of text describing the data
-buildReportSummary <- function(yr, stn, data) {
-  counts <- list(
-    baseline = nrow(data$baseline),
-    nutrient = sum(!is.na(data$nutrient$tp)),
-    thermistor = n_distinct(data$thermistor$date)
-  )
-
-  baseline_count_cols <- list(
-    ambient_air_temp = "air temperature",
-    water_temp = "water temperature",
-    d_o = "dissolved oxygen",
-    ph = "ph",
-    specific_cond = "specific conductivity",
-    transparency_average = "water transparency",
-    streamflow_cfs = "streamflow"
-  )
-
-  for (var in names(baseline_count_cols)) {
-    counts[[var]] = sum(!is.na(data$baseline[[var]]))
-  }
-
-  msg <- paste0("In ", yr, ", this station had ", counts$baseline, " baseline fieldwork events, ", counts$nutrient, " total phosphorus samples collected, and ", ifelse(counts$thermistor > 0, paste0("had a temperature logger deployed for ", counts$thermistor, "days."), "did not have a temperature logger deployed."))
-
-  if (counts$baseline > 0) {
-    baseline_counts <- lapply(names(baseline_count_cols), function(col) {
-      count <- counts[[col]]
-      str <- paste(count, baseline_count_cols[[col]], "measurement")
-      ifelse(count == 1, str, paste0(str, "s"))
-    }) %>% knitr::combine_words()
-    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-  }
-
-  msg
+# creates some paragraphs with fieldwork details for the report
+buildReportFieldworkComments <- function(baseline) {
+  baseline %>%
+    select(
+      date,
+      fsn = fieldwork_seq_no,
+      names = group_desc,
+      wx = weather_conditions,
+      rec_wx = weather_last_2_days,
+      com1 = fieldwork_comment,
+      com2 = additional_comments) %>%
+    rowwise() %>%
+    mutate(fieldwork_desc = glue(
+      "**{format(date, '%b %d, %Y')}** - ",
+      if_else(is.na(wx), "", " Weather: {wx}."),
+      if_else(is.na(rec_wx), "", " Recent weather: {rec_wx}."),
+      if_else(is.na(com1), "", " Fieldwork comments: {com1}."),
+      if_else(is.na(com2), "", " Additional comments: {com2}."),
+      if_else(is.na(names), ".", " Submitted by: {names}."),
+      " Fieldwork ID: {fsn}"
+    )) %>%
+    pull(fieldwork_desc) %>%
+    gsub("..", ".", ., fixed = T)
 }
-
 
 
 # Defs ----
@@ -458,6 +489,7 @@ fmt_area <- function(area) {
 }
 
 counties <- readRDS("data/shp/counties")
+waterbodies <- readRDS("data/shp/waterbodies")
 nkes <- readRDS("data/shp/nkes") %>%
   mutate(Label = paste0(
     "<b>", PlanName, "</b>",
@@ -489,6 +521,10 @@ huc12 <- readRDS("data/shp/huc12") %>%
     "<br>HUC6 basin: ", MajorBasin
   ))
 
+# report shapes
+# counties.wtm <- st_transform(counties, st_crs(3070))
+# huc10.wtm <- st_transform(huc10, st_crs(3070))
+# waterbodies.wtm <- st_transform(waterbodies, st_crs(3070))
 
 
 # Station lists ----
@@ -694,8 +730,8 @@ all_stn_list <- all_pts %>%
 #' n fieldwork
 #' max water_temp
 #' mean d_o
-#' mean transparency_average
-#' mean streamflow_cfs
+#' mean transparency
+#' mean streamflow
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
@@ -717,8 +753,8 @@ baseline_means <- baseline_data %>%
   summarize(
     water_temp = mean(water_temp, na.rm = T),
     d_o = mean(d_o, na.rm = T),
-    transparency = mean(transparency_average, na.rm = T),
-    streamflow = mean(streamflow_cfs, na.rm = T),
+    transparency = mean(transparency, na.rm = T),
+    streamflow = mean(streamflow, na.rm = T),
     .by = station_id
   ) %>% {
     df <- .

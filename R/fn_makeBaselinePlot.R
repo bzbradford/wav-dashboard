@@ -14,9 +14,9 @@ makeBaselinePlot <- function(df) {
   # get y axis-ranges for plot
   yranges <- list(
     d_o = c(0, find_max(df$d_o, 12)),
-    temp = c(0, find_max(c(df$water_temp, df$ambient_air_temp), 30)),
+    temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
     trans = c(0, 125),
-    cfs = c(0, find_max(df$streamflow_cfs, 10)))
+    cfs = c(0, find_max(df$streamflow, 10)))
 
   # modify and remove empties for each var
   do_data <- df %>%
@@ -26,9 +26,9 @@ makeBaselinePlot <- function(df) {
       T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
     rowwise() %>%
     mutate(do_color = do_color(d_o))
-  temp_data <- filter(df, !(is.na(water_temp) & is.na(ambient_air_temp)))
-  trans_data <- filter(df, !is.na(transparency_average))
-  flow_data <- filter(df, !is.na(streamflow_cfs))
+  temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
+  trans_data <- filter(df, !is.na(transparency))
+  flow_data <- filter(df, !is.na(streamflow))
 
   # settings for longer date periods
   years <- as.numeric(max(df$date) - min(df$date)) / 365
@@ -74,7 +74,7 @@ makeBaselinePlot <- function(df) {
       data = temp_data,
       name = "Air temp",
       x = ~date,
-      y = ~ambient_air_temp,
+      y = ~air_temp,
       type = "scatter",
       mode = "lines+markers",
       yaxis = "y2",
@@ -88,7 +88,7 @@ makeBaselinePlot <- function(df) {
       data = trans_data,
       name = "Transparency",
       x = ~date,
-      y = ~transparency_average,
+      y = ~transparency,
       type = "scatter",
       mode = "lines+markers",
       yaxis = "y3",
@@ -103,7 +103,7 @@ makeBaselinePlot <- function(df) {
       data = flow_data,
       name = "Stream flow",
       x = ~date,
-      y = ~streamflow_cfs,
+      y = ~streamflow,
       type = "scatter",
       mode = "lines+markers",
       yaxis = "y4",

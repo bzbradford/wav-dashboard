@@ -17,7 +17,7 @@ makeReportPlots <- function(df, type) {
     # Temperature ----
     if (type == "temp") {
       df <- df %>%
-        select(date, Air = ambient_air_temp, Water = water_temp,) %>%
+        select(date, Air = air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
         pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_c") %>%
         mutate(temp_f = c_to_f(temp_c)) %>%
@@ -73,7 +73,7 @@ makeReportPlots <- function(df, type) {
     # Transparency ----
     if (type == "trans") {
       df <- df %>%
-        select(date, trans = transparency_average, tube = transparency_tube_length) %>%
+        select(date, trans = transparency, tube = transparency_tube_length) %>%
         drop_na(trans) %>%
         mutate(label = if_else(trans == tube, paste0(trans, "+ cm"), paste0(trans, " cm")))
 
@@ -103,7 +103,7 @@ makeReportPlots <- function(df, type) {
     # Streamflow ----
     if (type == "flow") {
       df <- df %>%
-        select(date, flow = streamflow_cfs) %>%
+        select(date, flow = streamflow) %>%
         drop_na(flow) %>%
         mutate(label = paste(flow, " cfs"))
 

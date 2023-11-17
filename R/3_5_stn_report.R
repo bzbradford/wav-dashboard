@@ -100,7 +100,9 @@ stnReportServer <- function(cur_stn, has_focus) {
               onclick = "this.parentElement.style.display = 'none';"
             ),
             div(id = "report-msg")
-          )
+          ),
+          br(),
+          div(class = "note", "These station reports are a new feature currently in development. We encourage any feedback! Please email WAV staff at", a("wav@extension.wisc.edu", href = "mailto:wav@extension.wisc.edu"), "with any questions or comments."),
         )
       })
 
@@ -118,25 +120,18 @@ stnReportServer <- function(cur_stn, has_focus) {
 
       # Handle downloads ----
 
-      disableBtns <- function() {
-
-      }
-
       ## reacts to button clicks to download a year's report ----
       observeEvent(input$year, {
         yr <- input$year
         stn <- cur_stn()
         stndata <- stn_data()
 
-        report$filename <- sprintf(
-          "WAV %s Report for %s.pdf",
-          yr,
-          gsub("[^A-Za-z0-9]", "", substr(stn$station_name, 1, 30))
-        )
+        safe_name <- str_squish(substr(gsub("[^A-Za-z0-9 ]", "", stn$station_name), 1, 30))
+        report$filename <- sprintf("WAV %s Report for %s %s.pdf", yr, stn$station_id, safe_name)
         report$stn <- stn
         report$data <- sapply(stndata, function(df) filter(df, year == yr))
 
-        # trigger the downloadbutton once data is set up
+        # trigger the hidden downloadbutton once data is set up
         click("download")
       })
 
@@ -148,9 +143,8 @@ stnReportServer <- function(cur_stn, has_focus) {
 
       createReport <- function(file) {
         yr <- input$year
-        fname <- gsub(" ", "", (fs::path_sanitize(report$filename)), fixed = T)
+        fname <- report$filename
         final_out <- file.path(temp_dir, fname)
-        print(final_out)
         runjs("document.querySelector('#report-msg-container').style.display = 'none';")
         runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})")
         use_existing <- F
@@ -182,7 +176,6 @@ stnReportServer <- function(cur_stn, has_focus) {
         }
         runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = false;});")
       }
-
 
       # end
     }

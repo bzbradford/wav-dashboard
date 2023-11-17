@@ -154,9 +154,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
         ~var, ~parameter, ~units,
         "d_o", "Dissolved oxygen", "mg/L",
         "water_temp", "Water temperature", "°C",
-        "ambient_air_temp", "Air temperature", "°C",
-        "transparency_average", "Transparency", "cm",
-        "streamflow_cfs", "Stream flow", "cfs",
+        "air_temp", "Air temperature", "°C",
+        "transparency", "Transparency", "cm",
+        "streamflow", "Stream flow", "cfs",
         "average_stream_depth", "Stream depth", "ft",
       ) %>% rowwise()
 
