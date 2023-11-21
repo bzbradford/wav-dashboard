@@ -7,6 +7,17 @@ test_baseline <- baseline_data %>%
   filter(year == max(year)) %>%
   mutate(formatted_date = format(date, "%b %d"))
 
+named_baseline_cols <- c(
+  `Air temp (°C)` = "air_temp",
+  `Water temp (°C)` = "water_temp",
+  `DO (mg/L)` = "d_o",
+  `DO % sat.` = "d_o_percent_saturation",
+  `pH` = "ph",
+  `Transparency (cm)` = "transparency",
+  `Streamflow (cfs)` = "streamflow"
+)
+
+test_baseline %>% select(all_of(named_baseline_cols))
 
 test_baseline %>%
   select(
@@ -17,8 +28,7 @@ test_baseline %>%
     `DO % sat.` = d_o_percent_saturation,
     `pH` = ph,
     `Transparency (cm)` = transparency,
-    `Streamflow (cfs)` = streamflow,
-    `Weather` = weather_last_2_days
+    `Streamflow (cfs)` = streamflow
   )
 
 test_baseline %>%
@@ -37,10 +47,105 @@ test_baseline %>%
     `Group names` = group_desc,
     `Weather conditions` = weather_conditions,
     `Weather last 2 days` = weather_last_2_days,
-    `Fieldwork comments` = fieldwork_comment,
+    `Fieldwork comments` = fieldwork_comments,
     `Streamflow comments` = streamflow_comments
   )
 
+
+makeReportFieldworkTable(test_baseline) %>% view()
+test_baseline %>% buildReportFieldworkComments()
+
+summarizeReportCols <- function(df, cols) {
+  df %>%
+    rename(all_of(cols)) %>%
+    pivot_longer(all_of(names(cols)), names_to = "Parameter") %>%
+    drop_na(value) %>%
+    summarize(
+      across(
+        value,
+        list(n = ~n(), Min = min, Mean = mean, Median = median, Max = max, SD = sd),
+        .names = "{.fn}"
+      ),
+      .by = parameter
+    )
+}
+
+summarizeReportCols(
+  test_baseline,
+  named_baseline_cols
+)
+
+
+test_baseline_ph <- baseline_data %>%
+  filter(!is.na(ph)) %>%
+  filter(ph <= 14, ph > 0)
+test_stn <- all_pts %>%
+  filter(station_id %in% test_baseline_ph$station_id) %>%
+  slice_sample(n = 1)
+test_baseline <- test_baseline_ph %>%
+  filter(station_id == test_stn$station_id) %>%
+  filter(year == max(year))
+
+hist(test_baseline_ph$ph)
+summary(test_baseline_ph$ph)
+
+test_baseline_ph %>%
+  filter(ph > 14) %>%
+  select(ph)
+
+
+df <- test_baseline %>%
+  select(date, ph) %>%
+  drop_na(ph) %>%
+  mutate(ph_diff = ph - 7)
+
+ph_colors <- c("#FF0000", "#FFA500", "#FFFF00", "#008000", "#9999ff", "#000066")
+ph_colors <- c("#ff4331", "#ffd43a", "#00b82b", "#0099f7", "#844cbf")
+
+test_baseline %>%
+  select(date, ph) %>%
+  drop_na(ph) %>%
+  mutate(ph_diff = ph - 7) %>%
+  ggplot(aes(x = date, y = ph_diff)) +
+  geom_hline(yintercept = 0, color = "black") +
+  geom_col(
+    aes(fill = ph),
+    color = "black",
+    width = 15) +
+  geom_text(aes(label = round(ph, 1), vjust = -sign(ph_diff)), size = 3.5) +
+  scale_y_continuous(
+    limits = c(-2, 3),
+    breaks = seq(-2, 3, .5),
+    labels = seq(-2, 3, .5) + 7,
+    expand = expansion()) +
+  scale_fill_gradientn(
+    colors = ph_colors,
+    limits = c(0, 14),
+    breaks = seq(1, 14, 2)
+    # limits = c(-2, 3),
+    # breaks = 5:10 - 7,
+    # labels = 5:10
+    ) +
+  labs(x = NULL, y = "<= Acidic      pH      Basic =>") +
+  theme_classic()
+# +
+#   theme(legend.position = "none")
+
+
+
+
+
+test_baseline %>%
+  mutate(
+    air_temp_f = c_to_f(air_temp),
+    water_temp_f = c_to_f(water_temp)
+  ) %>%
+  summarizeReportCols(c(
+    `Air temp (°C)` = "air_temp",
+    `Water temp (°C)` = "water_temp",
+    `Air temp (°F)` = "air_temp_f",
+    `Water temp (°F)` = "water_temp_f"
+  ))
 
 makeReportPlots(test_baseline, type = "temp")
 makeReportPlots(test_baseline, type = "do")
@@ -279,4 +384,12 @@ plt2 <- ggplot() +
   theme_void()
 
 gridExtra::grid.arrange(plt1, plt2, nrow = 1)
+
+
+
+
+baseline_data %>%
+
+
+
 

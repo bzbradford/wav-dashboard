@@ -1,18 +1,12 @@
 makeReportPlots <- function(df, type) {
   try({
-    require(ggrepel)
 
     date_limits <- get_report_date_range(df$date)
-    opts <- list(
-      repel.text.size = 3.5,
-      date.label.fmt = "%b\n%Y"
-    )
-
     date_scale <- scale_x_date(
       breaks = "months",
       limits = date_limits,
       oob = scales::oob_keep,
-      date_labels = opts$date.label.fmt)
+      date_labels = "%b\n%Y")
 
     # Temperature ----
     if (type == "temp") {
@@ -20,8 +14,7 @@ makeReportPlots <- function(df, type) {
         select(date, Air = air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
         pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_c") %>%
-        mutate(temp_f = c_to_f(temp_c)) %>%
-        mutate(label = paste0(temp_c, "°C\n(", temp_f, "°F)"))
+        mutate(label = paste0(temp_c, "°C\n(", c_to_f(temp_c), "°F)"))
 
       plt <- df %>%
         ggplot(aes(x = date, y = temp_c)) +
@@ -34,10 +27,14 @@ makeReportPlots <- function(df, type) {
           min.segment.length = unit(0, "lines"),
           seed = 1) +
         date_scale +
-        scale_y_continuous(limits = c(0, find_max(df$temp_c, 30)), expand = expansion()) +
+        scale_y_continuous(
+          limits = c(0, find_max(df$temp_c, 30)),
+          breaks = scales::pretty_breaks(),
+          labels = ~sprintf("%s°C\n(%s°F)", .x, c_to_f(.x)),
+          expand = expansion()) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
-        labs(x = NULL, y = "Temperature (°C)", fill = "Measurement", color = "Measurement") +
+        labs(x = NULL, y = "Temperature", fill = "Measurement", color = "Measurement") +
         theme_classic() +
         theme(legend.position = "top")
 
@@ -47,13 +44,15 @@ makeReportPlots <- function(df, type) {
     # Dissolved oxygen ----
     if (type == "do") {
       df <- df %>%
-        select(date, do = d_o, do_sat = d_o_percent_saturation) %>%
-        drop_na(do) %>%
-        mutate(do_color = map_chr(do, do_color)) %>%
-        mutate(label = paste0(do, "mg/L\n(", do_sat, "% sat)"))
+        select(date, d_o, do_sat = d_o_percent_saturation) %>%
+        drop_na(d_o) %>%
+        mutate(
+          do_color = map_chr(d_o, do_color),
+          sat_label = if_else(is.na(do_sat), "", paste0("\n(", do_sat, "% sat)")),
+          label = paste0(d_o, " mg/L", sat_label))
 
       plt <- df %>%
-        ggplot(aes(x = date, y = do)) +
+        ggplot(aes(x = date, y = d_o)) +
         geom_col(aes(fill = do_color), color = "black", width = 15) +
         ggrepel::geom_text_repel(
           aes(label = label),
@@ -62,7 +61,10 @@ makeReportPlots <- function(df, type) {
           min.segment.length = unit(0, "lines"),
           seed = 1) +
         date_scale +
-        scale_y_continuous(limits = c(0, find_max(df$do, 10)), expand = expansion()) +
+        scale_y_continuous(
+          limits = c(0, find_max(df$d_o, 10)),
+          breaks = scales::pretty_breaks(),
+          expand = expansion()) +
         scale_fill_identity() +
         labs(x = NULL, y = "Dissolved oxygen (mg/L)") +
         theme_classic()
@@ -114,12 +116,13 @@ makeReportPlots <- function(df, type) {
         ggrepel::geom_text_repel(
           aes(label = label),
           size = 3.5,
-          nudge_y = .5,
+          nudge_y = max(df$flow) / 20,
           min.segment.length = unit(0, "lines"),
           seed = 1) +
         date_scale +
         scale_y_continuous(
-          limits = c(0, find_max(df$flow, 10)),
+          limits = c(0, find_max(df$flow, 5)),
+          breaks = scales::pretty_breaks(),
           expand = expansion()) +
         labs(x = NULL, y = "Streamflow (cfs)") +
         theme_classic() +
@@ -187,8 +190,8 @@ makeReportPlots <- function(df, type) {
           limits = c(dates[1] - 15, eoy_date + 15),
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          breaks = scales::pretty_breaks(),
           limits = c(0, find_max(df$tp, .2)),
+          breaks = scales::pretty_breaks(),
           expand = expansion()) +
         scale_fill_manual(
           breaks = c(T, F),
@@ -205,6 +208,7 @@ makeReportPlots <- function(df, type) {
       daily_min <- df %>%
         slice_min(order_by = temp_c, by = date) %>%
         select(date_time, min = temp_c)
+
       daily_max <- df %>%
         slice_max(order_by = temp_c, by = date) %>%
         select(date_time, max = temp_c)
@@ -232,6 +236,7 @@ makeReportPlots <- function(df, type) {
           "Cool-warm transition\n(25°C / 77°F)"
         )
       )
+
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
         add_rect(-Inf, 22.2, "blue") +

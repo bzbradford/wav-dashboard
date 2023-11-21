@@ -342,38 +342,6 @@ get_report_date_range <- function(dates) {
   )
 }
 
-# summary table
-makeReportBaselineTable <- function(baseline) {
-  baseline %>%
-    select(
-      `Date` = formatted_date,
-      `Air temp (°C)` = air_temp,
-      `Water temp (°C)` = water_temp,
-      `DO (mg/L)` = d_o,
-      `DO % sat.` = d_o_percent_saturation,
-      `pH` = ph,
-      `Spec. cond. (μS/cm)` = specific_cond,
-      `Transparency (cm)` = transparency,
-      `Streamflow (cfs)` = streamflow
-    )
-}
-
-# summary table
-makeReportStreamflowTable <- function(baseline) {
-  baseline %>%
-    mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
-    select(
-      `Date` = formatted_date,
-      `Stream width (ft)` = stream_width,
-      `Average depth (ft)` = average_stream_depth,
-      `Surface velocity (ft/s)` = average_surface_velocity,
-      `Streamflow (cfs)` = streamflow,
-      `Flow method` = flow_method_used
-    )
-}
-
-
-
 # creates a paragraph of text describing the data
 buildReportSummary <- function(params) {
   yr <- params$year
@@ -415,19 +383,82 @@ buildReportSummary <- function(params) {
   list(counts = counts, has = has, message = msg)
 }
 
+named_baseline_cols <- c(
+  `Air temp (°C)` = "air_temp",
+  `Water temp (°C)` = "water_temp",
+  `DO (mg/L)` = "d_o",
+  `DO % sat.` = "d_o_percent_saturation",
+  `pH` = "ph",
+  `Transparency (cm)` = "transparency",
+  `Streamflow (cfs)` = "streamflow"
+)
+
 # summary table
-makeReportFieldworkTable <- function(baseline) {
+makeReportBaselineTable <- function(baseline) {
   baseline %>%
-    # mutate(formatted_date = format(date, "%b %d")) %>%
     select(
       `Date` = formatted_date,
-      `Group name(s)` = group_desc,
-      `Weather conditions` = weather_conditions,
-      `Weather last 2 days` = weather_last_2_days,
-      `Fieldwork comments` = fieldwork_comment,
-      `Additional comments` = additional_comments
+      all_of(named_baseline_cols)
     )
 }
+
+# min/max etc for data cols
+summarizeReportCols <- function(df, cols) {
+  df %>%
+    rename(all_of(cols)) %>%
+    pivot_longer(all_of(names(cols)), names_to = "Parameter") %>%
+    mutate(Parameter = factor(Parameter, levels = names(cols))) %>%
+    drop_na(value) %>%
+    summarize(
+      across(value, list(
+          N = ~n(),
+          Min = min,
+          Max = max,
+          Median = median,
+          Mean = mean,
+          SD = sd
+        ), .names = "{.fn}"),
+      .by = Parameter) %>%
+    mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
+    mutate(across(Min:SD, ~if_else(is.na(.x), NA, sprintf("%.1f", .x))))
+}
+
+additional_streamflow_cols <- c(
+  `Stream width (ft)` = "stream_width",
+  `Average depth (ft)` = "average_stream_depth",
+  `Surface velocity (ft/s)` = "average_surface_velocity"
+)
+
+# summary table
+makeReportStreamflowTable <- function(baseline) {
+  baseline %>%
+    mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
+    select(
+      `Date` = formatted_date,
+      all_of(additional_streamflow_cols),
+      `Streamflow (cfs)` = streamflow,
+      `Flow method` = flow_method_used
+    )
+}
+
+
+# summary table
+# makeReportFieldworkTable <- function(baseline) {
+#   baseline %>%
+#     mutate(
+#       fsn = as.character(fieldwork_seq_no),
+#       comments = paste(fieldwork_comments, additional_comments, sep = ". "),
+#       comments = gsub("..", ".", comments, fixed = T),
+#       comments = str_wrap(comments, width = 50)) %>%
+#     select(
+#       `Date` = date,
+#       `Fieldwork ID` = fsn,
+#       `Group name(s)` = group_desc,
+#       `Weather conditions` = weather_conditions,
+#       `Weather last 2 days` = weather_last_2_days,
+#       `Fieldwork comments` = comments
+#     )
+# }
 
 # creates some paragraphs with fieldwork details for the report
 buildReportFieldworkComments <- function(baseline) {
@@ -438,21 +469,22 @@ buildReportFieldworkComments <- function(baseline) {
       names = group_desc,
       wx = weather_conditions,
       rec_wx = weather_last_2_days,
-      com1 = fieldwork_comment,
+      com1 = fieldwork_comments,
       com2 = additional_comments) %>%
     rowwise() %>%
+    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
     mutate(fieldwork_desc = glue(
       "**{format(date, '%b %d, %Y')}** - ",
-      if_else(is.na(wx), "", " Weather: {wx}."),
-      if_else(is.na(rec_wx), "", " Recent weather: {rec_wx}."),
-      if_else(is.na(com1), "", " Fieldwork comments: {com1}."),
-      if_else(is.na(com2), "", " Additional comments: {com2}."),
-      if_else(is.na(names), ".", " Submitted by: {names}."),
-      " Fieldwork ID: {fsn}"
+      "Fieldwork #{fsn}.",
+      if_else(is.na(wx), "", " _Weather:_ {wx}."),
+      if_else(is.na(rec_wx), "", " _Weather past 2 days:_ {rec_wx}."),
+      if_else(nchar(comments) == 0, "", " _Fieldwork comments:_ {comments}."),
+      if_else(is.na(names), "", " _Submitted by:_ {names}.")
     )) %>%
     pull(fieldwork_desc) %>%
     gsub("..", ".", ., fixed = T)
 }
+
 
 
 # Defs ----
