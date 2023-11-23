@@ -26,7 +26,8 @@ p <- function(content) cat("\n\n", content, "\n\n", sep = "")
 pg <- function() p("\\newpage")
 
 stn <- params$stn
-safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label)
+safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
+  str_to_title()
 
 baseline <- params$data$baseline %>%
   mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
@@ -80,7 +81,6 @@ Major Basin: `r stn$major_basin`
 ### BASELINE ###
 
 if (has$baseline) {
-  
   p("# Baseline monitoring summary")
   makeReportBaselineTable(baseline) %>%
     kable(caption = "Baseline stream monitoring measurements") %>%
@@ -99,58 +99,76 @@ if (has$baseline) {
   
   p("# Additional fieldwork details")
   buildReportFieldworkComments(baseline) %>% paste(collapse = "\n\n") %>% cat()
-  
-  if (has$air_temp | has$water_temp) {
-    pg()
-    p("# Baseline Temperature Measurements")
-    baseline %>% makeReportPlots(type = "temp") %>% print()
-    baseline %>%
-    mutate(
-      air_temp_f = c_to_f(air_temp),
-      water_temp_f = c_to_f(water_temp)) %>%
-    summarizeReportCols(c(
-      `Air temp (°C)` = "air_temp",
-      `Water temp (°C)` = "water_temp",
-      `Air temp (°F)` = "air_temp_f",
-      `Water temp (°F)` = "water_temp_f"
-    )) %>% kable() %>% print()
-    p("## Why measure water temperature?")
-    p("The chart shows both the recorded air temperature and water temperature. Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. These values were recorded during baseline fieldwork events; if there was a water temperature data logger deployed, those measurements appear later in this report.")
-  }
+}
 
-  if (has$d_o) {
-    pg()
-    p("# Baseline Dissolved Oxygen Measurements")
-    baseline %>% makeReportPlots(type = "do") %>% print()
-    baseline %>% summarizeReportCols(c(
-      `DO (mg/L)` = "d_o",
-      `DO % sat.` = "d_o_percent_saturation"
-    )) %>% kable() %>% print()
-    p("## Why measure dissolved oxygen?")
-    p("The amount of dissolved oxygen (D.O.) in a stream is critical for aquatic life, particularly larger animals like fish. 5 mg/L is considered the minimum level for fish, while 7 mg/L is the minimum required by trout in the spawning season. Colder waters can support higher concentrations of dissolved oxygen than warmer waters. The percent saturation refers to the equilibrium amount of oxygen that can dissolve into the water from the atmosphere. Higher than 100% D.O. saturation means oxygen is being actively added to the water, either by aquatic life or by air-water mixing. Lower than 100% D.O. saturation means the dissolved oxygen has been depleted below equilibrium level by plant or algal respiration or decomposition.")
-  }
+if (has$air_temp | has$water_temp) {
+  pg()
+  p("# Baseline Temperature Measurements")
+  baseline %>% makeReportPlots(type = "temp") %>% print()
+  baseline %>%
+  mutate(
+    air_temp_f = c_to_f(air_temp),
+    water_temp_f = c_to_f(water_temp)) %>%
+  summarizeReportCols(c(
+    `Air temp (°C)` = "air_temp",
+    `Water temp (°C)` = "water_temp",
+    `Air temp (°F)` = "air_temp_f",
+    `Water temp (°F)` = "water_temp_f"
+  )) %>% kable() %>% print()
+  p("## Why measure water temperature?")
+  p("Cold streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. The Wisconsin DNR uses water temperature as an important variable in the designation of fish and aquatic life uses for surface waters. **Coldwater** streams have maximum summer temperatures below 22.2°C (72°F), **coolwater** streams between 22.2°C and 25°C (77°F), and **warmwater** streams above 25°C. These classifications facilitate management decisions to protect the quality of those water resources.")
+  p("These classes of streams support different types of fish species. The best quality coldwater streams have relatively few species of fish as compared to warm water streams. Salmonids such as brook trout dominate the fish populations in the best quality coldwater streams, while brown trout, an exotic salmonid species, dominate coldwater streams that have slightly less pristine water quality. Bass, darter and sucker species are more prevalent in warmwater streams than in coldwater streams. Different species of fish have different temperature requirements. Trout need cool temperatures, while fish species such as bass can live in waters with higher temperatures.")
+}
 
-  if (has$transparency) {
-    pg()
-    p("# Baseline Transparency / Water Clarity Measurements")
-    baseline %>% makeReportPlots(type = "trans") %>% print()
-    baseline %>% summarizeReportCols(c(
-      `Transparency (cm)` = "transparency"
-    )) %>% kable() %>% print()
-    p("## Why measure water transparency?")
-    p("These measurements reflect the turbidity, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae.")
-  }
+if (has$d_o) {
+  pg()
+  p("# Baseline Dissolved Oxygen Measurements")
+  baseline %>% makeReportPlots(type = "do") %>% print()
+  baseline %>% summarizeReportCols(c(
+    `DO (mg/L)` = "d_o",
+    `DO % sat.` = "d_o_percent_saturation"
+  )) %>% kable() %>% print()
+  p("## Why measure dissolved oxygen?")
+  p("Dissolved oxygen (DO) is a gas found in water that is critical for sustaining aquatic life (just as oxygen is required for us to survive). Dissolved oxygen enters water through mixing with air in turbulent waters or through photosynthetic processes by aquatic plants and algae. Oxygen is used up as organisms respire. In streams that have been organically polluted by point or non-point source inputs (such as runoff from a yard or field), plant respiration and oxygen demand by organisms such as macroinvertebrates and fish increases due to increased populations of these organisms. Further, microbes responsible for their decomposition can further deplete oxygen in such streams.")
+  p("Dissolved oxygen levels are important in determining various communities of aquatic life. DO levels below 2 mg/L generally do not support aquatic life, and most fish and many insects cannot tolerate levels below 4-5 mg/L for a sustained period of time. DO levels above 7 mg/L are amenable to coldwater species such as trout. Different species of fish will migrate within a stream to seek suitable dissolved oxygen conditions.")
+}
 
-  if (has$streamflow) {
-    pg()
-    p("# Baseline Streamflow Measurements")
-    baseline %>% makeReportPlots(type = "flow") %>% print()
-    baseline %>% summarizeReportCols(c(
-      `Streamflow (cfs)` = "streamflow"
-    )) %>% kable() %>% print()
-    p("## Why measure streamflow?")
-    p("Stream flow measurements give you an idea of the general size of the stream. Periods of higher than normal stream flow would suggest recent rains in the watershed. Most streams have a consistent and predictable stream flow based on the size of the watershed that they drain, but stream flow will ‘pulse’ after rain and storm events, returning to baseflow after several days.")
-  }
+if (has$ph) {
+  pg()
+  p("# Baseline pH Measurements")
+  baseline %>% makeReportPlots(type = "ph") %>% print()
+  baseline %>% summarizeReportCols(c(
+    `pH` = "ph"
+  )) %>% kable() %>% print()
+  p("## Why measure pH?")
+  p("pH is a measure of the hydrogen-ion activity of water and is expressed as a logarithmic unit that ranges from 1 to 14 Standard Units. That means for every 1 pH unit change, there is a tenfold change in the activity of hydrogen ions. Waters with high hydrogen-ion activity have low pH and are considered acidic. The presence of dissolved carbon dioxide, carbonic acid, bicarbonate ions and carbonate ions strongly influence the pH of freshwater systems. Wisconsin has adopted a pH standard that incorporates a range from 6 to 9 units to protect and support aquatic life use.")
+  p("Much of Wisconsin has bedrock that is composed of limestone and other rock that is rich in bicarbonate and carbonate. These types of rock can minimize impacts of acid rain or other acidic inputs to the water. In northern Wisconsin, bedrock is composed of granite which is not rich in bicarbonates and carbonates, and thus those rocks are less able to buffer or offset the impacts of acid rain or other acid inputs to the waters.")
+  p("Concentrations of dissolved metal ions tend to increase with increased acidity and as a result, pH is an important factor influencing toxicity of metals. pH also affects the concentration of un-ionized ammonia, a form of nitrogen that is extremely toxic to aquatic life.")
+}
+
+if (has$transparency) {
+  pg()
+  p("# Baseline Transparency / Water Clarity Measurements")
+  baseline %>% makeReportPlots(type = "trans") %>% print()
+  baseline %>% summarizeReportCols(c(
+    `Transparency (cm)` = "transparency"
+  )) %>% kable() %>% print()
+  p("## Why measure water transparency?")
+  p("These measurements reflect the transparency, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae. Transparency measurements are affected by both the presence of suspended particles, such as soil particles and microscopic organisms, and by water color, which is caused by certain dissolved substances. Transparency is easy to measure and is related to **turbidity**, which is commonly used in water quality studies to quantify the amount of suspended particles in the water, but requires more specialized equipment to measure.")
+  p("With increased turbidity, water also becomes warmer because the suspended particles absorb heat. Since warmer water holds less dissolved oxygen than cold water, oxygen levels are also affected by turbidity. Extremely high levels of turbidity may also impair aquatic organism survival by blocking gas exchange in membranes used for respiration, interfering with filter feeding mussels, or by restricting predation by sight-feeding fish. In general, turbidity increases with increasing river flow due to erosional processes and bad sediment resuspension.")
+}
+
+if (has$streamflow) {
+  pg()
+  p("# Baseline Streamflow Measurements")
+  baseline %>% makeReportPlots(type = "flow") %>% print()
+  baseline %>% summarizeReportCols(c(
+    `Streamflow (cfs)` = "streamflow"
+  )) %>% kable() %>% print()
+  p("## Why measure streamflow?")
+  p("Streamflow, or discharge, is the volume of water moving past a cross-section of a stream over a set period of time. It is usually measured in cubic feet per second (cfs). Streamflow is affected by the amount of water within a watershed, increasing with rainstorms or snowmelt, and decreasing during dry periods. Streamflow is also important because it defines the shape, size and course of the stream. It is integral not only to water quality, but also to habitat. Food sources, spawning areas and migration paths of fish and other wildlife are all affected and defined by streamflow and velocity. Velocity and flow together determine the kinds of organisms that can live in the stream (some need fast-flowing areas; others need quiet, low-velocity pools). Different kinds of vegetation require different flows and velocities, too.")
+  p("Streamflow is affected by both forces of nature and by humans. Soil type, vegetation, and slope all play a role in how fast and how much water reaches a stream. In watersheds with high human impacts, water flow might be depleted by withdrawals for irrigation, domestic or industrial purposes. Dams used for electric power generation may affect flow, particularly during periods of peak need when streamflow is held back and later released in a surge.")
+  p("Drastically altering landscapes in a watershed, such as with development, can also change flow regimes, causing faster runoff with storm events and higher peak flows due to increased areas of impervious surface. These altered flows can negatively affect an entire ecosystem by upsetting habitats and organisms dependent on natural flow rates.")
 }
 
 
@@ -165,13 +183,11 @@ if (has$nutrient) {
   p("# Monthly Total Phosphorus Monitoring Summary")
   nutrient %>% makeReportPlots(type = "nutrient") %>% print()
   nutrient %>% summarizeReportCols(c(
-      `Total phosphorus (mg/L)` = "tp"
-    )) %>% kable() %>% print()
+    `Total phosphorus (mg/L)` = "tp"
+  )) %>% kable() %>% print()
   p("_The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines. We know that TP in streams varies quite a bit, so individual samples could be higher or lower than the confidence interval._")
-  p("## Understanding nutrient monitoring and exceedance criteria")
   p("The Wisconsin DNR has established a total phosphorus threshold of 0.075 mg/L (ppm) and a monitoring protocol that must be followed. A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **\\textcolor{red}{red}** if the lower 90% confidence limit of the sample median exceeds the state total phosphorus limit of **0.075 mg/L**. A stream site ***may exceed*** the phosphorus limit if the median is higher than the phosphorus limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the phosphorus limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the phosphorus limit, and the shaded confidence interval band in the plot above will be colored **\\textcolor{teal}{teal}**.")
   p(sprintf("***Data interpretation:*** %s", phos_exceedance_text))
-  
 }
 
 
@@ -197,7 +213,6 @@ if (has$thermistor) {
   p("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.")
   p("It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
   p(sprintf("***Data interpretation:*** Based on the maximum daily average water temperature of %s°C (%s°F), this is a %s stream.", signif(max_temp, 3), signif(c_to_f(max_temp), 3), stream_type))
-  
 }
 
 ```

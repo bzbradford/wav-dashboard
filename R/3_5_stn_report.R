@@ -47,20 +47,32 @@ stnReportServer <- function(cur_stn, has_focus) {
       avail_reports <- reactive({
         df <- stn_data()
         obs <- list(
+          # baseline = df$baseline %>%
+          #   count(year, name = "Baseline data<br>fieldwork events"),
           baseline = df$baseline %>%
-            count(year, name = "Baseline data<br>fieldwork events"),
+            summarize(
+              `Baseline<br>temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
+              `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
+              `Baseline<br>pH` = sum(!is.na(ph)),
+              `Baseline<br>conductivity` = sum(!is.na(specific_cond)),
+              `Baseline<br>transparency` = sum(!is.na(transparency)),
+              `Baseline<br>streamflow` = sum(!is.na(streamflow)),
+              .by = year
+            ),
           nutrient = df$nutrient %>%
-            count(year, name = "Nutrient monitoring<br>monthly observations"),
+            count(year, name = "Total<br>phosphorus"),
           thermistor = df$thermistor %>%
             count(year, date) %>%
-            count(year, name = "Temperature logger<br>days deployed")
+            count(year, name = "Continuous<br>temp. days")
         )
+
         tibble(year = avail_years()) %>%
           left_join(obs$baseline, join_by(year)) %>%
           left_join(obs$nutrient, join_by(year)) %>%
           left_join(obs$thermistor, join_by(year)) %>%
           mutate(year = as.character(year)) %>%
           rename(Year = year) %>%
+          mutate(across(where(is.numeric), ~ifelse(.x == 0, NA, .x))) %>%
           mutate(`Download<br>report` = lapply(Year, function(yr) {
             tags$button(
               HTML("<i class='fas fa-download'></i>"),
@@ -78,12 +90,13 @@ stnReportServer <- function(cur_stn, has_focus) {
       ## mainUI ----
       output$mainUI <- renderUI({
         tagList(
-          h4("Downloads for", cur_stn()$label, align = "center"),
+          h4("Station", cur_stn()$label, align = "center"),
+          tags$span(em("Station data summary:")),
           div(
             align = "center",
             class = "report-tbl",
             style = "overflow: auto;",
-            tableOutput(ns("avail_reports_tbl")) %>% withSpinnerProxy(),
+            dataTableOutput(ns("avail_reports_tbl")) %>% withSpinnerProxy(),
           ),
           div(
             style = "visibility: hidden; height: 0px;",
@@ -106,14 +119,28 @@ stnReportServer <- function(cur_stn, has_focus) {
       })
 
       ## avail_reports_tbl ----
-      output$avail_reports_tbl <- renderTable(
+      # output$avail_reports_tbl <- renderTable(
+      #   avail_reports(),
+      #   striped = T,
+      #   hover = T,
+      #   width = "100%",
+      #   align = "c",
+      #   na = "-",
+      #   sanitize.text.function = identity
+      # )
+
+      output$avail_reports_tbl <- renderDataTable(
         avail_reports(),
-        striped = T,
-        hover = T,
-        width = "100%",
-        align = "c",
-        na = "-",
-        sanitize.text.function = identity
+        selection = "none", rownames = F, filter = "none",
+        extensions = "FixedColumns",
+        options = list(
+          paging = F, searching = F, info = F, sort = F,
+          fixedColumns = list(leftColumns = 1, rightColumns = 1),
+          columnDefs = list(
+            list(targets = "_all", className = "dt-center", defaultContent = "-")
+          )
+        ),
+        escape = F
       )
 
 

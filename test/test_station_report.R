@@ -86,52 +86,79 @@ test_baseline <- test_baseline_ph %>%
   filter(station_id == test_stn$station_id) %>%
   filter(year == max(year))
 
-hist(test_baseline_ph$ph)
-summary(test_baseline_ph$ph)
 
-test_baseline_ph %>%
-  filter(ph > 14) %>%
-  select(ph)
 
+
+# hist(test_baseline_ph$ph)
+# summary(test_baseline_ph$ph)
+#
+# test_baseline_ph %>%
+#   filter(ph > 14) %>%
+#   select(ph)
+#
+ph_colors <- c("#FF0000", "#FFA500", "#FFFF00", "#008000", "#9999ff", "#000066")
+ph_colors <- c("#ff4331", "#ffd43a", "#00b82b", "#0099f7", "#844cbf")
 
 df <- test_baseline %>%
   select(date, ph) %>%
   drop_na(ph) %>%
-  mutate(ph_diff = ph - 7)
-
-ph_colors <- c("#FF0000", "#FFA500", "#FFFF00", "#008000", "#9999ff", "#000066")
-ph_colors <- c("#ff4331", "#ffd43a", "#00b82b", "#0099f7", "#844cbf")
-
-test_baseline %>%
-  select(date, ph) %>%
-  drop_na(ph) %>%
   mutate(ph_diff = ph - 7) %>%
-  ggplot(aes(x = date, y = ph_diff)) +
-  geom_hline(yintercept = 0, color = "black") +
-  geom_col(
-    aes(fill = ph),
+  mutate(width = as.numeric(lead(date) - date)) %>%
+  mutate(across(width, ~if_else(is.na(.x) | .x > 15, 15, .x)))
+
+ylims <- setAxisLimits(df$ph_diff, -1, 1)
+ybreaks <- seq(round(ylims[1]), round(ylims[2]), by = .5)
+ylabs <- ybreaks + 7
+
+ph_labels <- tibble(
+  x = as.Date(Inf),
+  y = c(6, 7.5, 9),
+  label = c(
+    "Minimum water quality\nstandard (pH 6.0)",
+    "Optimal pH for fish\n(pH 7.5)",
+    "Maximum water quality\nstandard (pH 9.0) "
+  )
+)
+
+df %>%
+  ggplot(aes(x = date, y = ph)) +
+  addRectDate(-Inf, 6, "orange") +
+  addRectDate(6, 9, "chartreuse") +
+  addRectDate(9, Inf, "purple") +
+  geom_hline(yintercept = 6, color = alpha("orange", .25)) +
+  geom_hline(yintercept = 7.5, linetype = "dashed") +
+  geom_hline(yintercept = 9, color = alpha("purple", .25)) +
+  geom_point(
+    aes(fill = ph_diff),
+    shape = 23,
     color = "black",
-    width = 15) +
-  geom_text(aes(label = round(ph, 1), vjust = -sign(ph_diff)), size = 3.5) +
+    size = 10) +
+  ggrepel::geom_text_repel(
+    aes(label = round(ph, 1)),
+    nudge_y = .25,
+    size = 3.5,
+    min.segment.length = unit(0, "lines"),
+    seed = 1) +
+  ggrepel::geom_text_repel(
+    data = ph_labels,
+    aes(x, y, label = label),
+    size = 3,
+    seed = 1) +
+  scale_x_date(
+    limits = setReportDateRange(df$date, pad_right = T),
+    breaks = "months",
+    date_labels = "%b\n%Y") +
   scale_y_continuous(
-    limits = c(-2, 3),
-    breaks = seq(-2, 3, .5),
-    labels = seq(-2, 3, .5) + 7,
+    limits = setAxisLimits(df$ph, 6, 9),
+    breaks = scales::pretty_breaks(),
     expand = expansion()) +
-  scale_fill_gradientn(
-    colors = ph_colors,
-    limits = c(0, 14),
-    breaks = seq(1, 14, 2)
-    # limits = c(-2, 3),
-    # breaks = 5:10 - 7,
-    # labels = 5:10
-    ) +
-  labs(x = NULL, y = "<= Acidic      pH      Basic =>") +
-  theme_classic()
-# +
-#   theme(legend.position = "none")
-
-
+  scale_fill_gradient2(
+    low = "orange",
+    mid = "#00b82b",
+    high = "purple") +
+  labs(x = NULL, y = "pH") +
+  theme_classic() +
+  theme(legend.position = "none", panel.grid.major.x = element_line())
 
 
 
@@ -147,10 +174,11 @@ test_baseline %>%
     `Water temp (°F)` = "water_temp_f"
   ))
 
-makeReportPlots(test_baseline, type = "temp")
-makeReportPlots(test_baseline, type = "do")
-makeReportPlots(test_baseline, type = "trans")
-makeReportPlots(test_baseline, type = "flow")
+makeReportPlots(test_baseline, "temp")
+makeReportPlots(test_baseline, "do")
+makeReportPlots(test_baseline, "trans")
+makeReportPlots(test_baseline, "ph")
+makeReportPlots(test_baseline, "flow")
 
 
 
@@ -389,6 +417,16 @@ gridExtra::grid.arrange(plt1, plt2, nrow = 1)
 
 
 baseline_data %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  summarize(
+    `Baseline temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
+    `Baseline DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
+    `Baseline pH` = sum(!is.na(ph)),
+    `Baseline conductivity` = sum(!is.na(specific_cond)),
+    `Baseline transparency` = sum(!is.na(transparency)),
+    `Baseline streamflow` = sum(!is.na(streamflow)),
+    .by = year
+  )
 
 
 

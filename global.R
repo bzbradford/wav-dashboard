@@ -4,28 +4,29 @@
 
 suppressMessages({
   # core
-  library(tidyverse)
-  library(lubridate)
-  library(janitor)
-  library(sf)
   library(rlang)
-  library(markdown)
-  library(glue)
-  library(knitr)
+  library(sf) # spatial
+  library(markdown) # includeMarkdown
+  library(tidyverse) # core
+  library(lubridate) # date functions
+  library(janitor) # name cleaning
+  library(glue) # string interpolation
 
   # shiny
   library(shiny)
-  library(shinyBS)
-  library(shinyjs)
-  library(shinythemes)
-  library(shinyWidgets)
-  library(htmltools)
-  library(shinycssloaders)
+  library(shinyBS) # bscollapse
+  library(shinyjs) # javascript
+  library(shinythemes) # theme
+  library(shinyWidgets) #
+  library(htmltools) #
+  library(shinycssloaders) # loading spinner
 
-  # display
-  library(DT)
-  library(leaflet)
-  library(leaflet.extras)
-  library(plotly)
-  library(RColorBrewer)
+  # interactive
+  library(DT) # data tables
+  library(leaflet) # map
+  library(leaflet.extras) # map JS buttons
+  library(plotly) # plots
+
+  # reports
+  library(knitr)
 })

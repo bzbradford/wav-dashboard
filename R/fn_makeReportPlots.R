@@ -1,14 +1,14 @@
 makeReportPlots <- function(df, type) {
   try({
 
-    date_limits <- get_report_date_range(df$date)
-    date_scale <- scale_x_date(
-      breaks = "months",
-      limits = date_limits,
-      oob = scales::oob_keep,
-      date_labels = "%b\n%Y")
+    # Shared ----
+    common_theme <- theme_classic() +
+      theme(panel.grid.major.x = element_line(), legend.position = "none")
+
+
 
     # Temperature ----
+
     if (type == "temp") {
       df <- df %>%
         select(date, Air = air_temp, Water = water_temp,) %>%
@@ -16,32 +16,52 @@ makeReportPlots <- function(df, type) {
         pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_c") %>%
         mutate(label = paste0(temp_c, "°C\n(", c_to_f(temp_c), "°F)"))
 
+      temp_labels <- tibble(
+        x = as.Date(Inf),
+        y = c(22.2, 25),
+        label = c(
+          "Cold-cool transition\n(22.2°C / 72°F)",
+          "Cool-warm transition\n(25°C / 77°F)"
+        )
+      )
+
       plt <- df %>%
         ggplot(aes(x = date, y = temp_c)) +
-        geom_line(aes(color = measure), linewidth = 1.5) +
+        addRectDate(-Inf, 22.2, "blue") +
+        addRectDate(22.2, 25, "cornflowerblue") +
+        addRectDate(25, Inf, "darkorange") +
+        { if (n_distinct(df$date) > 1) geom_line(aes(color = measure), linewidth = 1.5) } +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
         ggrepel::geom_text_repel(
           aes(label = label),
           size = 3.5,
           box.padding = unit(.5, "lines"),
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        date_scale +
+          min.segment.length = unit(0, "lines")) +
+        ggrepel::geom_text_repel(
+          data = temp_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
+        scale_x_date(
+          breaks = "months",
+          limits = setReportDateRange(df$date, pad_right = T),
+          date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = c(0, find_max(df$temp_c, 30)),
+          limits = setAxisLimits(df$temp_c, 15, 25),
           breaks = scales::pretty_breaks(),
           labels = ~sprintf("%s°C\n(%s°F)", .x, c_to_f(.x)),
           expand = expansion()) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
         labs(x = NULL, y = "Temperature", fill = "Measurement", color = "Measurement") +
-        theme_classic() +
+        common_theme +
         theme(legend.position = "top")
 
       return(plt)
     }
 
+
     # Dissolved oxygen ----
+
     if (type == "do") {
       df <- df %>%
         select(date, d_o, do_sat = d_o_percent_saturation) %>%
@@ -51,28 +71,110 @@ makeReportPlots <- function(df, type) {
           sat_label = if_else(is.na(do_sat), "", paste0("\n(", do_sat, "% sat)")),
           label = paste0(d_o, " mg/L", sat_label))
 
+      do_labels <- tibble(
+        x = as.Date(Inf),
+        y = c(1, 3, 5, 7),
+        label = c(
+          "Aquatic life\nminimum (1 mg/L)",
+          "Forage fish\nminimum (3 mg/L)",
+          "Minimum for\nmost fish (5 mg/L)",
+          "Trout spawning\n(7 mg/L)"
+        )
+      )
+
       plt <- df %>%
         ggplot(aes(x = date, y = d_o)) +
+        addRectDate(-Inf, 1, "red") +
+        addRectDate(1, 3, "orange") +
+        addRectDate(3, 5, "yellow") +
+        addRectDate(5, 7, "lightblue") +
+        addRectDate(7, Inf, "blue") +
         geom_col(aes(fill = do_color), color = "black", width = 15) +
         ggrepel::geom_text_repel(
           aes(label = label),
           size = 3.5,
           nudge_y = .25,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        date_scale +
+          min.segment.length = unit(0, "lines")) +
+        ggrepel::geom_text_repel(
+          data = do_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
+        scale_x_date(
+          breaks = "months",
+          limits = setReportDateRange(df$date, pad_right = T),
+          date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = c(0, find_max(df$d_o, 10)),
+          limits = setAxisLimits(df$d_o, 0, 10),
           breaks = scales::pretty_breaks(),
           expand = expansion()) +
         scale_fill_identity() +
         labs(x = NULL, y = "Dissolved oxygen (mg/L)") +
-        theme_classic()
+        common_theme
 
       return(plt)
     }
 
+
+    # pH ----
+
+    if (type == "ph") {
+      df <- df %>%
+        select(date, ph) %>%
+        drop_na(ph) %>%
+        mutate(ph_diff = ph - 7)
+
+      ph_labels <- tibble(
+        x = as.Date(Inf),
+        y = c(6, 7.5, 9),
+        label = c(
+          "Minimum water quality\nstandard (pH 6.0)",
+          "Optimal for fish\n(pH 7.5)",
+          "Maximum water quality\nstandard (pH 9.0) "
+        )
+      )
+
+      plt <- df %>%
+        ggplot(aes(x = date, y = ph)) +
+        addRectDate(-Inf, 6, "orange") +
+        addRectDate(6, 9, "chartreuse") +
+        addRectDate(9, Inf, "purple") +
+        geom_hline(yintercept = 7.5, linetype = "dashed") +
+        geom_point(
+          aes(fill = ph_diff),
+          shape = 23,
+          color = "black",
+          size = 10) +
+        ggrepel::geom_text_repel(
+          aes(label = round(ph, 1)),
+          nudge_y = .35,
+          size = 3.5,
+          min.segment.length = unit(0, "lines")) +
+        ggrepel::geom_text_repel(
+          data = ph_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
+        scale_x_date(
+          limits = setReportDateRange(df$date, pad_right = T),
+          breaks = "months",
+          date_labels = "%b\n%Y") +
+        scale_y_continuous(
+          limits = setAxisLimits(df$ph, 6, 9),
+          breaks = scales::pretty_breaks(),
+          expand = expansion()) +
+        scale_fill_gradient2(
+          low = "#ffd43a",
+          mid = "#00b82b",
+          high = "#0099f7",
+          limits = setAxisLimits(df$ph_diff, -2, 3)) +
+        labs(x = NULL, y = "pH") +
+        common_theme
+
+      return(plt)
+    }
+
+
     # Transparency ----
+
     if (type == "trans") {
       df <- df %>%
         select(date, trans = transparency, tube = transparency_tube_length) %>%
@@ -87,22 +189,25 @@ makeReportPlots <- function(df, type) {
           aes(label = label),
           size = 3.5,
           nudge_y = 1,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        date_scale +
+          min.segment.length = unit(0, "lines")) +
+        scale_x_date(
+          breaks = "months",
+          limits = setReportDateRange(df$date),
+          date_labels = "%b\n%Y") +
         scale_y_continuous(
+          limits = setAxisLimits(df$trans, 0, 120),
           breaks = seq(0, 120, 20),
-          limits = c(0, find_max(df$trans, 120)),
           expand = expansion()) +
         scale_fill_distiller(palette = "BuGn", limits = c(0, 120)) +
         labs(x = NULL, y = "Transparency (cm)") +
-        theme_classic() +
-        theme(legend.position = "none")
+        common_theme
 
       return(plt)
     }
 
+
     # Streamflow ----
+
     if (type == "flow") {
       df <- df %>%
         select(date, flow = streamflow) %>%
@@ -117,21 +222,25 @@ makeReportPlots <- function(df, type) {
           aes(label = label),
           size = 3.5,
           nudge_y = max(df$flow) / 20,
-          min.segment.length = unit(0, "lines"),
-          seed = 1) +
-        date_scale +
+          min.segment.length = unit(0, "lines")) +
+        scale_x_date(
+          breaks = "months",
+          limits = setReportDateRange(df$date),
+          date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = c(0, find_max(df$flow, 5)),
+          limits = setAxisLimits(df$flow, 0, 5),
           breaks = scales::pretty_breaks(),
           expand = expansion()) +
         labs(x = NULL, y = "Streamflow (cfs)") +
-        theme_classic() +
+        common_theme +
         theme(legend.position = "none")
 
       return(plt)
     }
 
+
     # Total phosphorus ----
+
     if (type == "nutrient") {
       dates <- df$date
       yr <- lubridate::year(dates[1])
@@ -176,21 +285,19 @@ makeReportPlots <- function(df, type) {
             size = 3,
             nudge_x = 1,
             box.padding = unit(.5, "lines"),
-            min.segment.length = unit(0, "lines"),
-            seed = 1
+            min.segment.length = unit(0, "lines")
           )
         } +
         ggrepel::geom_text_repel(
           aes(label = label),
           size = 3,
-          nudge_y = .001,
-          seed = 1) +
+          nudge_y = .001) +
         scale_x_date(
           breaks = dates,
           limits = c(dates[1] - 15, eoy_date + 15),
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = c(0, find_max(df$tp, .2)),
+          limits = setAxisLimits(df$tp, 0, .2),
           breaks = scales::pretty_breaks(),
           expand = expansion()) +
         scale_fill_manual(
@@ -198,11 +305,14 @@ makeReportPlots <- function(df, type) {
           values = c("#ff8e68", "#52c2a6"),
           labels = c("Yes", "No")) +
         labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L limit?") +
-        theme_classic() +
+        common_theme +
         theme(legend.position = "bottom")
 
       return(plt)
     }
+
+
+    # Thermistor ----
 
     if (type == "thermistor") {
       daily_min <- df %>%
@@ -219,18 +329,9 @@ makeReportPlots <- function(df, type) {
         mutate(mean = (min + max) / 2) %>%
         na.omit()
 
-      add_rect <- function(ymin, ymax, color) {
-        annotate("rect",
-          xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
-          ymin = ymin, ymax = ymax, fill = color,
-          alpha = .08
-        )
-      }
-
-      transition_labels <- tibble(
+      temp_labels <- tibble(
         x = as.POSIXct(Inf),
         y = c(22.2, 25),
-        label.size = 2,
         label = c(
           "Cold-cool transition\n(22.2°C / 72°F)",
           "Cool-warm transition\n(25°C / 77°F)"
@@ -239,11 +340,9 @@ makeReportPlots <- function(df, type) {
 
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
-        add_rect(-Inf, 22.2, "blue") +
-        add_rect(22.2, 25, "cornflowerblue") +
-        add_rect(25, Inf, "darkorange") +
-        geom_hline(yintercept = 22.2, color = alpha("blue", .25)) +
-        geom_hline(yintercept = 25, color = alpha("cornflowerblue", .25)) +
+        addRectDatetime(-Inf, 22.2, "blue") +
+        addRectDatetime(22.2, 25, "cornflowerblue") +
+        addRectDatetime(25, Inf, "darkorange") +
         geom_ribbon(
           aes(ymin = min, ymax = max),
           color = NA, fill = alpha("lightblue", .1)) +
@@ -260,10 +359,9 @@ makeReportPlots <- function(df, type) {
           color = "orange",
           linewidth = 1) +
         ggrepel::geom_text_repel(
-          data = transition_labels,
+          data = temp_labels,
           aes(x, y, label = label),
-          size = 2.5,
-          seed = 1) +
+          size = 2.5) +
         scale_x_datetime(
           breaks = "weeks",
           date_labels = "%b %d") +
@@ -271,7 +369,7 @@ makeReportPlots <- function(df, type) {
           breaks = scales::pretty_breaks(),
           labels = ~sprintf("%s°C\n(%s°F)", .x, c_to_f(.x))) +
         labs(x = NULL, y = "Water temperature") +
-        theme_classic() +
+        common_theme +
         theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
       return(plt)

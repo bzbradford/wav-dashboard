@@ -77,6 +77,14 @@ f_to_c <- function(f, d = 1) {
   round((f - 32) * 5.0 / 9.0, d)
 }
 
+clamp <- function(x, lower = x, upper = x) {
+  if_else(
+    is.na(x) | is.null(x), x,
+    if_else(x < lower, lower,
+      if_else(x > upper, upper, x)))
+}
+
+
 
 ## HTML / JS ----
 
@@ -106,8 +114,9 @@ withSpinnerProxy <- function(ui, ...) {
 }
 
 
-## Plotly helpers ----
+## Plot helpers ----
 
+# plotly horizontal line annotation
 hline <- function(y = 0, color = "black") {
   list(
     type = "line",
@@ -120,6 +129,7 @@ hline <- function(y = 0, color = "black") {
   )
 }
 
+# plotly rectanglular annotation
 rect <- function(ymin, ymax, color = "red") {
   list(
     type = "rect",
@@ -133,6 +143,67 @@ rect <- function(ymin, ymax, color = "red") {
     x1 = 1,
     layer = "below"
   )
+}
+
+# get the min and max of a vector for plotly axis ranges
+min_max <- function(v) {
+  possibly(
+    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(NA, NA))
+  )
+}
+
+# get the color for the dissolved oxygen bars on the baseline plotly
+do_color <- function(do) {
+  i <- min(max(round(do), 1), 11)
+  RColorBrewer::brewer.pal(11, "RdBu")[i]
+}
+
+find_max <- function(vals, min_val) {
+  vals <- na.omit(vals)
+  if (length(vals) == 0) return(min_val)
+  # ceiling(max(min_val, max(vals)) * 1.1)
+  max(min_val, max(vals)) * 1.1
+}
+
+# used for x axis in plots
+setReportDateRange <- function(dates, pad_right = FALSE) {
+  yr <- format(dates[1], "%Y")
+  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
+  lims <- c(
+    min(dates - 10, default_range[1]),
+    max(dates + 10, default_range[2])
+  )
+  if (pad_right) lims[2] <- lims[2] + 30
+  lims
+}
+
+setAxisLimits <- function(vals, lower, upper) {
+  lims <- c(
+    min(vals, lower, na.rm = T),
+    max(vals, upper, na.rm = T)
+  )
+  lims + abs(lims) * c(-.1, .1)
+}
+
+addRectDate <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.Date(-Inf), xmax = as.Date(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax))
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+  gg
+}
+
+addRectDatetime <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax))
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+  gg
 }
 
 
@@ -156,28 +227,11 @@ year_choices <- function(years) {
   }
 }
 
-# get the min and max of a vector for plotly axis ranges
-min_max <- function(v) {
-  possibly(
-    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
-    return(c(NA, NA))
-  )
-}
+
 
 ## Baseline tab ----
 
-do_color <- function(do) {
-  i <- min(max(round(do), 1), 11)
-  brewer.pal(11, "RdBu")[i]
-}
-
-find_max <- function(vals, min_val) {
-  vals <- na.omit(vals)
-  if (length(vals) == 0) return(min_val)
-  # ceiling(max(min_val, max(vals)) * 1.1)
-  max(min_val, max(vals)) * 1.1
-}
-
+# for constructing the baseline summary table
 make_min_max <- function(df, var) {
   v <- df[[var]]
   if (length(v) == 0) return(tibble())
@@ -220,9 +274,11 @@ getPhosEstimate <- function(vals) {
   params
 }
 
-#' @param median median of phosphorus observations
-#' @param lower lower confidence limit
-#' @param upper upper confidence limit
+#' @param vals
+#'   `n` number of observations
+#'   `median` median value
+#'   `lower` lower confidence limit
+#'   `upper` upper confidence limit
 #' @param limit state phosphorus exceedance limit
 getPhosExceedanceText <- function(vals, limit = phoslimit) {
   median <- vals$median
@@ -332,16 +388,6 @@ buildWatershedInfo <- function(stn) {
 
 ## Reports ----
 
-# used for x axis in plots
-get_report_date_range <- function(dates) {
-  yr <- format(dates[1], "%Y")
-  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
-  c(
-    min(dates - 10, default_range[1]),
-    max(dates + 10, default_range[2])
-  )
-}
-
 # creates a paragraph of text describing the data
 buildReportSummary <- function(params) {
   yr <- params$year
@@ -440,25 +486,6 @@ makeReportStreamflowTable <- function(baseline) {
       `Flow method` = flow_method_used
     )
 }
-
-
-# summary table
-# makeReportFieldworkTable <- function(baseline) {
-#   baseline %>%
-#     mutate(
-#       fsn = as.character(fieldwork_seq_no),
-#       comments = paste(fieldwork_comments, additional_comments, sep = ". "),
-#       comments = gsub("..", ".", comments, fixed = T),
-#       comments = str_wrap(comments, width = 50)) %>%
-#     select(
-#       `Date` = date,
-#       `Fieldwork ID` = fsn,
-#       `Group name(s)` = group_desc,
-#       `Weather conditions` = weather_conditions,
-#       `Weather last 2 days` = weather_last_2_days,
-#       `Fieldwork comments` = comments
-#     )
-# }
 
 # creates some paragraphs with fieldwork details for the report
 buildReportFieldworkComments <- function(baseline) {
