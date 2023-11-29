@@ -4,7 +4,7 @@
 
 suppressMessages({
   # core
-  library(rlang)
+  library(rlang) # walrus operator
   library(sf) # spatial
   library(markdown) # includeMarkdown
   library(tidyverse) # core
@@ -17,9 +17,9 @@ suppressMessages({
   library(shinyBS) # bscollapse
   library(shinyjs) # javascript
   library(shinythemes) # theme
-  library(shinyWidgets) #
-  library(htmltools) #
-  library(shinycssloaders) # loading spinner
+  library(shinyWidgets) # radioGroupButtons
+  library(htmltools) # tagList
+  library(shinycssloaders) # withSpinner
 
   # interactive
   library(DT) # data tables

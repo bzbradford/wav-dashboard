@@ -1,0 +1,13 @@
+name: wav_dashboard_test
+title: WAV Dashboard (TEST)
+username: bbradford
+account: bbradford
+server: connect.doit.wisc.edu
+hostUrl: https://connect.doit.wisc.edu/__api__
+appId: 114
+bundleId: 330
+url: https://connect.doit.wisc.edu/content/fc283e0a-ebf3-4238-a5eb-1dddab8dca0a/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: .Rprofile|load.R|README.md|renv.lock|test/test.R|test/test_station_report.R|data

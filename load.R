@@ -399,7 +399,7 @@ buildReportSummary <- function(params) {
     thermistor = n_distinct(data$thermistor$date)
   )
 
-  baseline_count_cols <- list(
+  baseline_count_cols <- c(
     air_temp = "air temperature",
     water_temp = "water temperature",
     d_o = "dissolved oxygen",
@@ -415,38 +415,47 @@ buildReportSummary <- function(params) {
 
   has <- sapply(counts, function(n) { n > 0 }, simplify = F)
 
-  msg <- paste0("In ", yr, ", this station had ", counts$baseline, " baseline fieldwork events, ", counts$nutrient, " total phosphorus samples collected, and ", ifelse(has$thermistor, paste0("had a temperature logger deployed for ", counts$thermistor, "days."), "did not have a temperature logger deployed."))
+  msg <- paste0(
+    "This report covers monitoring data collected between Jan 1 and Dec 31, ", yr, " and includes ",
+    counts$baseline, " baseline water quality measurements, ",
+    counts$nutrient, " total phosphorus samples, and ",
+    counts$thermistor, " days of continuous water temperature logging."
+  )
 
   if (has$baseline) {
-    baseline_counts <- lapply(names(baseline_count_cols), function(col) {
-      count <- counts[[col]]
-      str <- paste(count, baseline_count_cols[[col]], "measurement")
-      ifelse(count == 1, str, paste0(str, "s"))
-    }) %>% knitr::combine_words()
+    baseline_counts <- data$baseline %>%
+      select(all_of(names(baseline_count_cols))) %>%
+      pivot_longer(everything()) %>%
+      summarize(count = sum(!is.na(value)), .by = name) %>%
+      filter(count != 0) %>%
+      left_join(enframe(baseline_count_cols), join_by(name)) %>%
+      summarize(text = combine_words(value), .by = count) %>%
+      arrange(desc(count)) %>%
+      mutate(text = paste(count, text, if_else(count == 1, "measurement", "measurements"))) %>%
+      pull(text) %>%
+      combine_words()
+
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
   }
 
   list(counts = counts, has = has, message = msg)
 }
 
-named_baseline_cols <- c(
+report_baseline_cols <- c(
   `Air temp (°C)` = "air_temp",
   `Water temp (°C)` = "water_temp",
-  `DO (mg/L)` = "d_o",
-  `DO % sat.` = "d_o_percent_saturation",
+  `D.O. (mg/L)` = "d_o",
+  `D.O. (% sat.)` = "d_o_percent_saturation",
   `pH` = "ph",
   `Transparency (cm)` = "transparency",
   `Streamflow (cfs)` = "streamflow"
 )
 
-# summary table
-makeReportBaselineTable <- function(baseline) {
-  baseline %>%
-    select(
-      `Date` = formatted_date,
-      all_of(named_baseline_cols)
-    )
-}
+report_streamflow_cols <- c(
+  `Stream width (ft)` = "stream_width",
+  `Average depth (ft)` = "average_stream_depth",
+  `Surface velocity (ft/s)` = "average_surface_velocity"
+)
 
 # min/max etc for data cols
 summarizeReportCols <- function(df, cols) {
@@ -466,14 +475,17 @@ summarizeReportCols <- function(df, cols) {
         ), .names = "{.fn}"),
       .by = Parameter) %>%
     mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    mutate(across(Min:SD, ~if_else(is.na(.x), NA, sprintf("%.1f", .x))))
+    # mutate(across(Min:SD, ~if_else(is.na(.x), NA, sprintf("%.1f", .x))))
+    mutate(across(Min:SD, ~if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
 }
 
-additional_streamflow_cols <- c(
-  `Stream width (ft)` = "stream_width",
-  `Average depth (ft)` = "average_stream_depth",
-  `Surface velocity (ft/s)` = "average_surface_velocity"
-)
+# summary table
+makeReportBaselineTable <- function(baseline) {
+  df <- baseline %>%
+    select(`Date` = formatted_date, all_of(report_baseline_cols))
+  names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
+  df
+}
 
 # summary table
 makeReportStreamflowTable <- function(baseline) {
@@ -481,7 +493,7 @@ makeReportStreamflowTable <- function(baseline) {
     mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
     select(
       `Date` = formatted_date,
-      all_of(additional_streamflow_cols),
+      all_of(report_streamflow_cols),
       `Streamflow (cfs)` = streamflow,
       `Flow method` = flow_method_used
     )
@@ -501,12 +513,12 @@ buildReportFieldworkComments <- function(baseline) {
     rowwise() %>%
     mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
     mutate(fieldwork_desc = glue(
-      "**{format(date, '%b %d, %Y')}** - ",
-      "Fieldwork #{fsn}.",
-      if_else(is.na(wx), "", " _Weather:_ {wx}."),
-      if_else(is.na(rec_wx), "", " _Weather past 2 days:_ {rec_wx}."),
-      if_else(nchar(comments) == 0, "", " _Fieldwork comments:_ {comments}."),
-      if_else(is.na(names), "", " _Submitted by:_ {names}.")
+      "* **{format(date, '%b %d, %Y')}** - ",
+      "SWIMS fieldwork number: {fsn}. ",
+      if_else(is.na(wx), "", " Weather: {wx}."),
+      if_else(is.na(rec_wx), "", " Weather past 2 days: {rec_wx}."),
+      if_else(nchar(comments) == 0, "", " Fieldwork comments: {comments}."),
+      if_else(is.na(names), "", " Submitted by: {names}.")
     )) %>%
     pull(fieldwork_desc) %>%
     gsub("..", ".", ., fixed = T)
@@ -570,6 +582,7 @@ huc10 <- readRDS("data/shp/huc10") %>%
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
   ))
+suppressWarnings({ huc10_centroids <- st_centroid(huc10) })
 huc12 <- readRDS("data/shp/huc12") %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",

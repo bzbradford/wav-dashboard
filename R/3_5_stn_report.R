@@ -37,41 +37,32 @@ stnReportServer <- function(cur_stn, has_focus) {
         )
       })
 
-      ## avail_years ----
-      avail_years <- reactive({
-        req(cur_stn())
-        as.numeric(unlist(filter(all_coverage, station_id == cur_stn()$station_id)$data_year_list))
-      })
-
       ## avail_reports ----
       avail_reports <- reactive({
         df <- stn_data()
-        obs <- list(
-          # baseline = df$baseline %>%
-          #   count(year, name = "Baseline data<br>fieldwork events"),
-          baseline = df$baseline %>%
-            summarize(
-              `Baseline<br>temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
-              `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
-              `Baseline<br>pH` = sum(!is.na(ph)),
-              `Baseline<br>conductivity` = sum(!is.na(specific_cond)),
-              `Baseline<br>transparency` = sum(!is.na(transparency)),
-              `Baseline<br>streamflow` = sum(!is.na(streamflow)),
-              .by = year
-            ),
-          nutrient = df$nutrient %>%
-            count(year, name = "Total<br>phosphorus"),
-          thermistor = df$thermistor %>%
-            count(year, date) %>%
-            count(year, name = "Continuous<br>temp. days")
-        )
+        baseline_obs <- df$baseline %>%
+          summarize(
+            `Baseline<br>temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
+            `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
+            `Baseline<br>pH` = sum(!is.na(ph)),
+            `Baseline<br>conductivity` = sum(!is.na(specific_cond)),
+            `Baseline<br>transparency` = sum(!is.na(transparency)),
+            `Baseline<br>streamflow` = sum(!is.na(streamflow)),
+            .by = year
+          )
+        nutrient_obs <- df$nutrient %>%
+          count(year, name = "Total<br>phosphorus")
+        therm_obs <- df$thermistor %>%
+          count(year, date) %>%
+          count(year, name = "Continuous<br>temp. days")
+        years <- sort(unique(c(baseline_obs$year, nutrient_obs$year, therm_obs$year)))
 
-        tibble(year = avail_years()) %>%
-          left_join(obs$baseline, join_by(year)) %>%
-          left_join(obs$nutrient, join_by(year)) %>%
-          left_join(obs$thermistor, join_by(year)) %>%
-          mutate(year = as.character(year)) %>%
+        tibble(year = years) %>%
+          left_join(baseline_obs, join_by(year)) %>%
+          left_join(nutrient_obs, join_by(year)) %>%
+          left_join(therm_obs, join_by(year)) %>%
           rename(Year = year) %>%
+          mutate(Year = as.character(Year)) %>%
           mutate(across(where(is.numeric), ~ifelse(.x == 0, NA, .x))) %>%
           mutate(`Download<br>report` = lapply(Year, function(yr) {
             tags$button(
