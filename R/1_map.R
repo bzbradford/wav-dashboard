@@ -225,15 +225,15 @@ mapServer <- function(cur_stn, main_session) {
 
       layers <- list(
         counties = "Counties/Regions",
-        nkes = paste0("NKE Plans"),
-        huc8 = paste0("HUC8 Subbasins"),
-        huc10 = paste0("HUC10 Watersheds"),
-        huc12 = paste0("HUC12 Subwatersheds"),
-        stations = paste0("Monitoring stations"),
+        nkes = "NKE Plans",
+        huc8 = "HUC8 Subbasins",
+        huc10 = "HUC10 Watersheds",
+        huc12 = "HUC12 Subwatersheds",
+        stations = "Monitoring stations",
         pins = "Station clusters (groups and pins)"
       )
 
-      hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$pins)
+      hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$dnr_wsheds, layers$pins)
 
 
       # Render initial map ----
@@ -302,7 +302,7 @@ mapServer <- function(cur_stn, main_session) {
           addPolygons(
             data = counties,
             group = layers$counties,
-            label = ~ lapply(paste0("<b>", CountyNam, " County</b><br>", DnrRegion), HTML),
+            label = ~ lapply(paste0("<b>", CountyName, " County</b><br>", DnrRegion), HTML),
             fillOpacity = 0.1,
             color = "grey",
             opacity = 0.5,
@@ -333,13 +333,8 @@ mapServer <- function(cur_stn, main_session) {
               fillColor = "blue",
               fillOpacity = 0.1,
               options = pathOptions(pane = "nkes"),
-              labelOptions = labelOptions(style = list("width" = "300px", "white-space" = "normal"))
-            )
-        })
-
-        # HUC8
-        delay(1100, {
-          map %>%
+              labelOptions = labelOptions(
+                style = list("width" = "300px", "white-space" = "normal"))) %>%
             addPolygons(
               data = huc8,
               group = layers$huc8,
@@ -350,13 +345,7 @@ mapServer <- function(cur_stn, main_session) {
               opacity = .25,
               fillColor = fill_color,
               fillOpacity = 0.15,
-              options = pathOptions(pane = "huc8")
-            )
-        })
-
-        # HUC10
-        delay(1200, {
-          map %>%
+              options = pathOptions(pane = "huc8")) %>%
             addPolygons(
               data = huc10,
               group = layers$huc10,
@@ -367,14 +356,7 @@ mapServer <- function(cur_stn, main_session) {
               opacity = .25,
               fillColor = fill_color,
               fillOpacity = .1,
-              options = pathOptions(pane = "huc10")
-            )
-        })
-
-
-        # HUC12
-        delay(1300, {
-          map %>%
+              options = pathOptions(pane = "huc10")) %>%
             addPolygons(
               data = huc12,
               group = layers$huc12,
@@ -385,8 +367,7 @@ mapServer <- function(cur_stn, main_session) {
               opacity = .25,
               fillColor = fill_color,
               fillOpacity = 0.05,
-              options = pathOptions(pane = "huc12")
-            )
+              options = pathOptions(pane = "huc12"))
         })
       })
 

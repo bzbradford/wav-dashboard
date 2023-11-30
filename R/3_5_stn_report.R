@@ -172,8 +172,8 @@ stnReportServer <- function(cur_stn, has_focus) {
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
             temp_rmd <- file.path(temp_dir, "report.Rmd")
             temp_hdr <- file.path(temp_dir, "header.png")
-            file.copy("md/station_report.Rmd", temp_rmd, overwrite = T)
-            file.copy("md/report-header.png", temp_hdr)
+            file.copy("report/station_report.Rmd", temp_rmd, overwrite = T)
+            file.copy("report/header.png", temp_hdr, overwrite = T)
             rmarkdown::render(
               input = temp_rmd,
               output_file = final_out,

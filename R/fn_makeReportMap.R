@@ -9,7 +9,7 @@ makeReportMap <- function(stn) {
 
     crop_counties <- st_crop(counties, bbox)
     crop_wsheds <- st_crop(huc10, bbox)
-    crop_wshed_centroids <- st_crop(huc10_centroids, bbox)
+    # crop_wsheds <- st_crop(dnr_watersheds, bbox)
     crop_wshed_labels <- crop_wsheds %>%
       st_centroid(of_largest_polygon = T) %>%
       mutate(label = str_wrap(paste(Huc10Name, "Watershed"), 25))
@@ -19,7 +19,7 @@ makeReportMap <- function(stn) {
       geom_sf(data = counties) +
       geom_sf_text(
         data = counties,
-        aes(label = CountyNam),
+        aes(label = CountyName),
         size = 1.5,
         alpha = .5,
         angle = 15,
@@ -29,7 +29,8 @@ makeReportMap <- function(stn) {
         fill = NA,
         color = "#c5050c") +
       geom_sf(data = stn, fill = "red", size = 4, shape = 24) +
-      theme_void()
+      theme_void() +
+      theme(legend.position = "none")
 
     plt2 <- ggplot() +
       geom_sf(data = crop_counties, color = NA) +

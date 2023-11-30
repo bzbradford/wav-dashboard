@@ -15,11 +15,11 @@ makeReportPlots <- function(df, type) {
     # Temperature ----
 
     if (type == "temp") {
+      # assumes temperatures are passed in as F
       df <- df %>%
         select(date, Air = air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
-        pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_c") %>%
-        mutate(temp_f = c_to_f(temp_c)) %>%
+        pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_f") %>%
         mutate(label = paste0(temp_f, "°F")) %>%
         mutate(measure = paste(measure, "temperature"))
 
@@ -223,7 +223,7 @@ makeReportPlots <- function(df, type) {
 
       plt <- df %>%
         ggplot(aes(x = date, y = flow)) +
-        geom_line(color = "cadetblue", linewidth = 2) +
+        { if (n_distinct(df$date) > 1) geom_line(color = "cadetblue", linewidth = 2) } +
         geom_point(color = "black", fill = "cadetblue", shape = 21, size = 4) +
         ggrepel::geom_text_repel(
           aes(label = label),

@@ -45,6 +45,12 @@ baseline %>%
   mutate(text = paste(text, if_else(count == 1, "measurement", "measurements")))
 
 
+baseline %>%
+  mutate(formatted_date = date) %>%
+  makeReportBaselineTable()
+
+
+
 # Station map -------------------------------------------------------------
 
 all_pts %>%
@@ -82,6 +88,12 @@ makeReportPlots(test_baseline, "do")
 makeReportPlots(test_baseline, "trans")
 makeReportPlots(test_baseline, "ph")
 makeReportPlots(test_baseline, "flow")
+
+
+baseline_data %>%
+  filter(station_id == 10033880, year == 2023) %>%
+  mutate(across(c(air_temp, water_temp), c_to_f)) %>%
+  makeReportPlots("temp")
 
 
 

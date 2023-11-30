@@ -3,7 +3,7 @@
 #' @requires
 #'  `rect()` creates a plotly rectangle annotation
 #' @param df data frame containing nutrient data
-#' @param phoslimit number representing the state phosphorus threshold, eg 0.075 ppm
+#' @param phoslimit number representing the state phosphorus threshold, eg 0.075 mg/L
 #' @param phos_estimate list with `n` observations and `lower` `upper` and `median` confidence interval values
 makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
   require(dplyr)
@@ -35,7 +35,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
 
   # no confidence invervals if only one month of data
   if (phos_estimate$n > 1) {
-    ci_color <- ifelse(phos_estimate$upper >= phoslimit, "red", "teal")
+    ci_color <- ifelse(phos_estimate$lower >= phoslimit, "red", "teal")
 
     plt <- plot_ly(phos_params) %>%
       add_lines(
@@ -45,7 +45,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         xperiod = "M1",
         xperiodalignment = "middle",
         opacity = 0.75,
-        line = list(color = "black", dash = "dash", width = 1.5)) %>%
+        line = list(color = "red", width = 2)) %>%
       add_lines(
         x = ~date,
         y = ~lower,
@@ -61,7 +61,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         xperiod = "M1",
         xperiodalignment = "middle",
         opacity = 0.5,
-        line = list(color = "darkblue", width = 2)) %>%
+        line = list(color = "black", dash = "dash", width = 1.5)) %>%
       add_lines(
         x = ~date,
         y = ~upper,
@@ -97,7 +97,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
           color = "rgb(8,48,107)",
           width = 1)),
       textfont = list(color = "black"),
-      hovertemplate = "Measured TP: %{y:.3f} ppm<extra></extra>") %>%
+      hovertemplate = "Measured TP: %{y:.3f} mg/L<extra></extra>") %>%
     layout(
       title = "Total Phosphorus",
       xaxis = list(
@@ -109,7 +109,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         range = date_range),
       yaxis = list(
         title = "Total phosphorus",
-        ticksuffix = " ppm",
+        ticksuffix = " mg/L",
         zerolinecolor = "lightgrey",
         range = yrange),
       legend = list(

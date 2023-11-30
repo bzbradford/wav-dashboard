@@ -29,7 +29,9 @@ stn <- params$stn
 safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
   str_to_title()
 
+# convert temperatures from C to F
 baseline <- params$data$baseline %>%
+  mutate(across(c(air_temp, water_temp), c_to_f)) %>%
   mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
   mutate(across(where(is.character), xtable::sanitize))
 nutrient <- params$data$nutrient
@@ -44,7 +46,7 @@ has <- report_summary$has
 \setlength{\headheight}{14pt}
 \lhead{Station `r str_trunc(safe_label, 65)`}
 \rhead{`r params$year` Fieldwork Report}
-\lfoot{\url{https://wateractionvolunteers.org}}
+\lfoot{\url{wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
 
@@ -60,13 +62,14 @@ makeReportMap(stn)
 
 ## Station information
 
-Location: `r stn$latitude`, `r stn$longitude`\
-County: `r stn$county_name` (`r stn$dnr_region`)\
+SWIMS Station ID: `r stn$station_id`\
+GPS Location: `r stn$latitude`, `r stn$longitude`\
+County: `r stn$county_name`\
 Waterbody: `r stn$waterbody` (WBIC: `r stn$wbic`)\
-HUC12 Subwatershed: `r stn$sub_watershed` (`r stn$huc12`)\
-HUC10 Watershed: `r stn$watershed` (`r stn$huc10`)\
-DNR Watershed: `r stn$dnr_watershed_name` (`r stn$dnr_watershed_code`)\
-HUC8 Subbasin: `r stn$sub_basin` (`r stn$huc8`)\
+DNR Watershed (equivalent to HUC10): `r stn$dnr_watershed_name` (`r stn$dnr_watershed_code`)\
+USGS HUC12 Subwatershed: `r stn$sub_watershed` (`r stn$huc12`)\
+USGS HUC10 Watershed: `r stn$watershed` (`r stn$huc10`)\
+USGS HUC8 Subbasin: `r stn$sub_basin` (`r stn$huc8`)\
 Major Basin: `r stn$major_basin`
 
 ## Data collection summary
@@ -81,33 +84,43 @@ For over 25 years, the Water Action Volunteers program (WAV) has provided free t
 
 The WAV program is supported by the Wisconsin Department of Natural Resources (DNR) and the University of Wisconsin-Madison Division of Extension. Some of the funding originates from the U.S. Environmental Protection Agency (EPA) to support Clean Water Act activities. WAV also receives a small percentage of program funds through private donations through the University of Wisconsin Foundation.
 
-*Website:* [wateractionvolunteers.org](https://www.wateractionvolunteers.org/) | *Email:* [wav@extension.wisc.edu](mailto:wav@extension.wisc.edu)
+**Contact Us:** [wateractionvolunteers.org](https://www.wateractionvolunteers.org/) | [wav@extension.wisc.edu](mailto:wav@extension.wisc.edu)
 
 ## How the data is collected
 
 All data collected by WAV stream monitoring volunteers is entered by the volunteers into SWIMS, the Wisconsin DNR’s surface water database. Data for most variables are collected once per month from May through October, approximately 30 days apart. WAV volunteers follow the same protocols and use the same tools to collect water quality data to provide consistency across the state:
 
-* *Temperature:* glass thermometer or digital meter
+* *Temperature:* Glass thermometer or digital meter
 * *Dissolved oxygen:* Hach Company D.O. titration kit or digital meter
 * *Water transparency:* 120 centimeter turbidity tube
 * *Streamflow:* Tennis ball float method, Flo-Mate meter, or U.S. Geological Survey stream gauge
 * *Total phosphorus:* Water samples collected and shipped to an approved lab for analysis
 * *Continuous temperature:* HOBO data logger
 
+Volunteers may also collect pH and specific conductivity measurements, but there is not a standard WAV protocol for doing so. If these measurements were taken and submitted to SWIMS, they are included in this report. Volunteers may also collect aquatic and invasive species (AIS) counts, make biotic index assessments, or perform habitat assessments. These data are not currently included in the WAV online dashboard or on these reports but may be in the future.
+
+## Watersheds and other terms
+
+NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term "watershed" is often used interchangeably with "drainage basin," which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed.
+
+Nationally, watersheds are defined by the US Geological Survey and boundaries are defined in the National Hydrology Dataset. These boundaries encompass as successively smaller areas called _hydrological units_ and given a numerical designation called a _hydrological unit code_ (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 sub-basins (8 digit HUC), 372 watersheds (10 digit HUC), and 1,808 sub-watersheds (12 digit HUC). Some of these watershed boundaries extend across state lines. Any water falling into a watershed will ultimately collect into the same water body before flowing downstream into another water body, unless the basin has no outflow (e.g. the Great Salt Lake). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale from the USGS), which is included in the *Station Information* section. Use these names and codes to look up watershed information on the DNR's website.
+
+\newpage
+
+# Results and interpretation
+
+Fieldwork results are presented on the following pages. For each type of fieldwork data, we have provided some explanatory text below each figure to help guide the interpretation of the results. In some cases where the results may be compared against an established set of standards (e.g. temperature, streamflow, total phosphorus), the report generates a brief interpretation of the data. These interpretations may not be reliable if insufficient or inaccurate data was collected and so should be reviewed carefully. All guidelines are derived from Wisconsin DNR standards outlined in the _[Wisconsin Consolidated Assessment and Listing Methodology (WisCALM)](https://dnr.wisconsin.gov/topic/SurfaceWater/WisCALM.html)_ document.
+
 ## Understanding basic summary statistics
 
-In this report, we provide basic summary statistics to help interpret the data collected about the stream.
+In this report, we provide basic summary statistics to help interpret the data collected about the stream:
 
 * *N:* The number of observations or samples collected.
 * *Min/Max:* The minimum and maximum values for the year.
 * *Mean:* The average value for the year (the mean is the sum of values divided by the number of values).
-* *Median:* The middle of a set of observations (the median is simply the middle value when observations are arranged in order. It is less likely to be influenced by outliers compared to the mean).
-* *Standard deviation (SD):* The spread of values (a large SD means there is a lot of variation in the data).
-* *Coefficient of variation (CV):* Shows how big the standard deviation is relative to the mean and is another way to look at the consistency or spread of the data (a CV less than 100% means the standard deviation is smaller than the mean, and a CV greater than 100% means the standard deviation is larger than the mean).
-
-## Results and interpretation
-
-Fieldwork results are presented on the following pages. For each type of fieldwork data, we have provided some explanatory text below each figure to help guide the interpretation of the results. In some cases where the results may be compared against an established set of standards (e.g. temperature, streamflow, total phosphorus), the report generates a brief interpretation of the data. These interpretations may not be reliable if insufficient or inaccurate data was collected and so should be reviewed carefully. All guidelines are derived from Wisconsin DNR standards outlined in the [Wisconsin Consolidated Assessment and Listing Methodology (WisCALM)](https://dnr.wisconsin.gov/topic/SurfaceWater/WisCALM.html) document.
+* *Median:* The middle value of a set of observations arranged in numerical order, or the mean of the two middle observations if there is an even number of values. It is less likely to be influenced by outliers compared to the mean.
+* *Standard deviation (SD):* The spread of values (a large SD means there is a lot of variation in the data). The SD is calculated by averaging the squared differences between each value and the mean.
+* *Coefficient of variation (CV):* Shows how big the standard deviation is relative to the mean and is another way to look at the consistency or spread of the data (a CV less than 100% means the standard deviation is smaller than the mean, and a CV greater than 100% means the standard deviation is larger than the mean). Calculated by dividing the standard deviation by the mean.
 
 \newpage
 
@@ -128,10 +141,10 @@ if (has$baseline) {
       print()
   }
   
-  summarizeReportCols(baseline, c(report_baseline_cols, report_streamflow_cols)) %>%
+  baseline %>%
+    summarizeReportCols(c(report_baseline_cols, report_streamflow_cols)) %>%
     kable(caption = "Baseline parameter summary statistics") %>%
     print()
-  cat("_The **mean** and **median** both represent the middle of a set of observations, but the mean is the sum of values divided by the number of values, while the median is simply the middle value when arranged in order. The mean is more likely to be influenced by outliers than the median. The **SD** (standard deviation) represents the spread of values - a large SD means there is a lot of variation in the data. The **CV** (coefficient of variation) shows how big the standard deviation is relative to the mean, putting the standard deviation in context with the size of the observed values._\n\n")
   
   pg()
   p("# Additional fieldwork details")
@@ -143,12 +156,9 @@ if (has$air_temp | has$water_temp) {
   p("# Baseline Temperature Measurements")
   baseline %>% makeReportPlots(type = "temp") %>% print()
   baseline %>%
-    mutate(
-      air_temp_f = c_to_f(air_temp),
-      water_temp_f = c_to_f(water_temp)) %>%
     summarizeReportCols(c(
-      `Air temp (°F)` = "air_temp_f",
-      `Water temp (°F)` = "water_temp_f"
+      `Air temp (°F)` = "air_temp",
+      `Water temp (°F)` = "water_temp"
     )) %>% kable() %>% print()
   p("## Why measure water temperature?")
   p("Water temperature is a major factor in determining the kinds of fish, plants, and  macroinvertebrates that can live in a stream. Different plant and animal species are adapted to different temperature ranges, so measuring water temperature throughout the year can help characterize a stream's ecosystem. The Wisconsin DNR has established the following stream temperature designations: ***coldwater*** streams have maximum average summer temperatures below 72°F (22.2°C), ***coolwater*** streams between 72°F and 77°F (25°C), and ***warmwater*** streams above 77°C. Colder streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water.")
@@ -164,8 +174,8 @@ if (has$d_o) {
     `D.O. (% sat.)` = "d_o_percent_saturation"
   )) %>% kable() %>% print()
   p("## Why measure dissolved oxygen?")
-  p("Dissolved oxygen (DO) is a gas found in water that is critical for sustaining aquatic life (just as oxygen is required for us to survive). Dissolved oxygen enters water through mixing with air in turbulent waters or through photosynthetic processes by aquatic plants and algae. Oxygen is used up as organisms respire. In streams that have been organically polluted by point or non-point source inputs (such as runoff from a yard or field), plant respiration and oxygen demand by organisms such as macroinvertebrates and fish increases due to increased populations of these organisms. Further, microbes responsible for their decomposition can further deplete oxygen in such streams.")
-  p("Dissolved oxygen levels are important in determining various communities of aquatic life. DO levels below 2 mg/L generally do not support aquatic life, and most fish and many insects cannot tolerate levels below 4-5 mg/L for a sustained period of time. DO levels above 7 mg/L are amenable to coldwater species such as trout. Different species of fish will migrate within a stream to seek suitable dissolved oxygen conditions.")
+  p("Dissolved oxygen (DO) is a gas found in water that is critical for sustaining aquatic life (just as oxygen is required for us to survive). Dissolved oxygen enters water through mixing with air in turbulent waters or through photosynthetic processes by aquatic plants and algae. Oxygen is used up as organisms respire. In streams that with high levels of nutrients likes phosphorus or nitrogen (such as from fertilizer runoff from a yard or field), plant and algae populations can increase substantially. This can lead to increased populations of macroinvertebrates and fish which leads to higher oxygen demand, and microbes responsible for their decomposition can further deplete oxygen in such streams.")
+  p("Dissolved oxygen levels are important in determining various communities of aquatic life. DO levels below 2 mg/L generally do not support aquatic life, and most fish and many macroinvertebrates cannot tolerate levels below 4-5 mg/L for a sustained period of time. DO levels above 7 mg/L are amenable to coldwater species such as trout. Different species of fish will migrate within a stream to seek suitable dissolved oxygen conditions.")
 }
 
 if (has$ph) {
@@ -176,7 +186,7 @@ if (has$ph) {
     `pH` = "ph"
   )) %>% kable() %>% print()
   p("## Why measure pH?")
-  p("pH is a measure of the hydrogen-ion activity of water and is expressed as a logarithmic unit that ranges from 1 to 14 Standard Units. That means for every 1 pH unit change, there is a tenfold change in the activity of hydrogen ions. Waters with high hydrogen-ion activity have low pH and are considered acidic. The presence of dissolved carbon dioxide, carbonic acid, bicarbonate ions and carbonate ions strongly influence the pH of freshwater systems. Wisconsin has adopted a pH standard that incorporates a range from 6 to 9 units to protect and support aquatic life use.")
+  p("pH is a measure of the hydrogen-ion activity of water and is expressed as a logarithmic value that ranges from 1 to 14. That means for every 1 pH change, there is a tenfold change in the activity of hydrogen ions. Waters with high hydrogen-ion activity have low pH and are considered acidic. The presence of dissolved carbon dioxide, carbonic acid, bicarbonate ions and carbonate ions strongly influence the pH of freshwater systems. Wisconsin has adopted a pH standard that incorporates a range from 6 to 9 units to protect and support aquatic life.")
   p("Much of Wisconsin has bedrock that is composed of limestone and other rock that is rich in bicarbonate and carbonate. These types of rock can minimize impacts of acid rain or other acidic inputs to the water. In northern Wisconsin, bedrock is composed of granite which is not rich in bicarbonates and carbonates, and thus those rocks are less able to buffer or offset the impacts of acid rain or other acid inputs to the waters.")
   p("Concentrations of dissolved metal ions tend to increase with increased acidity and as a result, pH is an important factor influencing toxicity of metals. pH also affects the concentration of un-ionized ammonia, a form of nitrogen that is extremely toxic to aquatic life.")
 }

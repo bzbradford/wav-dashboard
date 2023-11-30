@@ -441,14 +441,19 @@ buildReportSummary <- function(params) {
   list(counts = counts, has = has, message = msg)
 }
 
+# baseline temperature data normally stored in C, must be converted to F
 report_baseline_cols <- c(
-  `Air temp (°C)` = "air_temp",
-  `Water temp (°C)` = "water_temp",
+  `Air temp (°F)` = "air_temp",
+  `Water temp (°F)` = "water_temp",
   `D.O. (mg/L)` = "d_o",
   `D.O. (% sat.)` = "d_o_percent_saturation",
-  `pH` = "ph",
   `Transparency (cm)` = "transparency",
   `Streamflow (cfs)` = "streamflow"
+)
+
+report_extra_cols <- c(
+  `pH` = "ph",
+  `Specific conductivity (μS/cm)` = "specific_cond"
 )
 
 report_streamflow_cols <- c(
@@ -475,14 +480,20 @@ summarizeReportCols <- function(df, cols) {
         ), .names = "{.fn}"),
       .by = Parameter) %>%
     mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    # mutate(across(Min:SD, ~if_else(is.na(.x), NA, sprintf("%.1f", .x))))
     mutate(across(Min:SD, ~if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
 }
 
 # summary table
 makeReportBaselineTable <- function(baseline) {
   df <- baseline %>%
-    select(`Date` = formatted_date, all_of(report_baseline_cols))
+    select(
+      `Date` = formatted_date,
+      all_of(report_baseline_cols),
+      all_of(report_extra_cols)
+    )
+  for (col in names(report_extra_cols)) {
+    if (all(is.na(baseline[[col]]))) df[[col]] <- NULL
+  }
   names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
   df
 }
@@ -593,18 +604,10 @@ huc12 <- readRDS("data/shp/huc12") %>%
     "<br>HUC6 basin: ", MajorBasin
   ))
 
-# report shapes
-# counties.wtm <- st_transform(counties, st_crs(3070))
-# huc10.wtm <- st_transform(huc10, st_crs(3070))
-# waterbodies.wtm <- st_transform(waterbodies, st_crs(3070))
-
 
 # Station lists ----
 
-station_list <- read_csv(
-  "data/station-list.csv.gz",
-  col_types = list(station_id = "c"),
-  progress = F)
+station_list <- readRDS("data/station-list")
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
@@ -616,10 +619,7 @@ station_types <- list(
 
 # Baseline data ----
 
-baseline_data <- read_csv(
-  "data/baseline-data.csv.gz",
-  col_types = list(station_id = "c"),
-  progress = F) %>%
+baseline_data <- readRDS("data/baseline-data") %>%
   arrange(station_id, date)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
@@ -629,15 +629,13 @@ baseline_pts <- station_pts %>%
   filter(station_id %in% baseline_data$station_id) %>%
   left_join(baseline_coverage, by = "station_id")
 
+# this will produce a warning if there are missing stations for the data
 check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 
 # Nutrient data ----
 
-nutrient_data <- read_csv(
-  "data/tp-data.csv.gz",
-  col_types = list(station_id = "c"),
-  progress = F) %>%
+nutrient_data <- readRDS("data/tp-data") %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
@@ -652,14 +650,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 # Thermistor data ----
 
-therm_data <- read_csv(
-  "data/therm-data.csv.gz",
-  col_types = list(station_id = "c"),
-  progress = F)
-therm_info <- read_csv(
-  "data/therm-info.csv.gz",
-  col_types = list(station_id = "c"),
-  progress = F)
+therm_data <- readRDS("data/therm-data")
+therm_info <- readRDS("data/therm-inventory")
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -865,10 +857,9 @@ stn_color_choices <- append(
 
 # Landscape data ----
 
-landcover_classes <- read_csv("data/nlcd_classes.csv", col_types = cols(), progress = F) %>%
-  mutate(across(where(is.character), fct_inorder))
-landscape_data <- read_csv("data/landcover.csv.gz", col_types = cols(), progress = F) %>%
-  left_join(landcover_classes, by = "class") %>%
+landcover_classes <- readRDS("data/nlcd_classes")
+landscape_data <- readRDS("data/landcover") %>%
+  left_join(landcover_classes, join_by(class)) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")
 
