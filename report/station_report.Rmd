@@ -40,6 +40,24 @@ thermistor <- params$data$thermistor
 report_summary <- buildReportSummary(params)
 has <- report_summary$has
 
+# for data interpretations
+getTempClass <- function(temp) {
+  case_when(
+    temp < 72 ~ "coldwater",
+    temp < 77 ~ "coolwater",
+    T ~ "warmwater"
+  )
+}
+
+getFlowClass <- function(flow) {
+  case_when(
+    flow < .03 ~ "ephemeral stream",
+    flow <= 3 ~ "headwater stream",
+    flow <= 150 ~ "mainstem stream",
+    T ~ "large river"
+  )
+}
+
 ```
 
 \pagestyle{fancy}
@@ -103,7 +121,7 @@ Volunteers may also collect pH and specific conductivity measurements, but there
 
 NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term "watershed" is often used interchangeably with "drainage basin," which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed.
 
-Nationally, watersheds are defined by the US Geological Survey and boundaries are defined in the National Hydrology Dataset. These boundaries encompass as successively smaller areas called _hydrological units_ and given a numerical designation called a _hydrological unit code_ (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 sub-basins (8 digit HUC), 372 watersheds (10 digit HUC), and 1,808 sub-watersheds (12 digit HUC). Some of these watershed boundaries extend across state lines. Any water falling into a watershed will ultimately collect into the same water body before flowing downstream into another water body, unless the basin has no outflow (e.g. the Great Salt Lake). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale from the USGS), which is included in the *Station Information* section. Use these names and codes to look up watershed information on the DNR's website.
+Nationally, watersheds are defined by the US Geological Survey in the National Hydrography Dataset. These boundaries encompass successively smaller areas called _hydrological units_ and given a numerical designation called a _hydrological unit code_ (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 sub-basins (8 digit HUC), 372 watersheds (10 digit HUC), and 1,808 sub-watersheds (12 digit HUC). Some of these watershed boundaries extend across state lines. Any water falling into a watershed will ultimately collect into the same water body before flowing downstream into another water body, unless the basin has no outflow (e.g. the Great Salt Lake). In Wisconsin the DNR has its own naming and numbering system for watersheds (roughly equivalent to HUC10 scale from the USGS), which is included in the *Station Information* section. Use these names and codes to look up watershed information on the DNR's website.
 
 \newpage
 
@@ -122,6 +140,14 @@ In this report, we provide basic summary statistics to help interpret the data c
 * *Standard deviation (SD):* The spread of values (a large SD means there is a lot of variation in the data). The SD is calculated by averaging the squared differences between each value and the mean.
 * *Coefficient of variation (CV):* Shows how big the standard deviation is relative to the mean and is another way to look at the consistency or spread of the data (a CV less than 100% means the standard deviation is smaller than the mean, and a CV greater than 100% means the standard deviation is larger than the mean). Calculated by dividing the standard deviation by the mean.
 
+## Data interpretation
+
+Volunteers are always encouraged to look at more than one year of data when making inferences about stream health based on water quality measurements. Here we have used the following sets of standards to annotate the charts or generate results interpretations:
+
+* *Water temperature:* Coldwater streams have maximum average summer temperatures below 72°F (22.2°C), coolwater streams between 72°F (22°C) and 77°F (25°C), and warmwater streams above 77°F (25°C). For baseline sampling, use the maximum single value. For hourly temperature logger data (where available), we use the maximum daily average temperature.
+* *Streamflow:* Ephemeral streams have minimum flows <0.03 cfs, headwater streams between 0.03 and 3 cfs, mainstem streams between 3 and 150 cfs, and large rivers have minimum flow greater than 150 cfs. Technically these values are for the 90% exceedance flow (90% of streamflow greater than this value), but most volunteers collect less than 10 streamflow values per year so the minimum streamflow is used here.
+* *Total phosphorus:* The DNR established a phosphorus limit of 0.075 mg/L for streams. For a stream to be listed as impaired, 6 monthly samples must be collected for two successive years, and the lower 90% confidence interval for the median value in each year must exceed the state standard. We use the following language for characterizing phosphorus levels: A stream site ***clearly exceeds*** the phosphorus limit if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit.
+
 \newpage
 
 ```{r results, fig.width=7}
@@ -134,8 +160,7 @@ if (has$baseline) {
     kable(caption = "Baseline stream monitoring measurements") %>%
     print()
   
-  streamflow_counts <- with(baseline, sum(!is.na(c(stream_width, average_stream_depth, average_surface_velocity))))
-  if (streamflow_counts > 0) {
+  if (has$streamflow) {
     makeReportStreamflowTable(baseline) %>%
       kable(caption = "Streamflow details") %>%
       print()
@@ -161,8 +186,12 @@ if (has$air_temp | has$water_temp) {
       `Water temp (°F)` = "water_temp"
     )) %>% kable() %>% print()
   p("## Why measure water temperature?")
-  p("Water temperature is a major factor in determining the kinds of fish, plants, and  macroinvertebrates that can live in a stream. Different plant and animal species are adapted to different temperature ranges, so measuring water temperature throughout the year can help characterize a stream's ecosystem. The Wisconsin DNR has established the following stream temperature designations: ***coldwater*** streams have maximum average summer temperatures below 72°F (22.2°C), ***coolwater*** streams between 72°F and 77°F (25°C), and ***warmwater*** streams above 77°C. Colder streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water.")
-  p("These classes of streams support different types of fish and macroinvertebrate species. Coldwater streams have relatively few species of fish as compared to warm water streams. Salmonids such as brook trout dominate the fish populations in the best quality coldwater streams, while brown trout, an exotic salmonid species, dominate coldwater streams that have slightly less pristine water quality. Bass, darter and sucker species are more prevalent in warmwater streams than in coldwater streams. Different species of fish have different temperature requirements. Trout need cool temperatures, while fish species such as bass can live in waters with higher temperatures.")
+  p("Water temperature is a major factor in determining the kinds of fish, plants, and  macroinvertebrates that can live in a stream. Different plant and animal species are adapted to different temperature ranges, so measuring water temperature throughout the year can help characterize a stream's ecosystem. The Wisconsin DNR has established the following stream temperature designations: ***coldwater*** streams have maximum average summer temperatures below 72°F (22.2°C), ***coolwater*** streams between 72°F and 77°F (25°C), and ***warmwater*** streams above 77°F.")
+  p("Colder streams generally provide better habitat because they can contain higher levels of dissolved oxygen, and higher water temperatures may indicate shallow, pooled, or stagnant water. Salmonids such as brook trout dominate in the best quality coldwater streams, while brown trout, an exotic salmonid species, dominate coldwater streams that have slightly less pristine water quality. Bass, darter and sucker species are more prevalent in warmwater streams than in coldwater streams. Different species of fish have different temperature requirements. Trout need cool temperatures, while fish species such as bass can live in waters with higher temperatures. Plant and macroinvertebrate populations also differ between stream temperature classes.")
+  if (has$water_temp) {
+    max_temp <- max(baseline$water_temp, na.rm = T)
+    p(sprintf("***Based on the maximum water temperature of %s°F (%s°C), this is a %s stream.***", signif(max_temp, 3), signif(f_to_c(max_temp), 3), getTempClass(max_temp)))
+  }
 }
 
 if (has$d_o) {
@@ -174,8 +203,8 @@ if (has$d_o) {
     `D.O. (% sat.)` = "d_o_percent_saturation"
   )) %>% kable() %>% print()
   p("## Why measure dissolved oxygen?")
-  p("Dissolved oxygen (DO) is a gas found in water that is critical for sustaining aquatic life (just as oxygen is required for us to survive). Dissolved oxygen enters water through mixing with air in turbulent waters or through photosynthetic processes by aquatic plants and algae. Oxygen is used up as organisms respire. In streams that with high levels of nutrients likes phosphorus or nitrogen (such as from fertilizer runoff from a yard or field), plant and algae populations can increase substantially. This can lead to increased populations of macroinvertebrates and fish which leads to higher oxygen demand, and microbes responsible for their decomposition can further deplete oxygen in such streams.")
-  p("Dissolved oxygen levels are important in determining various communities of aquatic life. DO levels below 2 mg/L generally do not support aquatic life, and most fish and many macroinvertebrates cannot tolerate levels below 4-5 mg/L for a sustained period of time. DO levels above 7 mg/L are amenable to coldwater species such as trout. Different species of fish will migrate within a stream to seek suitable dissolved oxygen conditions.")
+  p("Dissolved oxygen (D.O.) is a gas found in water that is critical for sustaining aquatic life (just as oxygen is required for us to survive). Dissolved oxygen enters water through mixing with air in turbulent waters or through photosynthetic processes by aquatic plants and algae. Oxygen is used up as organisms respire. In streams that with high levels of nutrients likes phosphorus or nitrogen (such as from fertilizer runoff from a yard or field), plant and algae populations can increase substantially. This can lead to increased populations of macroinvertebrates and fish which leads to higher oxygen demand, and microbes responsible for their decomposition can further deplete oxygen in such streams.")
+  p("Dissolved oxygen levels are important in determining various communities of aquatic life. D.O. levels below 2 mg/L generally do not support aquatic life, and most fish and many macroinvertebrates cannot tolerate levels below 4-5 mg/L for a sustained period of time. D.O. levels above 7 mg/L are amenable to coldwater species such as trout. The percent saturation reflects the amount of D.O. currently dissolved in water relative to the equilibrium amount that water will hold at a given temperature and ambient air pressure. Values above 100% means processes are actively adding oxygen to the water (such as through photosynthesis or aeration), while values below 100% means oxygen has been temporarily depleted by biological processes. Percent saturation can be determined from the D.O amount (mg/L) and water temperature using reference table or chart.")
 }
 
 if (has$ph) {
@@ -199,19 +228,14 @@ if (has$transparency) {
     `Transparency (cm)` = "transparency"
   )) %>% kable() %>% print()
   p("## Why measure water transparency?")
-  p("These measurements reflect the transparency, or clarity, of the stream water. Lower transparency means the water is cloudier/murkier and could indicate a recent storm event kicking up silt and mud in the stream. Lower transparency isn't necessarily bad but can be associated with warm waters with low dissolved oxygen and lots of suspended algae. Transparency measurements are affected by both the presence of suspended particles, such as soil particles and microscopic organisms, and by water color, which is caused by certain dissolved substances. Transparency is easy to measure and is related to **turbidity**, which is commonly used in water quality studies to quantify the amount of suspended particles in the water, but requires more specialized equipment to measure.")
-  p("With increased turbidity, water also becomes warmer because the suspended particles absorb heat. Since warmer water holds less dissolved oxygen than cold water, oxygen levels are also affected by turbidity. Extremely high levels of turbidity may also impair aquatic organism survival by blocking gas exchange in membranes used for respiration, interfering with filter feeding mussels, or by restricting predation by sight-feeding fish. In general, turbidity increases with increasing river flow due to erosional processes and bed sediment resuspension.")
+  p("These measurements reflect the transparency, or clarity, of the stream water. Lower transparency means the water is more difficult to see through. Lower transparency could indicate the presence of suspended particles (perhaps from recent storm events kicking up silt within the stream, or from increased runoff, or even from the presence of high amounts of algae). Transparency is also associated with the color of the water, as some waters are more \"tea-stained\" in appearance due to decomposition of organic matter. Tannins are more common in northern streams.")
+  p("Transparency is easy to measure and is related to **turbidity**, which is commonly used in water quality studies to quantify the amount of suspended particles in the water, but requires more specialized equipment to measure. With increased turbidity, water also becomes warmer because the suspended particles absorb heat. Since warmer water holds less dissolved oxygen than cold water, oxygen levels are also affected by turbidity. Extremely high levels of turbidity may also impair aquatic organism survival by blocking gas exchange in membranes used for respiration, interfering with filter feeding animals, or by restricting predation by sight-feeding fish. In general, turbidity increases with increasing river flow due to erosional processes and bed sediment resuspension.")
 }
 
 if (has$streamflow) {
   
   min_flow <- min(baseline$streamflow, na.rm = T)
-  flow_type <- case_when(
-    min_flow < .03 ~ "ephemeral stream",
-    min_flow <= 3 ~ "headwater stream",
-    min_flow <= 150 ~ "mainstem stream",
-    T ~ "large river"
-  )
+
     
   pg()
   p("# Baseline Streamflow Measurements")
@@ -222,7 +246,7 @@ if (has$streamflow) {
   p("## Why measure streamflow?")
   p("Streamflow, or discharge, is the volume of water moving past a cross-section of a stream over a set period of time. It is usually measured in cubic feet per second (cfs). Streamflow is affected by the amount of water within a watershed, increasing with rainstorms or snowmelt, and decreasing during dry periods. Streamflow is also important because it defines the shape, size and course of the stream. It is integral not only to water quality, but also to habitat. Food sources, spawning areas and migration paths of fish and other wildlife are all affected and defined by streamflow and velocity. Velocity and flow together determine the kinds of organisms that can live in the stream (some need fast-flowing areas; others need quiet, low-velocity pools).")
   p("Streamflow is affected by both forces of nature and by humans. Soil type, vegetation, and slope all play a role in how fast and how much water reaches a stream. In watersheds with high human impacts, water flow might be depleted by withdrawals for irrigation, domestic or industrial purposes. Dams used for electric power generation may affect flow, particularly during periods of peak need when streamflow is held back and later released in a surge. Drastically altering landscapes in a watershed, such as with development, can also change flow regimes, causing faster runoff with storm events and higher peak flows due to increased areas of impervious surface. These altered flows can negatively affect an entire ecosystem by upsetting habitats and organisms dependent on natural flow rates.")
-  p(paste0("***Based on the minimum recorded streamflow of ", min_flow, " cfs, this is a ", flow_type, ".***"))
+  p(paste0("***Based on the minimum recorded streamflow of ", min_flow, " cfs, this is a ", getFlowClass(min_flow), ".***"))
 }
 
 
@@ -247,7 +271,7 @@ if (has$nutrient) {
     kable() %>% print()
   p("## Why measure total phosphorus?")
   p("Phosphorus is a nutrient that enters streams via runoff and can contribute to algae blooms in lakes and rivers. The Wisconsin DNR has established a total phosphorus threshold of 0.075 mg/L (ppm) and a monitoring protocol that must be followed. The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines.")
-  p("A stream site ***clearly exceeds*** the phosphorus limit and the confidence interval band will be shaded **\\textcolor{red}{red}** if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit, and the shaded confidence interval band in the plot above will be colored **\\textcolor{teal}{teal}**.")
+  p("A stream site ***clearly exceeds*** the phosphorus limit if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit.")
   p(sprintf("***%s***", phos_exceedance_text))
 }
 
@@ -259,12 +283,6 @@ if (has$thermistor) {
   max_temp <- thermistor %>%
   summarize(temp_f = mean(temp_f), .by = date) %>%
   pull(temp_f) %>% max()
-
-  stream_type <- case_when(
-    max_temp < 72 ~ "coldwater",
-    max_temp < 77 ~ "coolwater",
-    .default = "warmwater"
-  )
   
   pg()
   p("# Hourly Temperature Logger Measurements")
@@ -273,7 +291,7 @@ if (has$thermistor) {
   p("**What does water temperature tell us?** Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support.")
   p("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.")
   p("It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
-  p(sprintf("***Based on the maximum daily average water temperature of %s°F (%s°C), this is a %s stream.***", signif(max_temp, 3), signif(f_to_c(max_temp), 3), stream_type))
+  p(sprintf("***Based on the maximum daily average water temperature of %s°F (%s°C), this is a %s stream.***", signif(max_temp, 3), signif(f_to_c(max_temp), 3), getTempClass(max_temp)))
 }
 
 ```

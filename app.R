@@ -22,6 +22,7 @@ shiny::shinyApp(ui, server, enableBookmarking = "url")
 # renv::clean()        # remove unused packages
 # renv::update()       # update project libraries
 # renv::snapshot()     # save updated lock file to project
+# renv::restore()      # restore versions from lockfile
 
 
 #- Testing -#

@@ -252,7 +252,7 @@ phoslimit <- 0.075 # mg/L or ppm
 #' @param vals vector of phosphorus readings
 getPhosEstimate <- function(vals) {
   vals <- na.omit(vals)
-  log_vals <- log(vals)
+  log_vals <- log(vals + .001)
   n <- length(vals)
   meanp <- mean(log_vals)
   se <- sd(log_vals) / sqrt(n)
@@ -415,12 +415,19 @@ buildReportSummary <- function(params) {
 
   has <- sapply(counts, function(n) { n > 0 }, simplify = F)
 
-  msg <- paste0(
-    "This report covers monitoring data collected between Jan 1 and Dec 31, ", yr, " and includes ",
-    counts$baseline, " baseline water quality measurements, ",
-    counts$nutrient, " total phosphorus samples, and ",
-    counts$thermistor, " days of continuous water temperature logging."
-  )
+  # generate summary paragraph
+  base_counts <- tribble(
+    ~count, ~text,
+    counts$baseline, "baseline water quality measurements",
+    counts$nutrient, "total phosphorus samples",
+    counts$thermistor, "days of continuous water temperature logging"
+  ) %>%
+    filter(count > 0) %>%
+    mutate(text = paste(count, text)) %>%
+    pull(text) %>%
+    combine_words()
+
+  msg <- glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
 
   if (has$baseline) {
     baseline_counts <- data$baseline %>%
@@ -434,12 +441,13 @@ buildReportSummary <- function(params) {
       mutate(text = paste(count, text, if_else(count == 1, "measurement", "measurements"))) %>%
       pull(text) %>%
       combine_words()
-
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
   }
 
   list(counts = counts, has = has, message = msg)
 }
+
+
 
 # baseline temperature data normally stored in C, must be converted to F
 report_baseline_cols <- c(
@@ -447,15 +455,16 @@ report_baseline_cols <- c(
   `Water temp (°F)` = "water_temp",
   `D.O. (mg/L)` = "d_o",
   `D.O. (% sat.)` = "d_o_percent_saturation",
+  `pH` = "ph",
+  `Specific conductivity (μS/cm)` = "specific_cond",
   `Transparency (cm)` = "transparency",
   `Streamflow (cfs)` = "streamflow"
 )
 
-report_extra_cols <- c(
-  `pH` = "ph",
-  `Specific conductivity (μS/cm)` = "specific_cond"
-)
+# will be excluded if all NA
+report_baseline_optional_cols <- c("ph", "specific_cond")
 
+# will be included if any streamflow cfs data
 report_streamflow_cols <- c(
   `Stream width (ft)` = "stream_width",
   `Average depth (ft)` = "average_stream_depth",
@@ -485,15 +494,11 @@ summarizeReportCols <- function(df, cols) {
 
 # summary table
 makeReportBaselineTable <- function(baseline) {
-  df <- baseline %>%
-    select(
-      `Date` = formatted_date,
-      all_of(report_baseline_cols),
-      all_of(report_extra_cols)
-    )
-  for (col in names(report_extra_cols)) {
-    if (all(is.na(baseline[[col]]))) df[[col]] <- NULL
+  df <- baseline
+  for (col in report_baseline_optional_cols) {
+    if (all(is.na(df[[col]]))) df[[col]] <- NULL
   }
+  df <- df %>% select(`Date` = formatted_date, any_of(report_baseline_cols))
   names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
   df
 }
@@ -521,6 +526,7 @@ buildReportFieldworkComments <- function(baseline) {
       rec_wx = weather_last_2_days,
       com1 = fieldwork_comments,
       com2 = additional_comments) %>%
+    mutate(across(where(is.character), xtable::sanitize)) %>%
     rowwise() %>%
     mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
     mutate(fieldwork_desc = glue(

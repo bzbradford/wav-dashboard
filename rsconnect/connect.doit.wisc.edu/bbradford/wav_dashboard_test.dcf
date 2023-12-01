@@ -5,8 +5,8 @@ account: bbradford
 server: connect.doit.wisc.edu
 hostUrl: https://connect.doit.wisc.edu/__api__
 appId: 114
-bundleId: 330
-url: https://connect.doit.wisc.edu/content/fc283e0a-ebf3-4238-a5eb-1dddab8dca0a/
+bundleId: 341
+url: https://connect.doit.wisc.edu/wav-dashboard-test/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE

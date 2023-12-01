@@ -45,9 +45,15 @@ baseline %>%
   mutate(text = paste(text, if_else(count == 1, "measurement", "measurements")))
 
 
-baseline %>%
+baseline_data %>%
+  filter(station_id == 10012583, year == 2022) %>%
   mutate(formatted_date = date) %>%
   makeReportBaselineTable()
+
+
+baseline_data %>%
+  filter(station_id == 10012583, year == 2022) %>%
+  buildReportFieldworkComments()
 
 
 
@@ -82,12 +88,17 @@ ph_colors <- c("#FF0000", "#FFA500", "#FFFF00", "#008000", "#9999ff", "#000066")
 ph_colors <- c("#ff4331", "#ffd43a", "#00b82b", "#0099f7", "#844cbf")
 
 
+baseline_data %>%
+  filter(station_id == 10020461, year == 2022) %>%
+  makeReportPlots("trans")
+
 
 makeReportPlots(test_baseline, "temp")
 makeReportPlots(test_baseline, "do")
-makeReportPlots(test_baseline, "trans")
 makeReportPlots(test_baseline, "ph")
 makeReportPlots(test_baseline, "flow")
+
+makeReportPlots(test_baseline, "trans")
 
 
 baseline_data %>%
@@ -108,6 +119,34 @@ test_nutrient <- nutrient_data %>%
   mutate(formatted_date = format(date, "%b %d"))
 
 makeReportPlots(test_nutrient, type = "nutrient")
+
+
+nutrient_data %>%
+  filter(station_id == 10056288, year == 2023) %>%
+  pull(tp) %>%
+  getPhosEstimate()
+
+vals <- na.omit(vals)
+log_vals <- log(vals)
+n <- length(vals)
+meanp <- mean(log_vals)
+se <- sd(log_vals) / sqrt(n)
+suppressWarnings({
+  tval <- qt(p = 0.90, df = n - 1)
+})
+
+params <- list(
+  mean = meanp,
+  median = median(log_vals),
+  lower = meanp - tval * se,
+  upper = meanp + tval * se
+)
+
+params <- lapply(params, exp)
+params <- lapply(params, round, 3)
+params$n <- n
+params$limit <- phoslimit
+params
 
 
 
