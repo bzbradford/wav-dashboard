@@ -177,9 +177,10 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, trans = transparency, tube = transparency_tube_length) %>%
         drop_na(trans) %>%
+        mutate(trans = round(trans, 0)) %>%
         mutate(label = case_when(
           trans == tube ~ paste0(trans, "+ cm"),
-          .default = paste0(trans, "cm")))
+          .default = paste0(trans, " cm")))
       n_dates <- n_distinct(df$date)
       x_lims <- setReportDateRange(df$date)
       y_lims <- setAxisLimits(df$trans, 0, 120)
@@ -196,7 +197,7 @@ makeReportPlots <- function(df, type) {
           width = col_width) +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3.5,
+          size = 3,
           nudge_y = 1,
           min.segment.length = unit(0, "lines")) +
         scale_x_date(

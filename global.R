@@ -30,3 +30,13 @@ suppressMessages({
   # reports
   library(knitr)
 })
+
+
+# reproject spatial data?
+print(sf::sf_extSoftVersion())
+c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") %>%
+  lapply(function(var) {
+    shape <- eval(parse(text = var))
+    message("TEST >> ", var, " crs: ", st_crs(shape)$proj4string)
+    # assign(var, st_transform(shape, "+proj=longlat +datum=WGS84 +ellps=WGS84 +no_defs"))
+  })

@@ -134,5 +134,4 @@ ui <- fluidPage(
       a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
     )
   )
-
 )

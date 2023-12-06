@@ -8,6 +8,7 @@
 #' - data_years
 #' - all_pts
 #' - all_labels
+#' - shapefiles: nkes, huc8, huc10, huc12
 
 mapUI <- function() {
   ns <- NS("map")
@@ -275,7 +276,6 @@ mapServer <- function(cur_stn, main_session) {
                     enableHighAccuracy: false,
                     maxZoom: 12
                   }).on('locationfound', (event) => {
-                    console.log(event)
                     Shiny.setInputValue('map-user_loc', event.latlng, {priority: 'event'})
                   })
                 }
@@ -575,7 +575,16 @@ mapServer <- function(cur_stn, main_session) {
         loc <- input$user_loc %>% lapply(\(x) round(x, 4))
         pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
           st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = F)
-        watershed <- suppressWarnings(st_intersection(huc12, pt))
+
+        # TEST
+        # message("==> huc12 crs: ", st_crs(huc12)$proj4string)
+        # message("==> user loc crs: ", st_crs(pt)$proj4string)
+
+        # TODO: st_transform used here to avoid error due to old PROJ version on server
+        suppressWarnings({
+          watershed <- st_intersection(huc12, st_transform(pt, st_crs(huc12)))
+        })
+
         user_huc12 <- filter(huc12, Huc12Name == watershed$Huc12Name)
         user_huc10 <- filter(huc10, Huc10Name == watershed$Huc10Name)
         user_huc8 <- filter(huc8, Huc8Name == watershed$Huc8Name)
