@@ -286,10 +286,10 @@ mapServer <- function(cur_stn, main_session) {
               icon = "fa-globe",
               title = "Reset map view",
               onClick = JS("
-            function(btn, map) {
-              map.fitBounds([[47.1, -86.8], [42.4, -92.9]])
-            }
-          ")
+                function(btn, map) {
+                  map.fitBounds([[47.1, -86.8], [42.4, -92.9]])
+                }
+              ")
             )
           ) %>%
           suspendScroll(

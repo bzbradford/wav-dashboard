@@ -1,3 +1,8 @@
+**2023-12-05**
+
+* Develop downloadable PDF reports feature, pending install of pdf engine on server
+* Update baseline, nutrient, and thermistor data
+
 **2023-11-06**
 
 * Add user location feature - house icon and popup with watershed information
