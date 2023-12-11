@@ -10,7 +10,7 @@ header-includes:
   - \usepackage{fancyhdr} # page header and footer
   - \usepackage{lastpage} # allow page 'X of Y'
   - \usepackage{fontspec}
-  - \setmainfont{Times New Roman}
+  - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
 params:
   year: NA
   stn: NA
