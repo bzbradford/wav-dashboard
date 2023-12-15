@@ -5,9 +5,9 @@ account: bbradford
 server: connect.doit.wisc.edu
 hostUrl: https://connect.doit.wisc.edu/__api__
 appId: 114
-bundleId: 364
+bundleId: 384
 url: https://connect.doit.wisc.edu/wav-dashboard-test/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .Rprofile|load.R|README.md|renv.lock|test/test.R|test/test_station_report.R
+ignoredFiles: .Rprofile|load.R|README.md|renv.lock|test/test.R|test/test_station_report.R|data

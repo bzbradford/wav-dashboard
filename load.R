@@ -84,6 +84,10 @@ clamp <- function(x, lower = x, upper = x) {
       if_else(x > upper, upper, x)))
 }
 
+newDate <- function(y, m, d) {
+  as.Date(paste(y, m, d, sep = "-"))
+}
+
 
 
 ## HTML / JS ----
@@ -556,7 +560,7 @@ tab_names <- list(
   baseline = "Baseline data",
   nutrient = "Nutrient data",
   thermistor = "Thermistor data",
-  watershed = "Watershed/landscape context",
+  watershed = "Watershed landscape",
   reports = "Downloadable reports",
   more = "Learn more"
 )
