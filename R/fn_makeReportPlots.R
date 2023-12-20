@@ -1,10 +1,10 @@
 makeReportPlots <- function(df, type) {
-  suppressWarnings(try({
+  try({
 
     # Shared ----
     common_theme <- theme_classic() +
       theme(
-        panel.grid.major.x = element_line(),
+        panel.grid.major.x = element_line(linewidth = .25),
         legend.position = "none",
         axis.line = element_blank(),
         panel.border = element_rect(color = "black", fill = NA, linewidth = .5)
@@ -13,7 +13,9 @@ makeReportPlots <- function(df, type) {
 
     # Temperature ----
     # assumes temperatures are passed in as C
+
     if (type == "temp") {
+
       df <- df %>%
         select(date, Air = air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
@@ -29,11 +31,16 @@ makeReportPlots <- function(df, type) {
         label = c(
           "Cold-cool transition\n(20.7°C / 69.3°F)",
           "Cool-warm transition\n(24.6°C / 76.3°F)"))
+
       plt <- df %>%
         ggplot(aes(x = date, y = temp)) +
         addRectDate(-Inf, 20.7, "blue") +
         addRectDate(20.7, 24.6, "cornflowerblue") +
         addRectDate(24.6, Inf, "darkorange") +
+        ggrepel::geom_text_repel(
+          data = temp_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
         { if (n_dates > 1) geom_line(aes(color = measure), linewidth = 1.5) } +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
         ggrepel::geom_text_repel(
@@ -41,30 +48,28 @@ makeReportPlots <- function(df, type) {
           size = 3,
           box.padding = unit(.5, "lines"),
           min.segment.length = unit(0, "lines")) +
-        ggrepel::geom_text_repel(
-          data = temp_labels,
-          aes(x, y, label = label),
-          size = 2.5) +
         scale_x_date(
-          limits = x_lims,
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
           breaks = scales::pretty_breaks(),
           labels = ~sprintf("%s°C\n(%s°F)", .x, round(c_to_f(.x), 1)),
           expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
         labs(x = NULL, y = "Temperature", fill = "Measurement", color = "Measurement") +
         common_theme +
         theme(legend.position = "top")
+
       return(plt)
     }
 
 
     # Dissolved oxygen ----
+
     if (type == "do") {
+
       df <- df %>%
         select(date, d_o, do_sat = d_o_percent_saturation) %>%
         drop_na(d_o) %>%
@@ -83,15 +88,21 @@ makeReportPlots <- function(df, type) {
           "Forage fish\nminimum (3 mg/L)",
           "Minimum for\nmost fish (5 mg/L)",
           "Trout spawning\n(7 mg/L)"))
+
       plt <- df %>%
         ggplot(aes(x = date, y = d_o)) +
         addRectDate(-Inf, 1, "red") +
         addRectDate(1, 3, "orange") +
-        addRectDate(3, 5, "yellow") +
+        addRectDate(3, 5, "gold") +
         addRectDate(5, 7, "lightblue") +
         addRectDate(7, Inf, "blue") +
+        ggrepel::geom_text_repel(
+          data = do_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
         geom_col(
           aes(fill = do_color),
+          position = "identity",
           color = "black",
           width = col_width) +
         ggrepel::geom_text_repel(
@@ -99,27 +110,25 @@ makeReportPlots <- function(df, type) {
           size = 3.5,
           nudge_y = .25,
           min.segment.length = unit(0, "lines")) +
-        ggrepel::geom_text_repel(
-          data = do_labels,
-          aes(x, y, label = label),
-          size = 2.5) +
         scale_x_date(
-          limits = x_lims,
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
           breaks = scales::pretty_breaks(),
           expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_identity() +
         labs(x = NULL, y = "Dissolved oxygen (mg/L)") +
         common_theme
+
       return(plt)
     }
 
 
     # pH ----
+
     if (type == "ph") {
+
       df <- df %>%
         select(date, ph) %>%
         drop_na(ph) %>%
@@ -132,12 +141,17 @@ makeReportPlots <- function(df, type) {
         label = c(
           "Minimum water quality\nstandard (pH 6.0)",
           "Optimal for fish\n(pH 7.5)",
-          "Maximum water quality\nstandard (pH 9.0) "))
+          "Maximum water quality\nstandard (pH 9.0)"))
+
       plt <- df %>%
         ggplot(aes(x = date, y = ph)) +
         addRectDate(-Inf, 6, "orange") +
         addRectDate(6, 9, "chartreuse") +
         addRectDate(9, Inf, "purple") +
+        ggrepel::geom_text_repel(
+          data = ph_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
         geom_hline(yintercept = 7.5, linetype = "dashed") +
         geom_point(
           aes(fill = ph_diff),
@@ -149,18 +163,13 @@ makeReportPlots <- function(df, type) {
           nudge_y = .35,
           size = 3.5,
           min.segment.length = unit(0, "lines")) +
-        ggrepel::geom_text_repel(
-          data = ph_labels,
-          aes(x, y, label = label),
-          size = 2.5) +
         scale_x_date(
-          limits = x_lims,
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
           breaks = scales::pretty_breaks(),
           expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_gradient2(
           low = "#ffd43a",
           mid = "#00b82b",
@@ -168,12 +177,71 @@ makeReportPlots <- function(df, type) {
           limits = setAxisLimits(df$ph_diff, -2, 3)) +
         labs(x = NULL, y = "pH") +
         common_theme
+
+      return(plt)
+    }
+
+
+    # Conductivity ----
+
+    if (type == "cond") {
+
+      df <- df %>%
+        select(date, cond = specific_cond) %>%
+        drop_na(cond) %>%
+        mutate(label = paste(round(cond, 1), "μS/cm"))
+      n_dates <- n_distinct(df$date)
+      x_lims <- setReportDateRange(df$date, pad_right = T)
+      y_lims <- setAxisLimits(df$cond, 400, 700)
+      cond_labels <- tibble(
+        x = as.Date(Inf),
+        y = c(800, 1500, 2000),
+        label = c(
+          "High conductivity\n(> 800 μS/cm)\n\n",
+          "Potentially toxic chloride\nlevels (1500-2000 μS/cm)\n\n",
+          "Likely toxic chloride\nlevel (> 2000 μS/cm)\n\n")) %>%
+        filter(y < y_lims[2])
+
+      plt <- df %>%
+        ggplot(aes(x = date, y = cond)) +
+        addRectDate(-Inf, 800, "turquoise") +
+        addRectDate(800, 1500, "orange") +
+        addRectDate(1500, 2000, "tomato") +
+        addRectDate(2000, Inf, "red") +
+        ggrepel::geom_text_repel(
+          data = cond_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
+        { if (n_dates > 1) geom_line(color = "violet", linewidth = 2) } +
+        geom_point(
+          color = "black",
+          fill = "violet",
+          shape = 21,
+          size = 4) +
+        ggrepel::geom_text_repel(
+          aes(label = label),
+          size = 3.5,
+          nudge_y = max(df$cond) / 20,
+          min.segment.length = unit(0, "lines")) +
+        scale_x_date(
+          breaks = "months",
+          date_labels = "%b\n%Y") +
+        scale_y_continuous(
+          breaks = scales::breaks_pretty(6),
+          expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
+        labs(x = NULL, y = "Specific conductance (μS/cm)") +
+        common_theme +
+        theme(legend.position = "none")
+
       return(plt)
     }
 
 
     # Transparency ----
+
     if (type == "trans") {
+
       df <- df %>%
         select(date, trans = transparency, tube = transparency_tube_length) %>%
         drop_na(trans) %>%
@@ -185,14 +253,17 @@ makeReportPlots <- function(df, type) {
       x_lims <- setReportDateRange(df$date)
       y_lims <- setAxisLimits(df$trans, 0, 120)
       col_width <- ifelse(n_dates > 8, 10, 15)
+
       plt <- df %>%
         ggplot(aes(x = date, y = trans)) +
         geom_col(
           aes(y = tube, color = "grey50"),
+          position = "identity",
           fill = "grey95",
           width = col_width) +
         geom_col(
           aes(fill = trans),
+          position = "identity",
           color = "black",
           width = col_width) +
         ggrepel::geom_text_repel(
@@ -220,21 +291,42 @@ makeReportPlots <- function(df, type) {
         labs(x = NULL, y = "Transparency (cm)", color = "Tube\nlength", fill = "Water\nclarity") +
         common_theme +
         theme(legend.position = "right", legend.title = element_text(size = 10))
+
       return(plt)
     }
 
 
     # Streamflow ----
+
     if (type == "flow") {
+
       df <- df %>%
         select(date, flow = streamflow) %>%
         drop_na(flow) %>%
-        mutate(label = paste(round(flow, 1), " cfs"))
+        mutate(label = paste(round(flow, 1), "cfs"))
       n_dates <- n_distinct(df$date)
-      x_lims <- setReportDateRange(df$date)
-      y_lims <- setAxisLimits(df$flow, 0, 2)
+      x_lims <- setReportDateRange(df$date, pad_right = T)
+      y_lims <- setAxisLimits(df$flow, 0, 1)
+      flow_labels <- tibble(
+        x = as.Date(Inf),
+        y = c(.03, 3, 150),
+        max = c(3, 150, Inf),
+        label = c(
+          "Headwater stream (0.03-3 cfs)\n\nEphemeral stream (< 0.03 cfs)",
+          "Mainstem stream (3-150 cfs)\n\nHeadwater stream (0.03-3 cfs)",
+          "Large river (> 150 cfs)\n\nMainstem stream (3-150 cfs)")) %>%
+        filter(y < y_lims[2], max > y_lims[2])
+
       plt <- df %>%
         ggplot(aes(x = date, y = flow)) +
+        addRectDate(-Inf, .03, "#915119") +
+        addRectDate(.03, 3, "#e3c283") +
+        addRectDate(3, 150, "#73cdc1") +
+        addRectDate(150, Inf, "#09968e") +
+        ggrepel::geom_text_repel(
+          data = flow_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
         { if (n_dates > 1) geom_line(color = "cadetblue", linewidth = 2) } +
         geom_point(
           color = "black",
@@ -247,22 +339,24 @@ makeReportPlots <- function(df, type) {
           nudge_y = max(df$flow) / 20,
           min.segment.length = unit(0, "lines")) +
         scale_x_date(
-          limits = x_lims,
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
-          breaks = scales::pretty_breaks(),
-          expand = expansion()) +
+          breaks = scales::breaks_pretty(6),
+          expand = expansion(c(0, .1))) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         labs(x = NULL, y = "Streamflow (cfs)") +
         common_theme +
         theme(legend.position = "none")
+
       return(plt)
     }
 
 
     # Total phosphorus ----
+
     if (type == "nutrient") {
+
       dates <- df$date
       yr <- lubridate::year(dates[1])
       eoy_date <- as.Date(paste0(yr, "-12-1"))
@@ -332,12 +426,15 @@ makeReportPlots <- function(df, type) {
         labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L limit?") +
         common_theme +
         theme(legend.position = "bottom")
+
       return(plt)
     }
 
 
     # Thermistor ----
+
     if (type == "thermistor") {
+
       daily_min <- df %>%
         slice_min(order_by = temp_c, by = date) %>%
         select(date_time, min = temp_c)
@@ -353,8 +450,8 @@ makeReportPlots <- function(df, type) {
         x = as.POSIXct(Inf),
         y = c(20.7, 24.6),
         label = c(
-          "Cold-cool transition\n(69.3°F / 20.7°C)",
-          "Cool-warm transition\n(76.3°F / 24.6°C)"))
+          "Cold-cool transition\n(20.7°C / 69.3°F)",
+          "Cool-warm transition\n(24.6°C / 76.3°F)"))
 
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
@@ -389,7 +486,9 @@ makeReportPlots <- function(df, type) {
         labs(x = NULL, y = "Water temperature") +
         common_theme +
         theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
       return(plt)
     }
-  }))
+
+  })
 }

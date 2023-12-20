@@ -44,8 +44,6 @@ has <- report_summary$has
 
 interp <- list()
 
-# coldwater < 20.7C/69.3F
-# warmwater > 24.6C/76.3F
 water_temp_class_text <- "**Coldwater** streams have maximum summer temperatures below 20.7°C (69.3°F), **coolwater** streams have maximum temperatures between 20.7°C and 24.6°C (76.3°F), and **warmwater** streams have maximum temperatures above 24.6°C."
 getTempInterp <- function(temp) {
   temp_class <- case_when(
@@ -90,10 +88,21 @@ if (has$ph) {
   interp$ph <- glue("***Based on recorded pH values, this stream {ph_class}.***")
 }
 
+if (has$specific_cond) {
+  max_cond <- max(baseline$specific_cond, na.rm = T)
+  cond_class <- case_when(
+    max_cond > 2000 ~ "reached potentially toxic chloride levels",
+    max_cond > 1500 ~ "approached potentially toxic chloride levels",
+    max_cond > 800 ~ "had higher than average conductivity levels",
+    T ~ "meets water quality standards"
+  )
+  interp$specific_cond <- glue("***Based on recorded the maximum specific conductivity measurement of {max_cond} µS/cm, this stream {cond_class}.***")
+}
+
 if (has$streamflow) {
   min_flow <- min(baseline$streamflow, na.rm = T)
   flow_class <- case_when(
-    min_flow < .03 ~ "ephemeral stream",
+    min_flow < 0.03 ~ "ephemeral stream",
     min_flow <= 3 ~ "headwater stream",
     min_flow <= 150 ~ "mainstem stream",
     T ~ "large river"
@@ -186,11 +195,12 @@ In this report, we provide several basic summary statistics to help interpret th
 
 ## Automatic data interpretations
 
-Some of the pages in this report include a brief interpretation of the data, which is based on the following criteria developed by the Wisconsin DNR:
+Some of the pages in this report include a brief interpretation of the data, which is based on the criteria listed below and developed by the Wisconsin DNR. Always be sure to inspect the data with a critical eye and keep in mind that there may be data entry errors that can result in invalid data being included on the dashboard and in these reports.
 
-* **Water temperature:** `r water_temp_class_text` For baseline sampling, use the maximum single value. For hourly temperature logger data (where available), we use the maximum daily average temperature.
+* **Water temperature:** `r water_temp_class_text` For baseline sampling, we use the maximum single value. For hourly temperature logger data (where available), we use the maximum daily average temperature.
 * **Dissolved oxygen:** Cold Waters communities during fish spawning season require a minimum of 7 mg/L, Cold Waters communities during other times of year require a minimum of 6 mg/L, Warm Waters communities require a minimum of 5 mg/L, a Limited Forage Fishery requires a minimum of 3 mg/L, and limited aquatic life can survive at levels down to 1 mg/L.
 * **pH:** The optimal pH for fish is around 7.5. The DNR's water quality standard sets a minimum (most acidic) pH of 6.0 and a maximum (most basic) pH of 9.0.
+* **Specific conductance:** The aquatic life threshold in Wisconsin for chloride is a maximum of 395 mg/L, but specific conductance does not only measure the amount of chloride dissolved in water. Other dissolved minerals and ions contribute to water conductivity, so specific conductance thresholds are approximate. Specific conductance readings over 800 µS/cm are typically considered high and these levels are potentially detrimental to aquatic life. Specific conductance readings in the 1500-2000 µS/cm range are likely from high chloride levels and are approaching the State of Wisconsin’s 395 mg/L chloride toxicity threshold for aquatic life.
 * **Streamflow:** Ephemeral streams have minimum flows <0.03 cfs, headwater streams between 0.03 and 3 cfs, mainstem streams between 3 and 150 cfs, and large rivers have minimum flow greater than 150 cfs. Technically these values are for the 90% exceedance flow (90% of streamflow greater than this value), but most volunteers collect less than 10 streamflow values per year so the minimum streamflow is used here.
 * **Total phosphorus:** The DNR established a phosphorus limit of 0.075 mg/L for streams. For a stream to be listed as impaired, 6 monthly samples must be collected for two successive years, and the lower 90% confidence interval for the median value in each year must exceed the state standard. We use the following language for characterizing phosphorus levels: A stream site ***clearly exceeds*** the phosphorus limit if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit.
 
@@ -280,6 +290,21 @@ if (has$ph) {
   p("Much of Wisconsin has bedrock that is composed of limestone and other rock that is rich in bicarbonate and carbonate. These types of rock can minimize impacts of acid rain or other acidic inputs to the water. In northern Wisconsin, bedrock is composed of granite which is not rich in bicarbonates and carbonates, and thus those rocks are less able to buffer or offset the impacts of acid rain or other acid inputs to the waters.")
   p("Concentrations of dissolved metal ions tend to increase with increased acidity and as a result, pH is an important factor influencing toxicity of metals. pH also affects the concentration of un-ionized ammonia, a form of nitrogen that is extremely toxic to aquatic life.")
   p(interp$ph)
+}
+
+
+## Baseline conductivity ##
+
+if (has$specific_cond) {
+  pg()
+  p("# Baseline Conductivity Measurements")
+  baseline %>% makeReportPlots(type = "cond") %>% print()
+  baseline %>% summarizeReportCols(c(
+    `Specific conductance (μS/cm)` = "specific_cond"
+  )) %>% kable() %>% print()
+  p("## Why measure conductivity?")
+  p("In Wisconsin, specific conductance (conductivity) in streams varies widely across the state and even within a single watershed depending on the geology and soils in the area. Groundwater flowing into streams and minerals washed into streams from local soils can all affect a stream’s baseline conductivity. It’s important to recognize that specific conductance is not just an indicator of dissolved chloride ions, but it measures all dissolved ions, including calcium and bicarbonate. For example, in southern Wisconsin, the bedrock has high levels of calcium, which increases conductivity readings in streams in the region. As a result, there is a wide range for specific conductance readings in Wisconsin streams. Some streams may have a natural specific conductance under 100 µS/cm, while other streams may have a natural specific conductance of over 500 µS/cm. However, chloride ions from road salt washing into streams can significantly increase conductivity to dangerous levels for aquatic life. Specific conductance greater than 800 µS/cm is considered high, while readings of 1500-2000 µS/cm or greater are likely from high chloride levels and are approaching Wisconsin's 395 mg/L chloride toxicity threshold for aquatic life.")
+  p(interp$specific_cond)
 }
 
 

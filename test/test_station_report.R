@@ -96,7 +96,6 @@ baseline_data %>%
 makeReportPlots(test_baseline, "temp")
 makeReportPlots(test_baseline, "do")
 makeReportPlots(test_baseline, "ph")
-makeReportPlots(test_baseline, "flow")
 
 makeReportPlots(test_baseline, "trans")
 
@@ -105,6 +104,42 @@ baseline_data %>%
   filter(station_id == 10033880, year == 2023) %>%
   mutate(across(c(air_temp, water_temp), c_to_f)) %>%
   makeReportPlots("temp")
+
+
+# streamflow
+test_baseline_flow <- baseline_data %>%
+  filter(!is.na(streamflow))
+test_stn <- all_pts %>%
+  filter(station_id %in% test_baseline_flow$station_id) %>%
+  slice_sample(n = 1)
+test_baseline <- baseline_data %>%
+  filter(station_id == test_stn$station_id) %>%
+  filter(year == max(year))
+
+makeReportPlots(test_baseline, "flow")
+
+
+
+
+
+# specific cond
+
+test_baseline_cond <- baseline_data %>%
+  filter(!is.na(specific_cond)) %>%
+  filter(specific_cond > 1000)
+test_stn <- all_pts %>%
+  filter(station_id %in% test_baseline_cond$station_id) %>%
+  slice_sample(n = 1)
+test_baseline <- baseline_data %>%
+  filter(station_id == test_stn$station_id) %>%
+  filter(year == max(year))
+
+makeReportPlots(test_baseline, "cond")
+
+baseline_data %>%
+  filter(specific_cond < 3000) %>%
+  ggplot(aes(specific_cond)) + geom_histogram()
+
 
 
 

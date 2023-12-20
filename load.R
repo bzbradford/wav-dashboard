@@ -222,7 +222,7 @@ addRectDate <- function(ymin, ymax, color) {
     ymin = ymin, ymax = ymax, fill = alpha(color, .05)
   )
   if (!is.infinite(ymax))
-    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
   gg
 }
 
