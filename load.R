@@ -425,7 +425,7 @@ report_baseline_cols <- c(
   `D.O. (mg/L)` = "d_o",
   `D.O. (% sat.)` = "d_o_percent_saturation",
   `pH` = "ph",
-  `Specific conductivity (μS/cm)` = "specific_cond",
+  `Specific conductance (μS/cm)` = "specific_cond",
   `Transparency (cm)` = "transparency",
   `Streamflow (cfs)` = "streamflow"
 )
@@ -494,7 +494,7 @@ buildReportSummary <- function(params) {
       pull(text) %>%
       combine_words()
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report generated ", format(Sys.time(), "%Y-%m-%d %I:%M %Op %Z"), ".")
+    msg <- paste0(msg, " Report generated ", Sys.Date(), ".")
   }
 
   list(counts = counts, has = has, message = msg)

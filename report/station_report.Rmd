@@ -186,7 +186,7 @@ In this report, we provide several basic summary statistics to help interpret th
 
 ## Automatic data interpretations
 
-Volunteers are always encouraged to look at more than one year of data when making inferences about stream health based on water quality measurements. Here we have used the following sets of standards to annotate the charts or generate results interpretations:
+Some of the pages in this report include a brief interpretation of the data, which is based on the following criteria developed by the Wisconsin DNR:
 
 * **Water temperature:** `r water_temp_class_text` For baseline sampling, use the maximum single value. For hourly temperature logger data (where available), we use the maximum daily average temperature.
 * **Dissolved oxygen:** Cold Waters communities during fish spawning season require a minimum of 7 mg/L, Cold Waters communities during other times of year require a minimum of 6 mg/L, Warm Waters communities require a minimum of 5 mg/L, a Limited Forage Fishery requires a minimum of 3 mg/L, and limited aquatic life can survive at levels down to 1 mg/L.
@@ -294,7 +294,7 @@ if (has$transparency) {
   )) %>% kable() %>% print()
   p("## Why measure water transparency?")
   p("These measurements reflect the visual transparency, or clarity, of the water. The higher the transparency, the clearer the water. Transparency is easy to measure and is related to turbidity, which is commonly used to quantify the amount of suspended particles in the water, but requires specialized equipment to measure. All streams have a natural amount of background turbidity. Fish and macroinvertebrates have evolved over time to adapt to natural, short term changes in turbidity, but the longer a stream or river remains at unusually high turbidity levels, the greater effect it has aquatic life. Extremely high levels of turbidity impair survival by blocking the membranes aquatic life use to breathe, by interfering with filter feeding animals, and by making it difficult for fish to find food. Turbid waters also hold more heat, increasing stream temperatures and reducing dissolved oxygen levels.")
-  p("Low transparency indicates there is more suspended sediment or algae particles in the stream, perhaps from recent storm events kicking up silt within the stream, surface water runoff and soil erosion, or excess nutrients fueling algae growth. Transparency is also associated with the color of the water, as some waters are more “tea-stained” in appearance due to decomposition of organic matter. Acceptable minimum turbidity levels for aquatic life in streams are < 10 NTUs (Nephelometric Turbidity Units), which is comparable to a minimum 54.7cm transparency reading. There is no state criteria in Wisconsin for turbidity.")
+  p("Low transparency indicates there is more suspended sediment or algae particles in the stream, perhaps from recent storm events kicking up silt within the stream, surface water runoff and soil erosion, or excess nutrients fueling algae growth. Transparency is also associated with the color of the water, as some waters are more “tea-stained” in appearance due to decomposition of organic matter. Acceptable maximum turbidity levels for aquatic life in streams are < 10 NTUs (Nephelometric Turbidity Units), which is comparable to a 54.7 cm transparency reading. There is no state criteria in Wisconsin for turbidity.")
 }
 
 
