@@ -52,7 +52,7 @@ makeReportPlots <- function(df, type) {
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          breaks = scales::pretty_breaks(),
+          breaks = scales::breaks_pretty(6),
           labels = ~sprintf("%s°C\n(%s°F)", .x, round(c_to_f(.x), 1)),
           expand = expansion()) +
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
@@ -114,7 +114,7 @@ makeReportPlots <- function(df, type) {
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          breaks = scales::pretty_breaks(),
+          breaks = scales::breaks_pretty(6),
           expand = expansion()) +
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_identity() +
@@ -167,7 +167,7 @@ makeReportPlots <- function(df, type) {
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          breaks = scales::pretty_breaks(),
+          breaks = scales::breaks_pretty(6),
           expand = expansion()) +
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_gradient2(
@@ -272,13 +272,12 @@ makeReportPlots <- function(df, type) {
           nudge_y = 1,
           min.segment.length = unit(0, "lines")) +
         scale_x_date(
-          limits = x_lims,
           breaks = "months",
           date_labels = "%b\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
           breaks = seq(0, 120, 20),
           expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_color_identity(guide = guide_legend(label = F)) +
         scale_fill_distiller(
           palette = "BuGn",
@@ -412,13 +411,12 @@ makeReportPlots <- function(df, type) {
           size = 3.5,
           nudge_y = .005) +
         scale_x_date(
-          limits = x_lims,
           breaks = dates,
           date_labels = "%b %d\n%Y") +
         scale_y_continuous(
-          limits = y_lims,
-          breaks = scales::pretty_breaks(),
+          breaks = scales::breaks_pretty(6),
           expand = expansion()) +
+        coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_manual(
           breaks = c(T, F),
           values = c("#FFA168", "#40b0a6"),
@@ -458,6 +456,10 @@ makeReportPlots <- function(df, type) {
         addRectDatetime(-Inf, 20.7, "blue") +
         addRectDatetime(20.7, 24.6, "cornflowerblue") +
         addRectDatetime(24.6, Inf, "darkorange") +
+        ggrepel::geom_text_repel(
+          data = temp_labels,
+          aes(x, y, label = label),
+          size = 2.5) +
         geom_ribbon(
           aes(ymin = min, ymax = max),
           color = NA, fill = alpha("lightblue", .1)) +
@@ -473,10 +475,6 @@ makeReportPlots <- function(df, type) {
           aes(y = mean),
           color = "orange",
           linewidth = 1) +
-        ggrepel::geom_text_repel(
-          data = temp_labels,
-          aes(x, y, label = label),
-          size = 2.5) +
         scale_x_datetime(
           breaks = "weeks",
           date_labels = "%b %d") +
