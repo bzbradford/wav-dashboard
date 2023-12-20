@@ -441,7 +441,7 @@ makeReportPlots <- function(df, type) {
         select(date_time, max = temp_c)
       daily_range <- bind_rows(daily_min, daily_max) %>%
         arrange(date_time) %>%
-        mutate(across(c(min, max), ~zoo::na.spline(.x))) %>%
+        mutate(across(c(min, max), ~zoo::na.approx(.x, na.rm = F))) %>%
         mutate(mean = (min + max) / 2) %>%
         na.omit()
       temp_labels <- tibble(

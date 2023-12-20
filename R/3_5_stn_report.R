@@ -80,8 +80,6 @@ stnReportServer <- function(cur_stn, has_focus) {
 
       ## mainUI ----
       output$mainUI <- renderUI({
-        validate(need(Sys.getenv("REPORT_DISABLED") == "", "This feature is currently under development. We appreciate your patience."))
-
         tagList(
           h4("Station", cur_stn()$label, align = "center"),
           tags$span(em("Station data summary:")),

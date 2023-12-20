@@ -142,7 +142,6 @@ baseline_data %>%
 
 
 
-
 # Nutrient data -----------------------------------------------------------
 
 test_stn <- all_pts %>%
@@ -197,7 +196,26 @@ test_therm <- therm_data %>%
   filter(year == max(year)) %>%
   mutate(formatted_date = format(date, "%b %d"))
 
+
+
+
+test_therm <- therm_data %>%
+  filter(station_id == 10011232, year == 2023)
+
 makeReportPlots(test_therm, "thermistor")
 
+df <- test_therm
+daily_min <- df %>%
+  slice_min(order_by = temp_c, by = date) %>%
+  select(date_time, min = temp_c)
+daily_max <- df %>%
+  slice_max(order_by = temp_c, by = date) %>%
+  select(date_time, max = temp_c)
+daily_range <- bind_rows(daily_min, daily_max) %>%
+  arrange(date_time) %>%
+  mutate(
+    min = zoo::na.approx(min, na.rm = F),
+    max = zoo::na.approx(max, na.rm = F)) %>%
+  mutate(mean = (min + max) / 2)
 
-
+zoo::na.approx(daily_range$max)

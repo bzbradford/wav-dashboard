@@ -152,7 +152,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               inputId = ns("units"),
               label = NULL,
               inline = T,
-              choices = list("Celsius" = "C", "Fahrenheit" = "F")
+              choices = list("Fahrenheit" = "F", "Celsius" = "C")
             ),
             div(
               style = "float: left; margin-right: 1em;",

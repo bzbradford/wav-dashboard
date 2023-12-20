@@ -98,7 +98,8 @@ ui <- fluidPage(
         tabPanel(tab_names$nutrient, nutrientDataUI()),
         tabPanel(tab_names$thermistor, thermistorDataUI()),
         tabPanel(tab_names$watershed, watershedInfoUI()),
-        tabPanel(tab_names$reports, stnReportUI()),
+        # temporarily disable the reports tab on the wisc server
+        {if (Sys.getenv("REPORT_DISABLED") == "") tabPanel(tab_names$reports, stnReportUI())},
         tabPanel(tab_names$more, learnMoreUI())
       ),
     ),

@@ -5,8 +5,8 @@ account: bzbradford
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6744773
-bundleId: 8067909
+bundleId: 8071042
 url: https://bzbradford.shinyapps.io/wav-dashboard/
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .Rprofile|load.R|test/test.R|test/test_station_report.R|data
+ignoredFiles: .Rprofile|load.R|README.md|test/test.R|test/test_station_report.R|data
