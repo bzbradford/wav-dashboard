@@ -11,13 +11,6 @@ makeBaselinePlot <- function(df) {
 
   df <- df %>% distinct(date, .keep_all = T)
 
-  # get y axis-ranges for plot
-  yranges <- list(
-    d_o = c(0, find_max(df$d_o, 12)),
-    temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
-    trans = c(0, 125),
-    cfs = c(0, find_max(df$streamflow, 10)))
-
   # modify and remove empties for each var
   do_data <- df %>%
     filter(!is.na(d_o)) %>%
@@ -30,10 +23,23 @@ makeBaselinePlot <- function(df) {
   trans_data <- filter(df, !is.na(transparency))
   flow_data <- filter(df, !is.na(streamflow))
 
-  # settings for longer date periods
-  years <- as.numeric(max(df$date) - min(df$date)) / 365
+  # get y-axis ranges for plot
+  yranges <- list(
+    d_o = c(0, find_max(df$d_o, 12)),
+    temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
+    trans = c(0, 125),
+    cfs = c(0, find_max(df$streamflow, 10)))
+
+  # date settings
+  dates <- unique(df$date)
+  years <- as.numeric(max(dates) - min(dates)) / 365
   date_tick <- "M1"
   marker_opacity <- 1
+  if (years < 1) {
+    date_range <- setReportDateRange(dates)
+  } else {
+    date_range <- c(min(dates) - 15, max(dates) + 15)
+  }
   if (years > 3) {
     date_tick <- "M3"
     marker_opacity <- 0
@@ -52,7 +58,7 @@ makeBaselinePlot <- function(df) {
         color = ~do_color,
         line = list(color = "black", width = 0.5)),
       type = "bar",
-      width = 1000 * 60 * 60 * 24 * 15,
+      width = 15 * (1000 * 60 * 60 * 24), # milliseconds per day
       hovertemplate = "%{y}") %>%
     add_trace(
       data = temp_data,
@@ -122,6 +128,7 @@ makeBaselinePlot <- function(df) {
       xaxis = list(
         title = "",
         type = "date",
+        range = date_range,
         fixedrange = F, # allow user to zoom the axis?
         dtick = date_tick,
         ticklabelmode = "period",
