@@ -152,7 +152,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               inputId = ns("units"),
               label = NULL,
               inline = T,
-              choices = list("Fahrenheit" = "F", "Celsius" = "C")
+              choices = list("Celsius" = "C", "Fahrenheit" = "F")
             ),
             div(
               style = "float: left; margin-right: 1em;",
@@ -163,8 +163,8 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               label = NULL,
               inline = T,
               choices = list(
-                "Brook trout temperature range" = "btrout",
                 "Warm/cool/coldwater classification" = "wtemp",
+                "Brook trout temperature range" = "btrout",
                 "None" = "none"
               )
             )
@@ -205,7 +205,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             " and too cold in ", colorize("blue", "blue"), ".")
 
         } else if (annotation == "wtemp") {
-          temps <- c(72, 77)
+          temps <- c(69.3, 76.3)
           if (units == "C") temps <- f_to_c(temps)
 
           overlay_caption <- paste0(

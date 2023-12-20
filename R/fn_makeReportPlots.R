@@ -12,28 +12,28 @@ makeReportPlots <- function(df, type) {
 
 
     # Temperature ----
-    # assumes temperatures are passed in as F
+    # assumes temperatures are passed in as C
     if (type == "temp") {
       df <- df %>%
         select(date, Air = air_temp, Water = water_temp,) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
-        pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp_f") %>%
-        mutate(label = paste0(temp_f, "°F")) %>%
+        pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp") %>%
+        mutate(label = paste0(temp, "°C")) %>%
         mutate(measure = paste(measure, "temperature"))
       n_dates <- n_distinct(df$date)
       x_lims <- setReportDateRange(df$date, pad_right = T)
-      y_lims <- setAxisLimits(df$temp_f, 50, 77)
+      y_lims <- setAxisLimits(df$temp, 10, 25)
       temp_labels <- tibble(
         x = as.Date(Inf),
-        y = c(72, 77),
+        y = c(20.7, 24.6),
         label = c(
-          "Cold-cool transition\n(72°F / 22.2°C)",
-          "Cool-warm transition\n(77°F / 25°C)"))
+          "Cold-cool transition\n(20.7°C / 69.3°F)",
+          "Cool-warm transition\n(24.6°C / 76.3°F)"))
       plt <- df %>%
-        ggplot(aes(x = date, y = temp_f)) +
-        addRectDate(-Inf, 72, "blue") +
-        addRectDate(72, 77, "cornflowerblue") +
-        addRectDate(77, Inf, "darkorange") +
+        ggplot(aes(x = date, y = temp)) +
+        addRectDate(-Inf, 20.7, "blue") +
+        addRectDate(20.7, 24.6, "cornflowerblue") +
+        addRectDate(24.6, Inf, "darkorange") +
         { if (n_dates > 1) geom_line(aes(color = measure), linewidth = 1.5) } +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
         ggrepel::geom_text_repel(
@@ -52,7 +52,7 @@ makeReportPlots <- function(df, type) {
         scale_y_continuous(
           limits = y_lims,
           breaks = scales::pretty_breaks(),
-          labels = ~sprintf("%s°F\n(%s°C)", .x, round(f_to_c(.x), 1)),
+          labels = ~sprintf("%s°C\n(%s°F)", .x, round(c_to_f(.x), 1)),
           expand = expansion()) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
@@ -232,7 +232,7 @@ makeReportPlots <- function(df, type) {
         mutate(label = paste(round(flow, 1), " cfs"))
       n_dates <- n_distinct(df$date)
       x_lims <- setReportDateRange(df$date)
-      y_lims <- setAxisLimits(df$flow, 0, 5)
+      y_lims <- setAxisLimits(df$flow, 0, 2)
       plt <- df %>%
         ggplot(aes(x = date, y = flow)) +
         { if (n_dates > 1) geom_line(color = "cadetblue", linewidth = 2) } +
@@ -283,6 +283,7 @@ makeReportPlots <- function(df, type) {
         est$limit, "State limit",
       ) %>% mutate(date = eoy_date)
       ci <- est$n > 1 # conf int if more than 1 observation
+
       plt <- df %>%
         ggplot(aes(x = date, y = tp)) +
         {
@@ -300,7 +301,7 @@ makeReportPlots <- function(df, type) {
           )
         } +
         geom_hline(yintercept = phoslimit, linewidth = 1, color = "red") +
-        geom_col(aes(fill = exceeds), color = "black") +
+        geom_col(aes(fill = exceeds), color = "black", width = 15) +
         {
           # label confidence interval
           if (ci) ggrepel::geom_text_repel(
@@ -319,7 +320,7 @@ makeReportPlots <- function(df, type) {
         scale_x_date(
           limits = x_lims,
           breaks = dates,
-          date_labels = "%b\n%Y") +
+          date_labels = "%b %d\n%Y") +
         scale_y_continuous(
           limits = y_lims,
           breaks = scales::pretty_breaks(),
@@ -338,11 +339,11 @@ makeReportPlots <- function(df, type) {
     # Thermistor ----
     if (type == "thermistor") {
       daily_min <- df %>%
-        slice_min(order_by = temp_f, by = date) %>%
-        select(date_time, min = temp_f)
+        slice_min(order_by = temp_c, by = date) %>%
+        select(date_time, min = temp_c)
       daily_max <- df %>%
-        slice_max(order_by = temp_f, by = date) %>%
-        select(date_time, max = temp_f)
+        slice_max(order_by = temp_c, by = date) %>%
+        select(date_time, max = temp_c)
       daily_range <- bind_rows(daily_min, daily_max) %>%
         arrange(date_time) %>%
         mutate(across(c(min, max), ~zoo::na.spline(.x))) %>%
@@ -350,21 +351,22 @@ makeReportPlots <- function(df, type) {
         na.omit()
       temp_labels <- tibble(
         x = as.POSIXct(Inf),
-        y = c(72, 77),
+        y = c(20.7, 24.6),
         label = c(
-          "Cold-cool transition\n(72°F / 22.2°C)",
-          "Cool-warm transition\n(77°F / 25°C)"))
+          "Cold-cool transition\n(69.3°F / 20.7°C)",
+          "Cool-warm transition\n(76.3°F / 24.6°C)"))
+
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
-        addRectDatetime(-Inf, 72, "blue") +
-        addRectDatetime(72, 77, "cornflowerblue") +
-        addRectDatetime(77, Inf, "darkorange") +
+        addRectDatetime(-Inf, 20.7, "blue") +
+        addRectDatetime(20.7, 24.6, "cornflowerblue") +
+        addRectDatetime(24.6, Inf, "darkorange") +
         geom_ribbon(
           aes(ymin = min, ymax = max),
           color = NA, fill = alpha("lightblue", .1)) +
         geom_line(
           data = df,
-          aes(y = temp_f),
+          aes(y = temp_c),
           color = alpha("#1f77b4", .5),
           linewidth = .25) +
         geom_ribbon(
@@ -383,7 +385,7 @@ makeReportPlots <- function(df, type) {
           date_labels = "%b %d") +
         scale_y_continuous(
           breaks = scales::pretty_breaks(),
-          labels = ~sprintf("%s°F\n(%s°C)", .x, round(f_to_c(.x), 1))) +
+          labels = ~sprintf("%s°C\n(%s°F)", .x, round(c_to_f(.x), 1))) +
         labs(x = NULL, y = "Water temperature") +
         common_theme +
         theme(axis.text.x = element_text(angle = 30, hjust = 1))

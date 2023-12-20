@@ -20,6 +20,32 @@ rm(list = ls(all.names = TRUE)) # remove all objects
 gc() # garbage collect
 
 
+# Definitions ----
+
+stn_colors <- list(
+  baseline = "green",
+  nutrient = "orange",
+  thermistor = "purple",
+  current = "deepskyblue"
+)
+
+tab_names <- list(
+  baseline = "Baseline data",
+  nutrient = "Nutrient data",
+  thermistor = "Thermistor data",
+  watershed = "Watershed/landscape context",
+  reports = "Downloadable reports",
+  more = "Learn more"
+)
+
+wiscalm_temps <- list(
+  cold_c = 20.7,
+  cold_f = 69.3,
+  warm_c = 24.6,
+  warm_f = 76.3
+)
+
+
 # Functions ----
 
 ## Used here only ----
@@ -392,6 +418,28 @@ buildWatershedInfo <- function(stn) {
 
 ## Reports ----
 
+# baseline temperature data normally stored in C, must be converted to F
+report_baseline_cols <- c(
+  `Air temp (°C)` = "air_temp",
+  `Water temp (°C)` = "water_temp",
+  `D.O. (mg/L)` = "d_o",
+  `D.O. (% sat.)` = "d_o_percent_saturation",
+  `pH` = "ph",
+  `Specific conductivity (μS/cm)` = "specific_cond",
+  `Transparency (cm)` = "transparency",
+  `Streamflow (cfs)` = "streamflow"
+)
+
+# will be excluded if all NA
+report_baseline_optional_cols <- c("ph", "specific_cond")
+
+# will be included if any streamflow cfs data
+report_streamflow_cols <- c(
+  `Stream width (ft)` = "stream_width",
+  `Average depth (ft)` = "average_stream_depth",
+  `Surface velocity (ft/s)` = "average_surface_velocity"
+)
+
 # creates a paragraph of text describing the data
 buildReportSummary <- function(params) {
   yr <- params$year
@@ -446,34 +494,11 @@ buildReportSummary <- function(params) {
       pull(text) %>%
       combine_words()
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
+    msg <- paste0(msg, " Report generated ", format(Sys.time(), "%Y-%m-%d %I:%M %Op %Z"), ".")
   }
 
   list(counts = counts, has = has, message = msg)
 }
-
-
-
-# baseline temperature data normally stored in C, must be converted to F
-report_baseline_cols <- c(
-  `Air temp (°F)` = "air_temp",
-  `Water temp (°F)` = "water_temp",
-  `D.O. (mg/L)` = "d_o",
-  `D.O. (% sat.)` = "d_o_percent_saturation",
-  `pH` = "ph",
-  `Specific conductivity (μS/cm)` = "specific_cond",
-  `Transparency (cm)` = "transparency",
-  `Streamflow (cfs)` = "streamflow"
-)
-
-# will be excluded if all NA
-report_baseline_optional_cols <- c("ph", "specific_cond")
-
-# will be included if any streamflow cfs data
-report_streamflow_cols <- c(
-  `Stream width (ft)` = "stream_width",
-  `Average depth (ft)` = "average_stream_depth",
-  `Surface velocity (ft/s)` = "average_surface_velocity"
-)
 
 # min/max etc for data cols
 summarizeReportCols <- function(df, cols) {
@@ -544,26 +569,6 @@ buildReportFieldworkComments <- function(baseline) {
     pull(fieldwork_desc) %>%
     gsub("..", ".", ., fixed = T)
 }
-
-
-
-# Defs ----
-
-stn_colors <- list(
-  baseline = "green",
-  nutrient = "orange",
-  thermistor = "purple",
-  current = "deepskyblue"
-)
-
-tab_names <- list(
-  baseline = "Baseline data",
-  nutrient = "Nutrient data",
-  thermistor = "Thermistor data",
-  watershed = "Watershed landscape",
-  reports = "Downloadable reports",
-  more = "Learn more"
-)
 
 
 

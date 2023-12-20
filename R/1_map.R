@@ -680,7 +680,7 @@ mapServer <- function(cur_stn, main_session) {
 
       ### zoom_in_btn ----
       observeEvent(input$zoom_in_btn, {
-        zoomToSite(10)
+        zoomToSite(12)
       })
 
       ### zoom_all_btn ----
