@@ -8,6 +8,7 @@
 #' - data_years
 #' - all_pts
 #' - all_labels
+#' - shapefiles: nkes, huc8, huc10, huc12
 
 mapUI <- function() {
   ns <- NS("map")
@@ -15,13 +16,13 @@ mapUI <- function() {
   tagList(
     div(
       style = "margin: 0.5em 1em;", align = "center",
-      p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", total phosphorus monitoring stations in ", colorize(stn_colors$nutrient), ", and temperature logging stations in ", colorize(stn_colors$thermistor), ". Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
+      p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", total phosphorus monitoring stations in ", colorize(stn_colors$nutrient), ", and temperature logging stations in ", colorize(stn_colors$thermistor), " (stations may have more than one type of data). Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
     ),
 
     sidebarLayout(
       sidebarPanel(
         checkboxGroupInput(
-          inputId = "stn_types",
+          inputId = ns("stn_types"),
           label = "Station data types:",
           choices = station_types,
           selected = station_types
@@ -31,39 +32,46 @@ mapUI <- function() {
           column(
             width = 5,
             checkboxGroupInput(
-              inputId = "stn_years",
+              inputId = ns("stn_years"),
               label = NULL,
-              choices = data_years,
-              selected = head(data_years, 4)
-            )
+              choices = stn_year_choices,
+              selected = stn_year_choices[1:4]
+            ),
+            style = "white-space: nowrap;"
           ),
           column(
             width = 7,
             radioButtons(
-              inputId = "year_exact_match",
+              inputId = ns("year_exact_match"),
               label = NULL,
               choices = list(
-                "ANY selected year" = FALSE,
-                "ALL selected years" = TRUE
+                "ANY selected year" = F,
+                "ALL selected years" = T
               )
             )
           )
         ),
-        hr(),
-        uiOutput(ns("totalStationsText")),
-        hr(),
+        radioButtons(
+          inputId = ns("stn_color_by"),
+          label = "Color station markers by:",
+          choices = stn_color_choices
+        ),
+        div(
+          class = "total-stns-text",
+          textOutput(ns("totalStnsText")),
+        ),
         div(
           style = "line-height: 3.5em;",
           align = "center",
-          actionButton(ns("zoomInBtn"), "Zoom to selected site", width = "100%"), br(),
-          actionButton(ns("zoomAllBtn"), "Zoom out to all sites", width = "100%")
+          actionButton(ns("zoom_in_btn"), "Zoom to selected site", width = "100%"), br(),
+          actionButton(ns("zoom_all_btn"), "Zoom out to all sites", width = "100%"),
         )
       ),
       mainPanel(
         div(
           class = "map-container",
           id = "map",
-          leafletOutput(ns("map"), width = "100%", height = "700px") %>% withSpinnerProxy(hide.ui = FALSE)
+          leafletOutput(ns("map"), width = "100%", height = "720px") %>% withSpinnerProxy(hide.ui = T)
         )
       ),
       position = "right"
@@ -75,49 +83,85 @@ mapUI <- function() {
 # Server ----
 
 #' @param cur_stn a `reactive()` expression containing the currently selected station
-#' @param avail_stns a `reactive()` expression containing the list of available stations
+#' @param main_session main server session
 
-mapServer <- function(cur_stn, avail_stns) {
+mapServer <- function(cur_stn, main_session) {
   moduleServer(
     id = "map",
     function(input, output, session) {
       ns <- session$ns
 
-      ## Reactives ----
+      # Static vars ----
 
+      ## stn_coverages ----
+      stn_coverages <- list(
+        "baseline" = baseline_coverage,
+        "nutrient" = nutrient_coverage,
+        "thermistor" = therm_coverage
+      )
+
+
+      # Reactive vals ----
+
+      ## user_loc_shown ----
+      user_loc_shown <- reactiveVal(F)
+
+      ## selected_stn ----
+      # holds the last selected station in case cur_stn() becomes blocked
+      selected_stn <- reactiveVal()
+      observe({ selected_stn(cur_stn()) })
+
+      ## avail_stns ----
+      avail_stns <- reactive({
+        types <- input$stn_types
+        years <- input$stn_years
+        match_type <- input$year_exact_match
+
+        if (is.null(types) | is.null(years)) {
+          return(head(all_stn_years, 0))
+        }
+
+        # expand list of years if last option is selected
+        match_years <- years
+        if (last(stn_year_choices) %in% match_years) {
+          match_years <- union(match_years, last(match_years):last(data_years))
+        }
+
+        # handle any/all matching types
+        if (match_type) {
+          ids <- sapply(types, function(stn_type) {
+            stn_coverages[[stn_type]] %>%
+              filter(all(match_years %in% data_year_list)) %>%
+              pull(station_id)
+          })
+        } else {
+          ids <- sapply(types, function(stn_type) {
+            stn_coverages[[stn_type]] %>%
+              filter(any(match_years %in% data_year_list)) %>%
+              pull(station_id)
+          })
+        }
+
+        avail_ids <- sort(reduce(ids, union))
+        filter(all_stn_years, station_id %in% avail_ids)
+      })
+
+      ## any_stns ----
       any_stns <- reactive({
         nrow(avail_stns()) > 0
       })
 
+      ## avail_pts ----
       avail_pts <- reactive({
-        all_pts %>%
-          filter(station_id %in% avail_stns()$station_id)
+        filter(all_pts, station_id %in% avail_stns()$station_id)
       })
 
-      avail_baseline_pts <- reactive({
-        baseline_pts %>%
-          filter(station_id %in% avail_stns()$station_id)
-      })
-
-      avail_therm_pts <- reactive({
-        therm_pts %>%
-          filter(station_id %in% avail_stns()$station_id)
-      })
-
-      avail_nutrient_pts <- reactive({
-        nutrient_pts %>%
-          filter(station_id %in% avail_stns()$station_id)
-      })
-
-
-      ## Map point size ----
-
+      ## pt_size => Map point size ----
       pt_size <- reactiveVal(4)
 
       getPtSize <- function(z) {
         if (is.null(z)) return(4)
         if (z >= 14) return(8)
-        if (z >= 12) return(7)
         if (z >= 10) return(6)
         4
       }
@@ -130,30 +174,39 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
-      ## Observers ----
+      # Event handlers ----
+      # Select a station when clicked on the map ----
+      observeEvent(input$map_marker_click, {
+        stn <- input$map_marker_click
+        req(stn)
+        req(stn$group != "cur_point")
 
-      # center map when station changes but only if out of view
-      observeEvent(cur_stn(), {
-        req(input$map_bounds)
-        bounds <- input$map_bounds
-        in_lat <- between(cur_stn()$latitude, bounds$south, bounds$north)
-        in_long <- between(cur_stn()$longitude, bounds$west, bounds$east)
-        in_view <- in_lat & in_long
-        if (!in_view) zoomToSite()
-      })
-
-
-      ## Station text output ----
-
-      output$totalStationsText <- renderUI({
-        div(
-          style = "text-align: center; font-weight: bold; padding: 5px; border: 2px solid grey; border-radius: 5px; width: 100%;",
-          paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
+        updateSelectInput(
+          session = main_session,
+          inputId = "station",
+          selected = stn$id
         )
+
+        cur_zoom <- input$map_zoom
+        req(cur_zoom)
+        leafletProxy("map") %>%
+          setView(
+            lat = stn$lat,
+            lng = stn$lng,
+            zoom = max(cur_zoom, 10) # don't zoom out
+          )
       })
 
 
-      ## Render initial map ----
+      # Rendered UI elements ----
+
+      ## totalStnsText ----
+      output$totalStnsText <- renderText({
+        paste("Showing", nrow(avail_pts()), "out of", nrow(all_pts), "total stations")
+      })
+
+
+      # Map setup ----
 
       basemaps <- tribble(
         ~label, ~provider,
@@ -173,17 +226,18 @@ mapServer <- function(cur_stn, avail_stns) {
 
       layers <- list(
         counties = "Counties/Regions",
-        nkes = paste0("NKE Plans"),
-        huc8 = paste0("HUC8 Subbasins"),
-        huc10 = paste0("HUC10 Watersheds"),
-        huc12 = paste0("HUC12 Subwatersheds"),
-        baseline = paste0("Baseline stations (", colorize(stn_colors$baseline), ")"),
-        nutrient = paste0("Nutrient stations (", colorize(stn_colors$nutrient), ")"),
-        therm = paste0("Thermistor stations (", colorize(stn_colors$thermistor), ")"),
+        nkes = "NKE Plans",
+        huc8 = "HUC8 Subbasins",
+        huc10 = "HUC10 Watersheds",
+        huc12 = "HUC12 Subwatersheds",
+        stations = "Monitoring stations",
         pins = "Station clusters (groups and pins)"
       )
 
-      hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$pins)
+      hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$dnr_wsheds, layers$pins)
+
+
+      # Render initial map ----
 
       output$map <- renderLeaflet({
         leaflet() %>%
@@ -200,43 +254,42 @@ mapServer <- function(cur_stn, avail_stns) {
           addMapPane("huc10", 422) %>%
           addMapPane("huc12", 423) %>%
           addMapPane("nkes", 424) %>%
-          addMapPane("baseline", 430) %>%
-          addMapPane("thermistor", 431) %>%
-          addMapPane("nutrient", 432) %>%
+          addMapPane("stations", 430) %>%
           addMapPane("cur_point_circle", 440) %>%
-          addMapPane("cur_point_marker", 441) %>%
           addMapPane("pins", 450) %>%
           hideGroup(hidden_layers) %>%
           addLayersControl(
             baseGroups = basemaps$label,
-            overlayGroups = unlist(layers, use.names = FALSE),
-            options = layersControlOptions(collapsed = FALSE)
+            overlayGroups = unlist(layers, use.names = F),
+            options = layersControlOptions(collapsed = F)
           ) %>%
-          addFullscreenControl(pseudoFullscreen = TRUE) %>%
+          addFullscreenControl(pseudoFullscreen = T) %>%
           addEasyButtonBar(
             easyButton(
               position = "topleft",
               icon = "fa-crosshairs",
-              title = "Get my location",
+              title = "Show my location on the map",
               onClick = JS("
-            function(btn, map) {
-              map.locate({
-                setView: true,
-                enableHighAccuracy: false,
-                maxZoom: 12
-              })
-            }
-          ")
+                function(btn, map) {
+                  map.locate({
+                    setView: true,
+                    enableHighAccuracy: false,
+                    maxZoom: 12
+                  }).on('locationfound', (event) => {
+                    Shiny.setInputValue('map-user_loc', event.latlng, {priority: 'event'})
+                  })
+                }
+              ")
             ),
             easyButton(
               position = "topleft",
               icon = "fa-globe",
               title = "Reset map view",
               onClick = JS("
-            function(btn, map) {
-              map.fitBounds([[47.1, -86.8], [42.4, -92.9]])
-            }
-          ")
+                function(btn, map) {
+                  map.fitBounds([[47.1, -86.8], [42.4, -92.9]])
+                }
+              ")
             )
           ) %>%
           suspendScroll(
@@ -249,7 +302,7 @@ mapServer <- function(cur_stn, avail_stns) {
           addPolygons(
             data = counties,
             group = layers$counties,
-            label = ~ lapply(paste0("<b>", CountyNam, " County</b><br>", DnrRegion), HTML),
+            label = ~ lapply(paste0("<b>", CountyName, " County</b><br>", DnrRegion), HTML),
             fillOpacity = 0.1,
             color = "grey",
             opacity = 0.5,
@@ -259,9 +312,9 @@ mapServer <- function(cur_stn, avail_stns) {
           )
       })
 
+      # Delayed map actions ----
 
-      ## Render watersheds ----
-
+      ## Load watersheds ----
       observeEvent(TRUE, {
         map <- leafletProxy(ns("map"))
         color <- "blue"
@@ -280,13 +333,8 @@ mapServer <- function(cur_stn, avail_stns) {
               fillColor = "blue",
               fillOpacity = 0.1,
               options = pathOptions(pane = "nkes"),
-              labelOptions = labelOptions(style = list("width" = "300px", "white-space" = "normal"))
-            )
-        })
-
-        # HUC8
-        delay(1100, {
-          map %>%
+              labelOptions = labelOptions(
+                style = list("width" = "300px", "white-space" = "normal"))) %>%
             addPolygons(
               data = huc8,
               group = layers$huc8,
@@ -294,15 +342,10 @@ mapServer <- function(cur_stn, avail_stns) {
               popup = ~ lapply(Label, HTML),
               weight = 1.5,
               color = color,
+              opacity = .25,
               fillColor = fill_color,
               fillOpacity = 0.15,
-              options = pathOptions(pane = "huc8")
-            )
-        })
-
-        # HUC10
-        delay(1200, {
-          map %>%
+              options = pathOptions(pane = "huc8")) %>%
             addPolygons(
               data = huc10,
               group = layers$huc10,
@@ -310,16 +353,10 @@ mapServer <- function(cur_stn, avail_stns) {
               popup = ~ lapply(Label, HTML),
               weight = 1,
               color = color,
+              opacity = .25,
               fillColor = fill_color,
-              fillOpacity = 0.1,
-              options = pathOptions(pane = "huc10")
-            )
-        })
-
-
-        # HUC12
-        delay(1300, {
-          map %>%
+              fillOpacity = .1,
+              options = pathOptions(pane = "huc10")) %>%
             addPolygons(
               data = huc12,
               group = layers$huc12,
@@ -327,15 +364,17 @@ mapServer <- function(cur_stn, avail_stns) {
               popup = ~ lapply(Label, HTML),
               weight = 0.5,
               color = color,
+              opacity = .25,
               fillColor = fill_color,
               fillOpacity = 0.05,
-              options = pathOptions(pane = "huc12")
-            )
+              options = pathOptions(pane = "huc12"))
         })
+      })
 
-        # Hide the legend after a delay
+      ## Hide the legend ----
+      observeEvent(TRUE, {
         delay(3000, {
-          map %>%
+          leafletProxy("map") %>%
             addLayersControl(
               baseGroups = basemaps$label,
               overlayGroups = unlist(layers, use.names = FALSE),
@@ -344,162 +383,308 @@ mapServer <- function(cur_stn, avail_stns) {
       })
 
 
-      ## Render map points ----
+      # Reactive map elements ----
 
-      drawPts <- function() {
-        map <- leafletProxy(ns("map"))
-        pts <- avail_pts()
-        pt_size <- pt_size()
-        labels <- all_labels[names(all_labels) %in% pts$station_id] %>% setNames(NULL)
-        popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
+      ## Draw station circle markers ----
 
-        # pins
-        map %>% clearGroup(layers$pins)
-        if (nrow(pts) > 0) {
-          map %>%
-            addMarkers(
-              data = pts,
-              group = layers$pins,
-              label = labels,
-              popup = popups,
-              layerId = ~station_id,
-              clusterOptions = markerClusterOptions()
-            )
-        }
-
-        # baseline points
-        baseline <- avail_baseline_pts()
-        map %>% clearGroup(layers$baseline)
-        if (nrow(baseline) > 0) {
-          map %>%
-            addCircleMarkers(
-              data = baseline,
-              group = layers$baseline,
-              label = setNames(all_labels[names(all_labels) %in% baseline$station_id], NULL),
-              layerId = ~station_id,
-              radius = pt_size,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$baseline,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "baseline", sticky = F)
-            )
-        }
-
-        # nutrient points
-        nutrient <- avail_nutrient_pts()
-        map %>% clearGroup(layers$nutrient)
-        if (nrow(nutrient) > 0) {
-          map %>%
-            addCircleMarkers(
-              data = nutrient,
-              group = layers$nutrient,
-              label = setNames(all_labels[names(all_labels) %in% nutrient$station_id], NULL),
-              layerId = ~station_id,
-              radius = pt_size,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$nutrient,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "nutrient", sticky = F)
-            )
-        }
-
-        # thermistor points
-        therm <- avail_therm_pts()
-        map %>% clearGroup(layers$therm)
-        if (nrow(therm) > 0) {
-          map %>%
-            addCircleMarkers(
-              data = therm,
-              group = layers$therm,
-              label = setNames(all_labels[names(all_labels) %in% therm$station_id], NULL),
-              layerId = ~station_id,
-              radius = pt_size,
-              color = "black",
-              weight = 0.5,
-              fillColor = stn_colors$thermistor,
-              fillOpacity = 0.75,
-              options = markerOptions(pane = "thermistor", sticky = F)
-            )
-        }
-      }
-
-      # redraw points when the available stations change or the circles need to change
       observe({
-        if (nrow(avail_pts()) > 0) {
-          drawPts()
+        req(input$stn_color_by)
+
+        stns <- avail_pts()
+        stn_types <- input$stn_types
+        color_by <- input$stn_color_by
+        radius <- pt_size()
+
+        map <- leafletProxy("map")
+        map %>% clearGroup(layers$stations)
+
+        req(nrow(stns) > 0)
+
+        if (color_by == "stn_type") {
+          stns <- stns %>%
+            mutate(color = case_when(
+              nutrient_stn & ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
+              therm_stn & ("thermistor" %in% stn_types) ~ stn_colors$thermistor,
+              T ~ stn_colors$baseline
+            )) %>%
+            arrange(max_fw_date)
         } else {
-          leafletProxy(ns("map")) %>%
-            clearGroup(layers$baseline) %>%
-            clearGroup(layers$therm) %>%
-            clearGroup(layers$nutrient) %>%
-            clearGroup(layers$pins)
+          opts <- filter(stn_color_opts, value == color_by)
+          domain <- unlist(opts$domain)
+          pal <- colorNumeric(opts$pal, domain, reverse = opts$rev)
+          stns <- stns %>%
+            left_join(stn_attr_totals, join_by(station_id)) %>%
+            rename(attr = all_of(color_by)) %>%
+            mutate(attr_clamped = pmax(pmin(attr, domain[2]), domain[1])) %>%
+            mutate(color = pal(attr_clamped)) %>%
+            arrange(!is.na(attr), attr) %>%
+            mutate(map_label = lapply(paste0(map_label, "<br>", opts$label, ": ", attr), shiny::HTML))
         }
-      }) %>% bindEvent(list(avail_pts(), pt_size()))
-
-
-      ## Show current station ----
-
-      observe({
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup("cur_point")
-
-        if (!any_stns()) return()
-
-        label <- all_labels[names(all_labels) == cur_stn()$station_id] %>% setNames(NULL)
-        popup <- all_popups[names(all_popups) == cur_stn()$station_id] %>% setNames(NULL)
 
         map %>%
           addCircleMarkers(
-            data = cur_stn(),
-            lat = ~latitude,
-            lng = ~longitude,
-            label = label,
+            data = stns,
+            group = layers$stations,
+            label = ~map_label,
             layerId = ~station_id,
-            group = "cur_point",
-            options = pathOptions(pane = "cur_point_circle"),
-            radius = pt_size() + 1,
-            weight = 0.75,
+            radius = radius,
             color = "black",
-            fillColor = stn_colors$current,
-            fillOpacity = 1
-          ) %>%
+            weight = 0.5,
+            fillColor = ~color,
+            fillOpacity = 1,
+            options = markerOptions(pane = "stations", sticky = F)
+          )
+      })
+
+      ## Map markers/clusters ----
+      # update map pins/clusters on available stations change
+      observe({
+        map <- leafletProxy(ns("map"))
+        map %>% clearGroup(layers$pins)
+
+        pts <- avail_pts()
+        req(nrow(pts) > 0)
+
+        popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
+        map %>%
           addMarkers(
-            data = cur_stn(),
+            data = pts,
+            group = layers$pins,
+            label = ~map_label,
+            popup = popups,
+            layerId = ~station_id,
+            clusterOptions = markerClusterOptions()
+          )
+      })
+
+      ## Show current station ----
+      observe({
+        # don't remove/redraw the last selected stn if all the stations are hidden
+        if (!any_stns()) return()
+
+        map <- leafletProxy(ns("map"))
+        map %>% clearGroup("cur_point")
+        stn <- cur_stn()
+        popup <- all_popups[names(all_popups) == stn$station_id] %>% setNames(NULL)
+
+        map %>%
+          addMarkers(
+            data = stn,
             lat = ~latitude,
             lng = ~longitude,
-            label = label,
+            label = ~map_label,
             popup = popup,
             layerId = ~station_id,
-            group = "cur_point",
-            options = pathOptions(pane = "cur_point_marker")
+            group = "cur_point"
           )
-      }) %>%
-        bindEvent(list(avail_stns(), cur_stn(), pt_size()))
+
+        # create hollow station icon if coloring by variable
+        if (input$stn_color_by == "stn_type") {
+          map %>%
+            addCircleMarkers(
+              data = stn,
+              lat = ~latitude,
+              lng = ~longitude,
+              label = ~map_label,
+              layerId = ~station_id,
+              group = "cur_point",
+              options = pathOptions(pane = "cur_point_circle"),
+              radius = pt_size() + 1,
+              weight = 1,
+              color = "black",
+              opacity = 1,
+              fillColor = stn_colors$current,
+              fillOpacity = 1
+            )
+        } else {
+          map %>%
+            addCircleMarkers(
+              data = stn,
+              lat = ~latitude,
+              lng = ~longitude,
+              label = ~map_label,
+              layerId = ~station_id,
+              group = "cur_point",
+              options = pathOptions(pane = "cur_point_circle"),
+              radius = pt_size() + 1,
+              weight = 3,
+              color = stn_colors$current,
+              opacity = 1,
+              fillColor = "none"
+            )
+        }
+      })
+
+      ## Current station's watersheds ----
+      ### HUC8 ----
+      cur_huc8 <- reactive({ filter(huc8, Huc8Code == cur_stn()$huc8) })
+      observe({
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc8") %>%
+          addPolygons(
+            data = cur_huc8(),
+            group = layers$huc8,
+            layerId = "curHuc8",
+            weight = 4,
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      ### HUC10 ----
+      cur_huc10 <- reactive({ filter(huc10, Huc10Code == cur_stn()$huc10) })
+      observe({
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc10") %>%
+          addPolygons(
+            data = cur_huc10(),
+            group = layers$huc10,
+            layerId = "curHuc10",
+            weight = 3,
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
+
+      ### HUC12 ----
+      cur_huc12 <- reactive({ filter(huc12, Huc12Code == cur_stn()$huc12) })
+      observe({
+        leafletProxy(ns("map")) %>%
+          removeShape("curHuc12") %>%
+          addPolygons(
+            data = cur_huc12(),
+            group = layers$huc12,
+            layerId = "curHuc12",
+            weight = 2,
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          )
+      })
 
 
-      ## Map action buttons ----
 
-      ### Zoom in button ----
 
-      zoomToSite <- function() {
-        cur_zoom <- input$map_zoom
+
+      # Event reactives ----
+
+      ## user_loc ----
+      # shows a house icon and displays watershed info for the user's location
+      observeEvent(input$user_loc, {
+        if (user_loc_shown()) return()
+        map <- leafletProxy("map")
+        loc <- input$user_loc %>% lapply(\(x) round(x, 4))
+        pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
+          st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = F)
+
+        # TEST
+        # message("==> huc12 crs: ", st_crs(huc12)$proj4string)
+        # message("==> user loc crs: ", st_crs(pt)$proj4string)
+
+        # TODO: st_transform used here to avoid error due to old PROJ version on server
+        suppressWarnings({
+          watershed <- st_intersection(huc12, st_transform(pt, st_crs(huc12)))
+        })
+
+        user_huc12 <- filter(huc12, Huc12Name == watershed$Huc12Name)
+        user_huc10 <- filter(huc10, Huc10Name == watershed$Huc10Name)
+        user_huc8 <- filter(huc8, Huc8Name == watershed$Huc8Name)
+        label <- glue::glue("
+          <b>My location ({pt$lat}, {pt$lng})</b><br>
+          <i>Click for more information on your watershed</i>
+        ")
+        popup <- glue::glue("
+          <b>My location ({pt$lat}, {pt$lng})</b><br>
+          <i>Your watershed:</i><br>
+          <div style='padding-left: 1em;'>
+            Major basin: {watershed$MajorBasin}<br>
+            HUC8 Subbasin: {watershed$Huc8Name}<br>
+            HUC10 Watershed: {watershed$Huc10Name}<br>
+            HUC12 Subwatershed: {watershed$Huc12Name}
+          </div>
+        ")
+        popup <- paste0(popup, "<br>
+          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-toggle_watersheds', false, {priority: 'event'})\">Toggle watersheds on map</a> |
+          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-remove_user_loc', true, {priority: 'event'})\">Hide my location</a>
+        ")
+        icon <- makeAwesomeIcon(icon = "home", markerColor = "#c5050c", library = "ion")
+        map %>%
+          addAwesomeMarkers(
+            data = pt,
+            label = HTML(label),
+            popup = HTML(popup),
+            icon = icon,
+            group = "user_loc"
+          ) %>%
+          addPolygons(
+            data = user_huc8,
+            group = layers$huc8,
+            layerId = "user_watershed8",
+            weight = 2,
+            color = "#c5050c",
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          ) %>%
+          addPolygons(
+            data = user_huc10,
+            group = layers$huc10,
+            layerId = "user_watershed10",
+            weight = 2,
+            color = "#c5050c",
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          ) %>%
+          addPolygons(
+            data = user_huc12,
+            group = layers$huc12,
+            layerId = "user_watershed12",
+            weight = 2,
+            color = "#c5050c",
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          )
+        user_loc_shown(TRUE)
+      })
+
+      ## remove_user_loc ----
+      observeEvent(input$remove_user_loc, {
+        map <- leafletProxy("map")
+        map %>%
+          clearGroup("user_loc") %>%
+          removeShape("user_watershed8") %>%
+          removeShape("user_watershed10") %>%
+          removeShape("user_watershed12")
+        user_loc_shown(FALSE)
+      })
+
+      ## Zoom events ----
+      zoomToSite <- function(z = input$map_zoom) {
+        stn <- selected_stn()
         leafletProxy(ns("map")) %>%
           setView(
-            lat = cur_stn()$latitude,
-            lng = cur_stn()$longitude,
-            zoom = max(cur_zoom, 10)
+            lat = stn$latitude,
+            lng = stn$longitude,
+            zoom = z
           )
       }
 
-      observeEvent(input$zoomInBtn, {
-        zoomToSite()
+      ### cur_stn ----
+      # center map when station changes but only if out of view
+      observeEvent(cur_stn(), {
+        stn <- cur_stn()
+        bounds <- input$map_bounds
+        in_lat <- between(stn$latitude, bounds$south, bounds$north)
+        in_long <- between(stn$longitude, bounds$west, bounds$east)
+        in_view <- in_lat & in_long
+        if (!in_view) zoomToSite()
       })
 
-      ### Reset zoom button ----
+      ### zoom_in_btn ----
+      observeEvent(input$zoom_in_btn, {
+        zoomToSite(12)
+      })
 
-      observeEvent(input$zoomAllBtn, {
+      ### zoom_all_btn ----
+      observeEvent(input$zoom_all_btn, {
         if (any_stns()) {
           leafletProxy(ns("map")) %>%
             fitBounds(
@@ -519,81 +704,45 @@ mapServer <- function(cur_stn, avail_stns) {
         }
       })
 
-
-      ## Toggle watershed visibility ----
-
-      observeEvent(input$showWatersheds, {
+      ## show_watersheds ----
+      # Toggle watershed visibility
+      observeEvent(input$show_watersheds, {
         leafletProxy(ns("map")) %>%
           showGroup(layers$huc8) %>%
           showGroup(layers$huc10) %>%
           showGroup(layers$huc12)
-        zoomToSite()
+        zoomToSite(9)
       })
 
-
-      ## Render selected watersheds ----
-
-      cur_huc12 <- reactive({
-        huc12 %>% filter(Huc12Code == cur_stn()$huc12)
+      ## toggle_watersheds ----
+      observeEvent(input$toggle_watersheds, {
+        map <- leafletProxy(ns("map"))
+        groups <- input$map_groups
+        all_shown <- all(
+          layers$huc8 %in% groups,
+          layers$huc10 %in% groups,
+          layers$huc12 %in% groups
+        )
+        if (all_shown) {
+          map %>%
+            hideGroup(layers$huc8) %>%
+            hideGroup(layers$huc10) %>%
+            hideGroup(layers$huc12)
+        } else {
+          map %>%
+            showGroup(layers$huc8) %>%
+            showGroup(layers$huc10) %>%
+            showGroup(layers$huc12)
+        }
       })
 
-      cur_huc10 <- reactive({
-        huc10 %>% filter(Huc10Code == cur_stn()$huc10)
-      })
-
-      cur_huc8 <- reactive({
-        huc8 %>% filter(Huc8Code == cur_stn()$huc8)
-      })
-
-      observeEvent(cur_stn(), {
-        leafletProxy(ns("map")) %>%
-          removeShape("curHuc12") %>%
-          addPolygons(
-            data = cur_huc12(),
-            group = layers$huc12,
-            layerId = "curHuc12",
-            weight = 2,
-            color = "red",
-            fillOpacity = 0,
-            options = pathOptions(pane = "cur_huc")
-          )
-      })
-
-      observeEvent(cur_stn(), {
-        leafletProxy(ns("map")) %>%
-          removeShape("curHuc10") %>%
-          addPolygons(
-            data = cur_huc10(),
-            group = layers$huc10,
-            layerId = "curHuc10",
-            weight = 3,
-            color = "red",
-            fillOpacity = 0,
-            options = pathOptions(pane = "cur_huc")
-          )
-      })
-
-      observeEvent(cur_stn(), {
-        leafletProxy(ns("map")) %>%
-          removeShape("curHuc8") %>%
-          addPolygons(
-            data = cur_huc8(),
-            group = layers$huc8,
-            layerId = "curHuc8",
-            weight = 4,
-            color = "red",
-            fillOpacity = 0,
-            options = pathOptions(pane = "cur_huc")
-          )
-      })
-
-
-      ## Return values ----
-
+      # Return values ----
       # return the clicked point to the main session
       return(reactive(list(
-        map_marker_click = input$map_marker_click
+        avail_stns = avail_stns()
       )))
+
+      # end
     }
   )
 }

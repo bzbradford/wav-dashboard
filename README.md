@@ -4,4 +4,4 @@ The Water Action Volunteers (WAV) citizen stream monitoring program is an ongoin
 
 Data collected by WAV volunteers is submitted to the DNR's SWIMS data repository, but options for retrieving and viewing submitted data from SWIMS are limited. We developed this R Shiny data dashboard to improve the ease of access of WAV water quality data and improve engagement with the program. Those interested in joining WAV and monitoring a local stream or river should visit the program's website and reach out to a local volunteer coordinator for more information.
 
-This dashboard is currently hosted at <https://data-viz.it.wisc.edu/wav-dashboard/>.
+View the dashboard at <https://connect.doit.wisc.edu/wav-dashboard/>.

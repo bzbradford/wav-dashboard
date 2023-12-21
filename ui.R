@@ -94,11 +94,13 @@ ui <- fluidPage(
       tabsetPanel(
         id = "data_tabs",
         type = "pills",
-        tabPanel("Baseline data", baselineDataUI()),
-        tabPanel("Nutrient data", nutrientDataUI()),
-        tabPanel("Thermistor data", thermistorDataUI()),
-        tabPanel("Watershed/landscape information", watershedInfoUI()),
-        tabPanel("Learn more", moreInfoUI())
+        tabPanel(tab_names$baseline, baselineDataUI()),
+        tabPanel(tab_names$nutrient, nutrientDataUI()),
+        tabPanel(tab_names$thermistor, thermistorDataUI()),
+        tabPanel(tab_names$watershed, watershedInfoUI()),
+        # temporarily disable the reports tab on the wisc server
+        {if (Sys.getenv("REPORT_DISABLED") == "") tabPanel(tab_names$reports, stnReportUI())},
+        tabPanel(tab_names$more, learnMoreUI())
       ),
     ),
 
@@ -111,18 +113,18 @@ ui <- fluidPage(
     id = "footer-content",
     br(),
     hr(),
-    div(
-      align = "center",
-      actionButton(
-        "screenshot",
-        "Download a screenshot of the entire page (except map)",
-        title = "Screenshot does not currently include the map",
-        class = "btn-xs",
-        onclick = "this.disabled = true; document.querySelector('#screenshot-msg').style.display = null;"
-      ),
-      div(id = "screenshot-msg", style = "padding: 5px; font-style: italic; font-size: small; display: none;", "Generating screenshot, please wait...")
-    ),
-    br(),
+    # div(
+    #   align = "center",
+    #   actionButton(
+    #     "screenshot",
+    #     "Download a screenshot of the entire page (except map)",
+    #     title = "Screenshot does not currently include the map",
+    #     class = "btn-xs",
+    #     onclick = "this.disabled = true; document.querySelector('#screenshot-msg').style.display = null;"
+    #   ),
+    #   div(id = "screenshot-msg", style = "padding: 5px; font-style: italic; font-size: small; display: none;", "Generating screenshot, please wait...")
+    # ),
+    # br(),
     p(
       style = "color: grey; font-size: smaller; font-style: italic;",
       align = "center",
@@ -133,5 +135,4 @@ ui <- fluidPage(
       a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
     )
   )
-
 )

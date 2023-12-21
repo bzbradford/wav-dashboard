@@ -171,7 +171,7 @@ cur_baseline_data %>%
   plot_ly() %>%
   add_trace(
     x = ~date,
-    y = ~ambient_air_temp_field,
+    y = ~air_temp_field,
     type = "scatter",
     mode = "lines+markers",
     name = "Water",
@@ -218,8 +218,8 @@ df <- cur_baseline_data %>%
   mutate(do_color = brewer.pal(11, "RdBu")[floor(min(d_o, 11))])
 
 do_data <- df %>% filter(!(is.na(d_o) & is.na(d_o_percent_saturation)))
-temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(ambient_air_temp_field)))
-trans_data <- df %>% filter(!is.na(transparency_average))
+temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(air_temp_field)))
+trans_data <- df %>% filter(!is.na(transparency))
 flow_data <- df %>% filter(!is.na(stream_flow_cfs))
 
 
@@ -260,7 +260,7 @@ df %>%
     data = temp_data,
     name = "Air temp",
     x = ~date,
-    y = ~ambient_air_temp_field,
+    y = ~air_temp_field,
     type = "scatter",
     mode = "lines+markers",
     yaxis = "y2",
@@ -275,7 +275,7 @@ df %>%
     data = trans_data,
     name = "Transparency",
     x = ~date,
-    y = ~transparency_average,
+    y = ~transparency,
     type = "scatter",
     mode = "lines+markers",
     yaxis = "y3",
@@ -358,8 +358,8 @@ baseline_data %>%
   select(
     d_o,
     water_temperature,
-    ambient_air_temp,
-    transparency_average,
+    air_temp,
+    transparency,
     stream_flow_cfs
   ) %>%
   pivot_longer(everything()) %>%
@@ -407,8 +407,8 @@ summary_vars <- tribble(
   ~var, ~name, ~units,
   "d_o", "Dissolved oxygen", "mg/L",
   "water_temperature", "Water temperature", "°C",
-  "ambient_air_temp", "Air temperature", "°C",
-  "transparency_average", "Transparency", "cm",
+  "air_temp", "Air temperature", "°C",
+  "transparency", "Transparency", "cm",
   "stream_flow_cfs", "Stream flow", "cfs"
 ) %>% rowwise()
 
@@ -438,3 +438,199 @@ therm_data %>%
     max = max(temp, na.rm = T),
     .by = month_name
   )
+
+
+
+# Map => Color by variable ----
+
+#' color map by
+#' n years
+#' n fieldwork
+#' max water_temp
+#' mean d_o
+#' mean transparency
+#' mean streamflow
+
+stn_fieldwork_counts <- bind_rows(
+  baseline_data %>%
+    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+  nutrient_data %>%
+    summarize(n_fieldwork = n(), .by = c(station_id, year)),
+  therm_data %>%
+    summarize(n_fieldwork = 1, .by = c(station_id, year))
+) %>%
+  summarize(
+    n_years = n_distinct(year),
+    n_fieldwork = sum(n_fieldwork),
+    .by = station_id
+  )
+
+
+# baseline means
+# selected from the most recent year
+# should select most recent n observations?
+baseline_means <- baseline_data %>%
+  slice_max(date, n = 10, by = station_id) %>%
+  summarize(
+    max_water_temp = max(water_temp, na.rm = T),
+    mean_d_o = mean(d_o, na.rm = T),
+    avg_transparency = mean(transparency, na.rm = T),
+    avg_streamflow = mean(streamflow, na.rm = T),
+    .by = station_id
+  ) %>% {
+    df <- .
+    df[sapply(df, is.infinite)] <- NA
+    df[sapply(df, is.nan)] <- NA
+    df
+  }
+
+nutrient_means <- nutrient_data %>%
+  drop_na(tp) %>%
+  slice_max(date, n = 12, by = station_id) %>%
+  summarize(
+    mean_tp = mean(tp),
+    log_mean_tp = mean(log10(tp)),
+    .by = station_id)
+
+stn_attr_totals <- stn_fieldwork_counts %>%
+  left_join(baseline_means, join_by(station_id)) %>%
+  left_join(nutrient_means, join_by(station_id))
+
+summary(stn_attr_totals)
+
+stn_color_opts <- tribble(
+  ~label,            ~value,              ~domain,   ~reverse, ~pal,
+  "Years of data",    "n_years",          c(0, 10),  F,        "viridis",
+  "Fieldwork events", "n_fieldwork",      c(0, 100), F,        "viridis",
+  "Max water temp",   "max_water_temp",   c(15, 30), T,        "RdYlBu",
+  "Dissolved oxygen", "mean_d_o",         c(3, 12),  F,        "RdYlBu",
+  "Transparency",     "avg_transparency", c(0, 120), F,        "BrBG",
+  "Streamflow",       "avg_streamflow",   c(0, 50),  T,        "RdBu",
+  "Total phosphorus", "mean_tp",          c(0, .25), T,        "Spectral",
+)
+stn_color_choices <- append(
+  list("Station type" = "stn_type"),
+  deframe(stn_color_opts[,1:2])
+)
+
+
+
+
+# Station report ----------------------------------------------------------
+
+
+stn <- slice_sample(all_stns, n = 1)
+baseline_coverage %>% filter(station_id == stn$station_id)
+nutrient_coverage %>% filter(station_id == stn$station_id)
+therm_coverage %>% filter(station_id == stn$station_id)
+
+df <- baseline_data %>%
+  filter(station_id == stn$station_id) %>%
+  filter(year == max(year))
+
+
+## Station Info ----
+
+stn$station_name
+stn$station_id
+
+input <- list()
+input$year <- 2023
+selected_data <- list(
+  baseline = baseline_data %>%
+    filter(station_id == stn$station_id, year == input$year),
+  nutrient = nutrient_data %>%
+    filter(station_id == stn$station_id, year == input$year),
+  thermistor = therm_data %>%
+    filter(station_id == stn$station_id, year == input$year)
+)
+
+rows <- sapply(selected_data, function(df) nrow(df))
+rows[rows > 0]
+
+## Station data summary ----
+
+
+
+# temperature
+#' Pages:
+#' - Intro / overview
+#' - Temperature / thermistor?
+#' - Dissolved oxygen
+#' - Streamflow
+#' - Transparency
+#' - Nutrient
+library(ggrepel)
+water_label <- "Water (°C)"
+air_label <- "Air (°C)"
+flow_label <- "Streamflow (cfs)"
+df %>%
+  ggplot(aes(x = date)) +
+  geom_line(
+    aes(y = water_temp, color = water_label),
+    linewidth = 2) +
+  geom_point(
+    aes(y = water_temp, color = water_label),
+    size = 3) +
+  geom_line(
+    aes(y = air_temp, color = air_label),
+    linewidth = 2) +
+  geom_point(
+    aes(y = air_temp, color = air_label),
+    size = 3) +
+  geom_text_repel(aes(y = water_temp, label = paste0(water_temp, "°C"))) +
+  geom_text_repel(aes(y = air_temp, label = paste0(air_temp, "°C"))) +
+  scale_x_date(
+    name = "Date of observation",
+    breaks = df$date,
+    date_labels = "%b %d") +
+  scale_y_continuous(expand = expansion(c(0, .1))) +
+  scale_color_manual(
+    breaks = c(air_label, water_label),
+    values = c("orange", "lightblue")
+  ) +
+  scale_fill_distiller(palette = "RdBu", direction = 1, limits = c(0, 15)) +
+  labs(
+    y = "Measurement value",
+    color = "Measurement",
+    fill = "Dissolved\noxygen (mg/L)"
+  ) +
+  theme_classic()
+
+df %>%
+  ggplot(aes(x = date)) +
+  geom_col(
+    aes(y = d_o, fill = d_o),
+    color = "black") +
+  geom_text(aes(y = d_o, label = paste(d_o, "mg/L")), vjust = -.5) +
+  geom_line(
+    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    linewidth = 2) +
+  geom_point(
+    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    size = 3) +
+  geom_text_repel(aes(y = d_o_percent_saturation / 10, label = paste0(d_o_percent_saturation, "%"))) +
+  scale_x_date(
+    breaks = df$date,
+    date_labels = "%b %d\n%Y") +
+  scale_y_continuous(
+    name = "Measurement value",
+    limits = c(0, max(df$d_o, 12, na.rm = T)),
+    expand = expansion(c(0, .1)),
+    sec.axis = sec_axis(
+      name = "DO Saturation",
+      trans = ~.*10
+    )
+  ) +
+  scale_color_manual(
+    breaks = c("DO % Sat"),
+    values = c("navy")
+  ) +
+  scale_fill_distiller(palette = "Blues", direction = 1, limits = c(0, 15)) +
+  labs(
+    x = "Date of observation",
+    fill = "Dissolved\noxygen (mg/L)"
+  ) +
+  theme_classic()
+
+view(df)

@@ -21,28 +21,7 @@ server <- function(input, output, session) {
   ## avail_stns ----
   # reacts to map sidebar selections
   avail_stns <- reactive({
-    ids <- list(0)
-    coverage = list(
-      "baseline" = baseline_coverage,
-      "nutrient" = nutrient_coverage,
-      "thermistor" = therm_coverage
-    )
-
-    for (stn_type in input$stn_types) {
-      if (input$year_exact_match) {
-        ids[[stn_type]] <- coverage[[stn_type]] %>%
-          filter(all(input$stn_years %in% data_year_list)) %>%
-          pull(station_id)
-      } else {
-        ids[[stn_type]] <- coverage[[stn_type]] %>%
-          filter(any(input$stn_years %in% data_year_list)) %>%
-          pull(station_id)
-      }
-    }
-
-    avail_ids <- sort(reduce(ids, union))
-    all_stn_years %>%
-      filter(station_id %in% avail_ids)
+    mapReturn()$avail_stns
   })
 
   ## stns_avail ----
@@ -124,7 +103,7 @@ server <- function(input, output, session) {
     # pick the geographically nearest station
     } else if (length(stations) > 0) {
       last_pt <- last_valid_stn()
-      if (nrow(last_pt) == 1) {
+      if (!is.null(last_pt)) {
         # find geographically nearest station
         avail_pts <- all_pts %>% filter(station_id %in% stations)
         selected <- avail_pts[st_nearest_feature(last_pt, avail_pts),]$station_id
@@ -148,11 +127,11 @@ server <- function(input, output, session) {
   # Set URL and page title when bookmarking enabled
   observeEvent(list(last_valid_stn(), bookmarking()), {
     if (bookmarking()) {
-      setURL(last_valid_stn()$station_id)
-      setTitle(last_valid_stn()$label)
+      set_page_url(last_valid_stn()$station_id)
+      set_page_title(last_valid_stn()$label)
     } else {
-      setURL(NULL)
-      setTitle(NULL)
+      set_page_url(NULL)
+      set_page_title(NULL)
     }
   })
 
@@ -212,22 +191,30 @@ server <- function(input, output, session) {
   observeEvent(input$bookmarking, bookmarking(!bookmarking()))
 
   ## recent_stn => select a recent station ----
-  # see 'tab_recent_stations.R'
+  # see 'recent_stations.R'
+  # modify map selections to ensure the station shows up in the available stations
   observeEvent(input$recent_stn, {
     id <- input$recent_stn
+    stn <- all_stns %>% filter(station_id == id)
 
     if (!(id %in% stn_list())) {
       # desired station not in list, need to remove restrictions
       # keep current year select, add the most recent year from the desired station
       new_years <- union(
-        max(filter(all_stn_years, station_id == id)$year),
-        input$stn_years
+        max(c(stn$max_fw_year, last(stn_year_choices))),
+        input$`map-stn_years`
       )
-      updateCheckboxGroupInput(inputId = "stn_types", selected = station_types)
-      updateCheckboxGroupInput(inputId = "stn_years", selected = new_years)
-      updateRadioButtons(inputId = "year_exact_match", selected = FALSE)
+      updateCheckboxGroupInput(inputId = "map-stn_types", selected = station_types)
+      updateCheckboxGroupInput(inputId = "map-stn_years", selected = new_years)
+      updateRadioButtons(inputId = "map-year_exact_match", selected = FALSE)
     }
     updateSelectInput(inputId = "station", selected = id)
+    leafletProxy("map-map") %>%
+      setView(
+        lat = stn$latitude,
+        lng = stn$longitude,
+        zoom = 10
+      )
   })
 
   ## screenshot => download pdf ----
@@ -240,43 +227,45 @@ server <- function(input, output, session) {
   #' map polygons render in the incorrect location with html2canvas
   #' once cloned the radio buttons are modified because they didn't appear correctly
   #' after rendering, the screenshot button is re-enabled
-  buildScreenshotFilename <- function() {
-    stn_id <- cur_stn()$station_id
-    tab_name <- input$data_tabs
-    suffix <- ""
-    if (grepl("Baseline", tab_name)) suffix <- baselineReturn()$year
-    else if (grepl("Nutrient", tab_name)) suffix <- NutrientReturn()$year
-    else if (grepl("Thermistor", tab_name)) suffix <- ThermistorReturn()$year
-    else if (grepl("Watershed", tab_name)) suffix <- watershedReturn()$huc
-    fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
-    if (!is.null(suffix)) fname <- paste(fname, suffix)
-    fname
-  }
+  # buildScreenshotFilename <- function() {
+  #   stn_id <- cur_stn()$station_id
+  #   tab_name <- input$data_tabs
+  #   suffix <- case_match(tab_name,
+  #     tab_names$baseline ~ baselineReturn()$year,
+  #     tab_names$nutrient ~ nutrientReturn()$year,
+  #     tab_names$thermistor ~ thermistorReturn()$year,
+  #     tab_names$watershed ~ watershedReturn()$huc,
+  #     .default = ""
+  #   )
+  #   fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
+  #   if (!is.null(suffix)) fname <- paste(fname, suffix)
+  #   fname
+  # }
 
-  observeEvent(input$screenshot, {
-    fname <- buildScreenshotFilename()
-    runjs(sprintf("
-      html2canvas(
-        document.querySelector('#main-content'),
-        {
-          scale: 1,
-          crossOrigin: 'anonymous',
-          useCORS: true,
-          imageTimeout: 5000,
-          onclone: (cloneDoc) => {
-            cloneDoc.querySelector('#map-content').style.display = 'none';
-            const style = cloneDoc.createElement('style');
-            style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
-            cloneDoc.body.appendChild(style);
-          }
-        }
-      ).then(canvas => {
-        saveAs(canvas.toDataURL(), '%s.png')
-      });
-    ", fname))
-    enable("screenshot")
-    runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
-  })
+  # observeEvent(input$screenshot, {
+  #   fname <- buildScreenshotFilename()
+  #   runjs(sprintf("
+  #     html2canvas(
+  #       document.querySelector('#main-content'),
+  #       {
+  #         scale: 1,
+  #         crossOrigin: 'anonymous',
+  #         useCORS: true,
+  #         imageTimeout: 5000,
+  #         onclone: (cloneDoc) => {
+  #           cloneDoc.querySelector('#map-content').style.display = 'none';
+  #           const style = cloneDoc.createElement('style');
+  #           style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
+  #           cloneDoc.body.appendChild(style);
+  #         }
+  #       }
+  #     ).then(canvas => {
+  #       saveAs(canvas.toDataURL(), '%s.png')
+  #     });
+  #   ", fname))
+  #   enable("screenshot")
+  #   runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
+  # })
 
 
   # Rendered UIs ----
@@ -299,29 +288,8 @@ server <- function(input, output, session) {
   # returns the station that was clicked
   mapReturn <- mapServer(
     cur_stn = reactive(cur_stn()),
-    avail_stns = reactive(avail_stns())
+    main_session = session
   )
-
-  # select a station when clicked on the map
-  observeEvent(mapReturn(), {
-    stn <- mapReturn()$map_marker_click
-    req(stn)
-
-    updateSelectInput(
-      inputId = "station",
-      selected = stn$id
-    )
-
-    cur_zoom <- input$`map-map_zoom`
-    req(cur_zoom)
-    leafletProxy("map-map") %>%
-      setView(
-        lat = stn$lat,
-        lng = stn$lng,
-        zoom = max(cur_zoom, 10) # don't zoom out
-      )
-  })
-
 
   ## Recent stations ----
   recentStationsServer(
@@ -339,22 +307,32 @@ server <- function(input, output, session) {
 
   ## Baseline data tab ----
   baselineReturn <- baselineDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$baseline)
   )
 
   ## Nutrient data tab ----
   nutrientReturn <- nutrientDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$nutrient)
   )
 
   ## Thermistor data tab ----
   thermistorReturn <- thermistorDataServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$thermistor)
   )
 
   ## Watershed info tab ----
   watershedReturn <- watershedInfoServer(
-    cur_stn = reactive(last_valid_stn())
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$watershed)
+  )
+
+  ## Station report tab ----
+  stnReportServer(
+    cur_stn = reactive(last_valid_stn()),
+    has_focus = reactive(input$data_tabs == tab_names$reports)
   )
 
 }

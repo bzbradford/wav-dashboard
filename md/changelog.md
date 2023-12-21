@@ -1,3 +1,15 @@
+**2023-12-05**
+
+* Develop downloadable PDF reports feature, pending install of pdf engine on server
+* Update baseline, nutrient, and thermistor data
+
+**2023-11-06**
+
+* Add user location feature - house icon and popup with watershed information
+* Station points are now colored based on which station types are shown
+* Can select stations with data from most recent 4 years + all prior (as a group)
+* Add stream depth to baseline data summary table
+
 **2023-11-03**
 
 * Added ability to screenshot entire page and download as PNG. Cannot render the map correctly at this time so the map is excluded from the rendered image.
