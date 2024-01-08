@@ -31,6 +31,8 @@ makeReportPlots <- function(df, type) {
         label = c(
           "Cold-cool transition\n(20.7°C / 69.3°F)",
           "Cool-warm transition\n(24.6°C / 76.3°F)"))
+      air <- df %>% filter(measure == "Air temperature") %>% drop_na(temp)
+      water <- df %>% filter(measure == "Water temperature") %>% drop_na(temp)
 
       plt <- df %>%
         ggplot(aes(x = date, y = temp)) +
@@ -41,7 +43,8 @@ makeReportPlots <- function(df, type) {
           data = temp_labels,
           aes(x, y, label = label),
           size = 2.5) +
-        { if (n_dates > 1) geom_line(aes(color = measure), linewidth = 1.5) } +
+        { if (nrow(air) > 1) geom_line(data = air, aes(color = measure), linewidth = 1.5) } +
+        { if (nrow(water) > 1) geom_line(data = water, aes(color = measure), linewidth = 1.5) } +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
         ggrepel::geom_text_repel(
           aes(label = label),
@@ -73,10 +76,11 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, d_o, do_sat = d_o_percent_saturation) %>%
         drop_na(d_o) %>%
-        mutate(do_color = map_chr(d_o, do_color)) %>%
-        mutate(sat_label = if_else(is.na(do_sat), "", paste0("\n(", do_sat, "% sat)"))) %>%
-        mutate(label = paste0(d_o, " mg/L", sat_label))
+        mutate(do_color = map_chr(d_o, do_color))
       n_dates <- n_distinct(df$date)
+      df <- df %>% mutate(
+        sat_label = if_else(is.na(do_sat), "", paste0("\n(", do_sat, ifelse(n_dates < 8, "% sat)", "%)"))),
+        label = paste0(d_o, ifelse(n_dates < 8, " mg/L", ""), sat_label))
       x_lims <- setReportDateRange(df$date, pad_right = T)
       y_lims <- setAxisLimits(df$d_o, 0, 10)
       col_width <- ifelse(n_dates > 8, 10, 15)
@@ -189,17 +193,19 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, cond = specific_cond) %>%
         drop_na(cond) %>%
-        mutate(label = paste(round(cond, 1), "μS/cm"))
+        mutate(label = round(cond, 1))
       n_dates <- n_distinct(df$date)
+      df <- df %>% mutate(
+        label = paste0(round(cond, 1), if_else(n_dates < 8, " uS/cm", "")))
       x_lims <- setReportDateRange(df$date, pad_right = T)
       y_lims <- setAxisLimits(df$cond, 400, 700)
       cond_labels <- tibble(
         x = as.Date(Inf),
         y = c(800, 1500, 2000),
         label = c(
-          "High conductivity\n(> 800 μS/cm)\n\n",
-          "Potentially toxic chloride\nlevels (1500-2000 μS/cm)\n\n",
-          "Likely toxic chloride\nlevel (> 2000 μS/cm)\n\n")) %>%
+          "High conductivity\n(> 800 uS/cm)\n\n",
+          "Potentially toxic chloride\nlevels (1500-2000 uS/cm)\n\n",
+          "Likely toxic chloride\nlevel (> 2000 uS/cm)\n\n")) %>%
         filter(y < y_lims[2])
 
       plt <- df %>%
@@ -230,7 +236,7 @@ makeReportPlots <- function(df, type) {
           breaks = scales::breaks_pretty(6),
           expand = expansion()) +
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
-        labs(x = NULL, y = "Specific conductance (μS/cm)") +
+        labs(x = NULL, y = "Specific conductance (uS/cm)") +
         common_theme +
         theme(legend.position = "none")
 
@@ -245,11 +251,10 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, trans = transparency, tube = transparency_tube_length) %>%
         drop_na(trans) %>%
-        mutate(trans = round(trans, 0)) %>%
-        mutate(label = case_when(
-          trans == tube ~ paste0(trans, "+ cm"),
-          .default = paste0(trans, " cm")))
+        mutate(trans = round(trans, 0))
       n_dates <- n_distinct(df$date)
+      df <- df %>% mutate(
+        label = paste0(trans, if_else(trans == tube, "+", ""), if_else(n_dates < 8, " cm", "")))
       x_lims <- setReportDateRange(df$date)
       y_lims <- setAxisLimits(df$trans, 0, 120)
       col_width <- ifelse(n_dates > 8, 10, 15)
@@ -301,9 +306,11 @@ makeReportPlots <- function(df, type) {
 
       df <- df %>%
         select(date, flow = streamflow) %>%
-        drop_na(flow) %>%
-        mutate(label = paste(round(flow, 1), "cfs"))
+        drop_na(flow)
       n_dates <- n_distinct(df$date)
+      df <- df %>% mutate(
+        label = paste0(round(flow, 1), if_else(n_dates < 8, " cfs", ""))
+      )
       x_lims <- setReportDateRange(df$date, pad_right = T)
       y_lims <- setAxisLimits(df$flow, 0, 1)
       flow_labels <- tibble(
@@ -362,7 +369,6 @@ makeReportPlots <- function(df, type) {
       df <- df %>%
         select(date, tp) %>%
         drop_na(tp) %>%
-        # filter(tp > 0) %>% # true zeros shouldn't exist in this data
         mutate(exceeds = tp > phoslimit) %>%
         mutate(label = ifelse(tp == 0, "< LOD", signif(tp, 3)))
       x_lims <- c(dates[1] - 15, eoy_date + 15)

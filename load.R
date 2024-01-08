@@ -494,7 +494,7 @@ buildReportSummary <- function(params) {
       pull(text) %>%
       combine_words()
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report generated ", Sys.Date(), ".")
+    msg <- paste0(msg, " Report downloaded on ", format(Sys.Date(), "%b %d, %Y"), ".")
   }
 
   list(counts = counts, has = has, message = msg)
