@@ -97,6 +97,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           return(div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."))
         }
 
+        req(cur_stn())
         tagList(
           div(
             class = "well flex-row year-btns",

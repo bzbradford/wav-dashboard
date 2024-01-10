@@ -1,4 +1,4 @@
-/* Modifications of existing classes */
+/*--- Modifications of existing classes ---*/
 
 body {
   font-family: 'Lato', sans-serif;
@@ -31,6 +31,38 @@ a, a:hover, a:focus {
   color: #48a67b;
 }
 
+
+/* --- Tab appearance --- */
+
+.nav {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* removes spurious gap on top left */
+.nav:before {
+  display: none;
+}
+
+/* darker background when in a well panel */
+.well > * > .nav > li:not(.active) > a:hover {
+  background-color: #dee3e4;
+}
+
+.nav-pills > li.active, .nav-pills > li + li {
+  margin-left: 0px;
+}
+
+.nav-pills > li.active > a {
+  border: 1px solid #293e4f;
+  font-weight: bold;
+}
+
+
+/*--- Other modifications ---*/
+
 .form-group {
   margin-bottom: 0px;
 }
@@ -44,7 +76,7 @@ a, a:hover, a:focus {
 }
 
 
-/* New classes */
+/*--- New classes ---*/
 
 .notice {
   font-weight: bold;

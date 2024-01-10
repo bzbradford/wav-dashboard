@@ -63,6 +63,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
           return(div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."))
         }
 
+        req(cur_stn())
         tagList(
           div(
             class = "well flex-row year-btns",
@@ -131,8 +132,8 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
         div(
           class = "well",
-          style = "overflow: auto",
-          h4("Station data summary", style = "border-bottom: 2px solid #d0d7d9;"),
+          style = "margin-top: 25px; overflow: auto",
+          h4("Station data summary", style = "margin-top: 0px; border-bottom: 2px solid #d0d7d9;"),
           tableOutput(ns("stnSummaryTable"))
         )
       })
