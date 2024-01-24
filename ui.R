@@ -132,7 +132,17 @@ ui <- fluidPage(
       "Dashboard developed by",
       a("Ben Bradford", href = "https://entomology.wisc.edu/directory/ben-bradford/", target = "_blank", .noWS = "after"),
       ", UW-Madison Entomology", br(),
-      paste("Last updated:", format(file.info(".")$mtime, "%Y-%m-%d")), br(),
+      paste(
+        "Last updated:", format(file.info(".")$mtime, "%Y-%m-%d"), " | ",
+        "Most recent fieldwork:", as.character(max(baseline_data$date))
+      ), br(),
+      # glue("
+      #   Pandoc {rmarkdown::pandoc_version()},
+      #   GEOS {sf::sf_extSoftVersion()[['GEOS']]},
+      #   GDAL {sf::sf_extSoftVersion()[['GDAL']]},
+      #   proj.4 {sf::sf_extSoftVersion()[['proj.4']]},
+      #   PROJ {sf::sf_extSoftVersion()[['PROJ']]}
+      # "), br(),
       a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
     )
   )

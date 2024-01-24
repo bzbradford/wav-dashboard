@@ -239,15 +239,6 @@ addRectDatetime <- function(ymin, ymax, color) {
 
 ## Server ----
 
-# pick random baseline station to show initially
-random_baseline_stn <- function() {
-  all_pts %>%
-    filter(baseline_stn) %>%
-    filter(max_fw_year == max(data_years)) %>%
-    pull(station_id) %>%
-    sample(1)
-}
-
 # adds "All" to end of years list
 year_choices <- function(years) {
   if (length(years) > 1) {

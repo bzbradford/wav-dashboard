@@ -9,7 +9,8 @@ header-includes:
   - \usepackage{longtable}
   - \usepackage{fancyhdr} # page header and footer
   - \usepackage{lastpage} # allow page 'X of Y'
-  - \usepackage{fontspec}
+  - \usepackage{titlesec}
+  - \usepackage{fontspec} # set font
   - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
 params:
   year: NA
@@ -23,6 +24,13 @@ options(knitr.kable.NA = "-")
 options(scipen = 999)
 p <- function(content) cat("\n\n", content, "\n\n", sep = "")
 pg <- function() p("\\newpage")
+
+# adjust titlesec heading spacing on wisc connect server
+if (Sys.getenv("SERVER") == "wisc") {
+  titlespacing <- c(1.5, 0)
+} else {
+  titlespacing <- c(3, 1.5)
+}
 
 stn <- params$stn
 safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
@@ -112,12 +120,18 @@ if (has$streamflow) {
 ```
 
 \pagestyle{fancy}
-\setlength{\headheight}{14pt}
 \lhead{Station `r str_trunc(safe_label, 65)`}
 \rhead{`r params$year` Fieldwork Report}
 \lfoot{\url{wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+\setlength{\baselineskip}{12pt}
+\setlength{\parskip}{8pt}
+\titlespacing*{\section}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
+\titlespacing*{\subsection}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
+
+
 
 ```{r}
 knitr::include_graphics("header.png", error = F)

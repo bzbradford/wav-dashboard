@@ -110,16 +110,6 @@ stnReportServer <- function(cur_stn, has_focus) {
       })
 
       ## avail_reports_tbl ----
-      # output$avail_reports_tbl <- renderTable(
-      #   avail_reports(),
-      #   striped = T,
-      #   hover = T,
-      #   width = "100%",
-      #   align = "c",
-      #   na = "-",
-      #   sanitize.text.function = identity
-      # )
-
       output$avail_reports_tbl <- renderDataTable(
         avail_reports(),
         selection = "none", rownames = F, filter = "none",
@@ -160,13 +150,12 @@ stnReportServer <- function(cur_stn, has_focus) {
 
       createReport <- function(file) {
         yr <- input$year
-        fname <- report$filename
-        final_out <- file.path(temp_dir, fname)
+        temp_out <- file.path(temp_dir, paste0(hash(report$filename), ".pdf"))
         runjs("document.querySelector('#report-msg-container').style.display = 'none';")
         runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})")
         use_existing <- F
-        if (file.exists(final_out) & use_existing) {
-          file.copy(final_out, file)
+        if (file.exists(temp_out) & use_existing) {
+          file.copy(temp_out, file)
         } else {
           tryCatch({
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
@@ -176,14 +165,14 @@ stnReportServer <- function(cur_stn, has_focus) {
             lapply(list.files("report", "*.ttf", full.names = T), function(f) { file.copy(f, temp_dir) })
             rmarkdown::render(
               input = temp_rmd,
-              output_file = final_out,
+              output_file = temp_out,
               params = list(
                 year = yr,
                 stn = report$stn,
                 data = report$data
               )
             )
-            file.copy(final_out, file)
+            file.copy(temp_out, file)
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
           }, error = function(cond) {
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
