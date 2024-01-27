@@ -1,6 +1,10 @@
 **Jan 2023**
 
-* Final adjustments for PDF report generation, pending review of reports by stakeholders.
+* Final adjustments for PDF report generation.
+* Modify some app language and interpretations to match the station reports.
+* Add natural community interpretation to thermistor page.
+* Combine UI for the thermistor monthly, daily, and hourly data tables.
+* Switch air/water temp to default to Fahrenheit.
 
 **Dec 2023**
 

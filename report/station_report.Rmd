@@ -267,9 +267,10 @@ if (has$air_temp | has$water_temp) {
   p("# Baseline Temperature Measurements")
   baseline %>% makeReportPlots(type = "temp") %>% print()
   baseline %>%
+    mutate(across(c(air_temp, water_temp), c_to_f)) %>%
     summarizeReportCols(c(
-      `Air temp (°C)` = "air_temp",
-      `Water temp (°C)` = "water_temp"
+      `Air temp (°F)` = "air_temp",
+      `Water temp (°F)` = "water_temp"
     )) %>% kable() %>% print()
   p("## Why measure water temperature?")
   p("Water temperature, along with streamflow, has a strong impact on the biological community in a stream. Aquatic plant and animal species are adapted to different temperature ranges, so measuring baseline water temperature throughout the year can help characterize a stream’s Natural Community. Salmonids such as Wisconsin’s native brook trout require cold water temperatures to live and reproduce, while other fish species such as bass, darter and sucker species are adapted to live in warmwater streams. Coldwater streams generally have higher levels of dissolved oxygen which is beneficial to aquatic life. Many coldwater streams in Wisconsin receive most of their flow from groundwater, while other streams and rivers are fed by warmer surface waters. Warmer water temperatures can indicate a stream is a natural warmwater stream or river, or they can indicate shallow, pooled or stagnant water, or a once colder stream that has been impacted by human activity. This is why it is important to look at water temperature and streamflow together when characterizing a stream's Natural Community.")

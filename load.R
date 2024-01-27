@@ -33,7 +33,7 @@ tab_names <- list(
   baseline = "Baseline data",
   nutrient = "Nutrient data",
   thermistor = "Thermistor data",
-  watershed = "Watershed/landscape context",
+  watershed = "Landscape context",
   reports = "Downloadable reports",
   more = "Learn more"
 )
