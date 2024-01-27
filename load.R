@@ -272,24 +272,20 @@ phoslimit <- 0.075 # mg/L or ppm
 
 #' @param vals vector of phosphorus readings
 getPhosEstimate <- function(vals) {
-  vals <- na.omit(vals)
-  log_vals <- log(vals + .001)
-  n <- length(vals)
-  meanp <- mean(log_vals)
-  se <- sd(log_vals) / sqrt(n)
   suppressWarnings({
-    tval <- qt(p = 0.90, df = n - 1)
+    vals <- na.omit(vals)
+    n <- length(vals)
+    log_vals <- log(vals + .001)
+    log_mean <- mean(log_vals)
+    se <- sd(log_vals) / sqrt(n)
+    tval <- qt(p = 0.80, df = n - 1)
   })
-
   params <- list(
-    mean = meanp,
+    mean = log_mean,
     median = median(log_vals),
-    lower = meanp - tval * se,
-    upper = meanp + tval * se
-  )
-
-  params <- lapply(params, exp)
-  params <- lapply(params, round, 3)
+    lower = log_mean - tval * se,
+    upper = log_mean + tval * se
+  ) %>% lapply(exp) %>% lapply(signif, 3)
   params$n <- n
   params$limit <- phoslimit
   params
@@ -310,10 +306,10 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
   if (anyNA(c(median, lower, upper))) return(msg)
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit).",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit).",
-    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit).",
+    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (median and entire confidence interval above phosphorus standard).",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
   msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))

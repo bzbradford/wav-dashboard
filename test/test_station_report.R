@@ -96,7 +96,7 @@ baseline_data %>%
 makeReportPlots(test_baseline, "temp")
 makeReportPlots(test_baseline, "do")
 makeReportPlots(test_baseline, "ph")
-
+makeReportPlots(test_baseline, "flow")
 makeReportPlots(test_baseline, "trans")
 
 
