@@ -18,8 +18,8 @@ makeReportPlots <- function(df, type) {
       y = c(68, 70.9, 74.4, 78),
       label = c(
         "Coldwater stream (< 69.3°F)",
-        "Cool-warm stream (72.5 - 76.3°F)",
         "Cold-cool stream (69.3 - 72.5°F)",
+        "Cool-warm stream (72.5 - 76.3°F)",
         "Warmwater stream (> 76.3°F)")
       )
 
@@ -465,7 +465,7 @@ makeReportPlots <- function(df, type) {
         est$lower, "Lower 80% CI",
         est$median, "Median value",
         est$upper, "Upper 80% CI",
-        est$limit, "State limit",
+        est$limit, "State criteria",
       ) %>% mutate(date = eoy_date)
       ci <- est$n > 1 # conf int if more than 1 observation
 
@@ -512,7 +512,7 @@ makeReportPlots <- function(df, type) {
           breaks = c(T, F),
           values = c("#FFA168", "#40b0a6"),
           labels = c("Yes", "No")) +
-        labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L limit?") +
+        labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L criteria?") +
         common_theme +
         theme(legend.position = "bottom")
 

@@ -343,31 +343,30 @@ createDailyThermData <- function(df, units, stn) {
 createThermSummary <- function(df, units) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
-  monthly <- df %>%
+  daily <- df %>%
     mutate(temp = .[[temp_col]]) %>%
-    arrange(month) %>%
+    drop_na(temp) %>%
+    arrange(date) %>%
+    summarize(temp = mean(temp), .by = c(date, month))
+
+  monthly <- daily %>%
     mutate(name = fct_inorder(format(date, "%B"))) %>%
     summarize(
       days = n_distinct(date),
-      min = round(min(temp, na.rm = T), 1),
-      q10 = round(quantile(temp, .1, na.rm = T), 1),
-      mean = round(mean(temp, na.rm = T), 1),
-      q90 = round(quantile(temp, .9, na.rm = T), 1),
-      max = round(max(temp, na.rm = T), 1),
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1),
       .by = c(month, name)
     ) %>%
     clean_names("title")
 
-  total <- df %>%
-    mutate(temp = .[[temp_col]]) %>%
+  total <- daily %>%
     summarize(
       name = "Total",
       days = n_distinct(date),
-      min = round(min(temp, na.rm = T), 1),
-      q10 = round(quantile(temp, .1, na.rm = T), 1),
-      mean = round(mean(temp, na.rm = T), 1),
-      q90 = round(quantile(temp, .9, na.rm = T), 1),
-      max = round(max(temp, na.rm = T), 1)
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1)
     ) %>%
     clean_names("title")
 

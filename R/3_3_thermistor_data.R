@@ -114,21 +114,15 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             id = "therm-plot-container",
             h3(cur_stn()$label, align = "center"),
             plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
-            uiOutput(ns("plotCaptionUI"))
+            uiOutput(ns("plotCaptionUI")),
+            uiOutput(ns("naturalCommunityUI"))
           ),
           uiOutput(ns("plotExportUI")),
           uiOutput(ns("moreInfoUI")),
           br(),
           bsCollapse(
             bsCollapsePanel(
-              title = "View monthly water temperature summary",
-              dataTableOutput(ns("stnSummaryDT")),
-              uiOutput(ns("stnSummaryFootnoteUI"))
-            )
-          ),
-          bsCollapse(
-            bsCollapsePanel(
-              title = "View or download stream temperature data",
+              title = "View or download monthly, daily, and hourly temperature data",
               uiOutput(ns("viewDataUI"))
             )
           )
@@ -199,26 +193,47 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           temps <- c(52, 61, 72)
           if (units == "C") temps <- f_to_c(temps)
 
-          overlay_caption <- paste0(
+          overlay_caption <- HTML(paste0(
             "Optimal brook trout temperatures are shown shaded ", colorize("dark green", "darkgreen"),
             " (", temps[1], "-", temps[2], unit_text, "), acceptable temperatures in ", colorize("light green", "darkseagreen"),
             " (", temps[2], "-", temps[3], unit_text, "), too hot in ", colorize("orange", "orange"),
-            " and too cold in ", colorize("blue", "blue"), ".")
+            " and too cold in ", colorize("blue", "blue"), "."))
 
         } else if (annotation == "wtemp") {
-          temps <- c(69.3, 76.3)
+          temps <- c(69.3, 72.5, 76.3)
           if (units == "C") temps <- f_to_c(temps)
 
-          overlay_caption <- paste0(
-            "The DNR classifies streams as ", colorize("coldwater", "blue"), " when maximum summer temperatures are below ",
-            temps[1], unit_text, ", as ", colorize("coolwater", "deepskyblue"), " streams when maximum temperatures are between ",
-            temps[1], " and ", temps[2], unit_text, ", and as ", colorize("warmwater", "orange"),
-            " streams when maximum temperatures are above ", temps[2], unit_text, ".")
+          overlay_caption <- HTML(paste0(
+            "The DNR classifies streams into four 'Natural Community' types based on their maximum daily average temperature: ",
+            colorize("coldwater", "blue"), " when below 69.3°F (20.7°C); ",
+            colorize("cool-cold", "cornflowerblue"), " when between 69.3 and 72.5°F (20.7 and 22.5°C); ",
+            colorize("cool-warm", "lightsteelblue"), " when between 72.5 and 76.3°F (22.5 and 24.6°C); and ",
+            colorize("warmwater", "darkorange"), " when above 76.3°F (24.6°C)."
+          ))
         }
 
         p(
-          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
-          em(HTML(paste(overlay_caption, "High or widely fluctuating temperatures may indicate that the logger became exposed to the air, either before/after deployment, or when stream levels dropped below the point where the logger was anchored.")))
+          class = "plot-caption",
+          overlay_caption,
+          "High or widely fluctuating temperatures may indicate that the logger became exposed to the air."
+        )
+      })
+
+      ## naturalCommunityUI ----
+      output$naturalCommunityUI <- renderUI({
+        req(nrow(daily_data()) > 0)
+
+        max_temp <- max(daily_data()$mean)
+        if (input$units == "C") max_temp <- c_to_f(max_temp)
+        temp_class <- case_when(
+          max_temp < 69.3 ~ "coldwater",
+          max_temp < 72.5 ~ "cool-cold",
+          max_temp < 76.3 ~ "cool-warm",
+          T ~ "warmwater"
+        )
+        p(
+          class = "plot-caption", style = "font-weight: bold;",
+          paste0("Based on the maximum daily average water temperature of ", round(max_temp, 1), "°F (", round(f_to_c(max_temp), 1), "°C), this is likely to be a ", temp_class, " stream.")
         )
       })
 
@@ -227,10 +242,11 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(input$year)
 
         p(
-          style = "margin-left: 2em; margin-right: 2em; font-size: smaller;",
-          align = "center",
+          class = "plot-caption", style = "margin: 15px;", align = "center",
           em(
-            a("Click here to download this plot as a PNG.",
+            a(
+              "Download plot image",
+              class = "btn btn-default btn-sm",
               style = "cursor: pointer;",
               onclick = paste0(
                 "html2canvas(document.querySelector('",
@@ -246,37 +262,34 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       })
 
 
-      # Summary ----
-
-      ## stnSummaryDT ----
-      output$stnSummaryDT <- renderDT(
-        summary_data(),
-        rownames = F,
-        options = list(
-          dom = "t",
-          columnDefs = list(list(targets = 0:7, className = "dt-center"))
-        )
-      )
-
-      ## stnSummaryFootnoteUI ----
-      output$stnSummaryFootnoteUI <- renderUI({
-        req(input$units)
-
-        div(
-          style = "margin-top: 0.5em",
-          em(paste0("Temperatures shown in units of °", input$units, "."), "Q10 and Q90 reflect the 10th percentile and 90th percentile temperatures, respectively.")
-        )
-      })
-
-
-      # View thermistor data table ----
+      # View summary and raw data tables ----
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
         req(selected_data_ready())
+        req(input$units)
 
         min_date <- min(selected_data()$date)
         max_date <- max(selected_data()$date)
+        monthly_dt <- summary_data() %>%
+          mutate(across(c(Min, Mean, Max), ~sprintf("%.1f %s", .x, input$units))) %>%
+          renderDataTable(
+            rownames = F,
+            extensions = "Buttons",
+            options = list(
+              dom = "Bt",
+              buttons = c("copy"),
+              columnDefs = list(
+                list(targets = 0:5, className = "dt-center")
+              )
+            )
+          )
+        daily_dt <- daily_data() %>%
+          clean_names("big_camel") %>%
+          renderDataTable()
+        hourly_dt <- selected_data() %>%
+          clean_names("big_camel") %>%
+          renderDataTable()
 
         tagList(
           p(
@@ -293,20 +306,22 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           ),
           tabsetPanel(
             tabPanel(
+              title = "Monthly temperature data",
+              class = "data-tab",
+              p(paste0("To limit the influence of hourly temperature fluctuations, daily average temperatures are used to generate these monthly summaries. Temperatures are shown in units of °", input$units, ", option to change units is above the plot.")),
+              monthly_dt,
+            ),
+            tabPanel(
               title = "Daily temperature data",
               class = "data-tab",
               p(downloadButton(ns("downloadDaily"), "Download this data")),
-              renderDataTable({
-                clean_names(daily_data(), case = "big_camel")
-              })
+              daily_dt
             ),
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
               p(downloadButton(ns("downloadHourly"), "Download this data")),
-              renderDataTable({
-                clean_names(selected_data(), case = "big_camel")
-              })
+              hourly_dt
             )
           )
         )

@@ -19,7 +19,15 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
   # handle units
   temp_col <- paste0("temp_", tolower(units))
   ytitle <- paste0("Temperature (°", units, ")")
-  yrange <- ifelse(units == "F", c(30, 100), c(0, 37))
+  default_yrange <- { if (units == "F") c(40, 90) else c(5, 30) }
+  data_yrange <- c(
+    min(df_hourly[[temp_col]], na.rm = T),
+    max(df_hourly[[temp_col]], na.rm = T)
+  )
+  yrange <- c(
+    floor(min(default_yrange[1], data_yrange[1])),
+    ceiling(max(default_yrange[2], data_yrange[2]))
+  )
 
   plt <- plot_ly() %>%
     add_ribbons(
@@ -98,9 +106,9 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       if (units == "C") temps <- f_to_c(temps)
       colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
     } else if (annotations == "wtemp") {
-      temps <- c(32, 72, 77, 100) # F
+      temps <- c(-40, 69.3, 72.5, 76.3, 150) # F
       if (units == "C") temps <- f_to_c(temps)
-      colors <- c("blue", "cornflowerblue", "darkorange")
+      colors <- c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
     }
 
     plt <- plt %>%
