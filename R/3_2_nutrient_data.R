@@ -130,24 +130,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
-        fname <- paste0("nutrient-plot-", cur_stn()$station_id, "-", input$nutrient_year, ".png")
-        p(
-          class = "note",
-          align = "center",
-          em(
-            a("Click here to download this plot as a PNG.",
-              style = "cursor: pointer;",
-              onclick = sprintf("
-                html2canvas(
-                  document.querySelector('#nutrient-plot-container'),
-                  {scale: 3}
-                ).then(canvas => {
-                  saveAs(canvas.toDataURL(), '%s')
-                })
-              ", fname)
-            )
-          )
-        )
+        req(input$year)
+        filename <- sprintf("WAV nutrient data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+        buildPlotDlBtn("#nutrient-plot-container", filename)
       })
 
 

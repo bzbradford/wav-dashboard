@@ -47,8 +47,17 @@ a, a:hover, a:focus {
 }
 
 /* darker background when in a well panel */
+
+/*.nav-pills > li > a {
+  background: #ecf0f1;
+}*/
+
 .well > * > .nav > li:not(.active) > a:hover {
   background-color: #dee3e4;
+}
+
+.nav > li > a:hover {
+  background-color: #ecf0f1;
 }
 
 .nav-pills > li.active, .nav-pills > li + li {

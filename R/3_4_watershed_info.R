@@ -160,19 +160,8 @@ watershedInfoServer <- function(cur_stn, has_focus) {
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
-        fname <- paste0("Landscape composition - ", selected_name(), ".png")
-        p(class = "note", align = "center",
-          a("Click here to download the landscape plots above as a PNG.",
-            style = "cursor: pointer;",
-            onclick = sprintf("
-              html2canvas(
-                document.querySelector('#landscape-plot-container'),
-                {scale: 3}
-              ).then(canvas => {
-                saveAs(canvas.toDataURL(), '%s')
-              })", fname)
-          )
-        )
+        filename <- sprintf("Landscape composition - %s.png", selected_name())
+        buildPlotDlBtn("#landscape-plot-container", filename)
       })
 
 

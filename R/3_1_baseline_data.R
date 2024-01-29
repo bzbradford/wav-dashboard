@@ -80,6 +80,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
             h3(cur_stn()$label, align = "center"),
             plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = F),
           ),
+          div(class = "plot-caption", "Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset)."),
           uiOutput(ns("plotExportUI")),
           uiOutput(ns("stnSummaryUI")),
           uiOutput(ns("infoUI")),
@@ -109,18 +110,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
-        fname <- paste0("baseline-plot-", cur_stn()$station_id, "-", input$year, ".png")
-        onclick <- sprintf("
-          html2canvas(
-            document.querySelector('#baseline-plot-container'),
-            {scale: 3}
-          ).then(
-            canvas => {saveAs(canvas.toDataURL(), '%s')}
-          )", fname)
-        p(
-          class = "plot-export", align = "center",
-          em("Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset).", a("Click here to download this plot as a PNG.", style = "cursor: pointer;", onclick = onclick))
-        )
+        req(input$year)
+        filename <- sprintf("WAV baseline data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+        buildPlotDlBtn("#baseline-plot-container", filename)
       })
 
 
@@ -131,8 +123,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         req(stnSummaryData())
 
         div(
-          class = "well",
-          style = "margin-top: 25px; overflow: auto",
+          class = "well", style = "margin-top: 25px; overflow: auto",
           h4("Station data summary", style = "margin-top: 0px; border-bottom: 2px solid #d0d7d9;"),
           tableOutput(ns("stnSummaryTable"))
         )
@@ -183,11 +174,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
         btn_year <- downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
         btn_all <- downloadButton(ns("downloadAll"), "Download all years of baseline data for this site")
-        if (input$year == "All") {
-          dl_btns <- list(btn_all)
-        } else {
-          dl_btns <- list(btn_year, btn_all)
-        }
+        dl_btns <- { if (input$year == "All") list(btn_all) else list(btn_year, btn_all) }
 
         tagList(
           p(dl_btns),
@@ -222,13 +209,13 @@ baselineDataServer <- function(cur_stn, has_focus) {
       ## downloadYear ----
       output$downloadYear <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data-", input$year, ".csv"),
-        function(file) {write_csv(selected_data(), file)}
+        function(file) { write_csv(selected_data(), file) }
       )
 
       ## downloadAll ----
       output$downloadAll <- downloadHandler(
         paste0("stn-", cur_stn()$station_id, "-baseline-data.csv"),
-        function(file) {write_csv(cur_data(), file)}
+        function(file) { write_csv(cur_data(), file) }
       )
 
       # Return values ----

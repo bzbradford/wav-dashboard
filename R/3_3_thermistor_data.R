@@ -240,25 +240,8 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
         req(input$year)
-
-        p(
-          class = "plot-caption", style = "margin: 15px;", align = "center",
-          em(
-            a(
-              "Download plot image",
-              class = "btn btn-default btn-sm",
-              style = "cursor: pointer;",
-              onclick = paste0(
-                "html2canvas(document.querySelector('",
-                "#therm-plot-container",
-                "'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '",
-                paste("thermistor-plot", cur_stn()$station_id, input$year, sep = "-"),
-                ".png",
-                "')})"
-              )
-            )
-          )
-        )
+        filename <- sprintf("WAV thermistor data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+        buildPlotDlBtn("#therm-plot-container", filename)
       })
 
 

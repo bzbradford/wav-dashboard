@@ -159,10 +159,10 @@ makeReportPlots <- function(df, type) {
         y = c(1, 3, 5, 6, 7),
         label = c(
           "Aquatic life minimum\n(1 mg/L) ",
-          "Fish minimum\n(>3 mg/L) ",
+          "Limited forage fish\n(>3 mg/L) ",
           "Warmwater fish\n(>5 mg/L) ",
           "Coldwater fish\n(>6 mg/L) ",
-          "Spawning\n(>7 mg/L) "))
+          "Coldwater spawning\n(>7 mg/L) "))
 
       plt <- df %>%
         ggplot(aes(x = date, y = d_o)) +

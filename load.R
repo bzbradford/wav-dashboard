@@ -143,6 +143,21 @@ withSpinnerProxy <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
+buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
+  require(shiny)
+  p(
+    class = "plot-caption",
+    style = "margin: 15px;",
+    align = "center",
+    a(
+      class = "btn btn-default btn-sm",
+      style = "cursor: pointer;",
+      onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
+      text
+    )
+  )
+}
+
 
 ## Plot helpers ----
 
