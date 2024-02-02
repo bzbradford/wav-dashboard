@@ -12,7 +12,13 @@ server <- function(input, output, session) {
 
   ## initial_stn ----
   # determines station to select on app load
-  initial_stn <- reactiveVal(random_baseline_stn())
+  initial_stn <- reactiveVal({
+    set.seed(as.integer(Sys.time()))
+    all_stns %>%
+      filter(baseline_stn, max_fw_year == max(data_years)) %>%
+      slice_sample(n = 1) %>%
+      pull(station_id)
+  })
 
   ## bookmarking ----
   # enable/disable bookmarking features

@@ -634,3 +634,19 @@ df %>%
   theme_classic()
 
 view(df)
+
+
+
+
+# Thermistor plot ---------------------------------------------------------
+
+test_therm <- therm_data %>%
+  filter(station_id == 10011236) %>%
+  mutate(dateskip = as.numeric(lead(date) - date))
+
+gap_starts <- test_therm %>% filter(dateskip > 7)
+
+tibble(date = gap_starts$date + gap_starts$dateskip / 2)
+
+test_therm %>%
+  bind_rows(tibble(date = gap_starts$date + gap_starts$dateskip / 2))

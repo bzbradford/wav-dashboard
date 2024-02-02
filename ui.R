@@ -30,7 +30,7 @@ stnSelectorUI <- function() {
             uiOutput("bookmark_btn", inline = TRUE)
           )
         ),
-        div(class = "note", "To search for a station by name, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You still have to press the bookmark button on your browser to save a site.")
+        div(class = "note", "To search for a station by name or ID, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You can also search for stations in the Station Lists tab.")
       ),
       tabPanel("Recently Viewed Stations", recentStationsUI()),
       tabPanel("Station Details", stationInfoUI()),
@@ -91,6 +91,7 @@ ui <- fluidPage(
     ## Data tabs ----
     div(
       id = "data-tab-content",
+      style = "margin-top: 30px;",
       tabsetPanel(
         id = "data_tabs",
         type = "pills",
@@ -131,7 +132,17 @@ ui <- fluidPage(
       "Dashboard developed by",
       a("Ben Bradford", href = "https://entomology.wisc.edu/directory/ben-bradford/", target = "_blank", .noWS = "after"),
       ", UW-Madison Entomology", br(),
-      paste("Last updated:", format(file.info(".")$mtime, "%Y-%m-%d")), br(),
+      paste(
+        "Last updated:", format(file.info(".")$mtime, "%Y-%m-%d"), " | ",
+        "Most recent fieldwork:", as.character(max(baseline_data$date))
+      ), br(),
+      # glue("
+      #   Pandoc {rmarkdown::pandoc_version()},
+      #   GEOS {sf::sf_extSoftVersion()[['GEOS']]},
+      #   GDAL {sf::sf_extSoftVersion()[['GDAL']]},
+      #   proj.4 {sf::sf_extSoftVersion()[['proj.4']]},
+      #   PROJ {sf::sf_extSoftVersion()[['PROJ']]}
+      # "), br(),
       a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
     )
   )

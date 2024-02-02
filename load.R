@@ -33,16 +33,9 @@ tab_names <- list(
   baseline = "Baseline data",
   nutrient = "Nutrient data",
   thermistor = "Thermistor data",
-  watershed = "Watershed/landscape context",
+  watershed = "Watershed & landscape context",
   reports = "Downloadable reports",
   more = "Learn more"
-)
-
-wiscalm_temps <- list(
-  cold_c = 20.7,
-  cold_f = 69.3,
-  warm_c = 24.6,
-  warm_f = 76.3
 )
 
 
@@ -143,6 +136,21 @@ withSpinnerProxy <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
+buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
+  require(shiny)
+  p(
+    class = "plot-caption",
+    style = "margin: 15px;",
+    align = "center",
+    a(
+      class = "btn btn-default btn-sm",
+      style = "cursor: pointer;",
+      onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
+      text
+    )
+  )
+}
+
 
 ## Plot helpers ----
 
@@ -239,15 +247,6 @@ addRectDatetime <- function(ymin, ymax, color) {
 
 ## Server ----
 
-# pick random baseline station to show initially
-random_baseline_stn <- function() {
-  all_pts %>%
-    filter(baseline_stn) %>%
-    filter(max_fw_year == max(data_years)) %>%
-    pull(station_id) %>%
-    sample(1)
-}
-
 # adds "All" to end of years list
 year_choices <- function(years) {
   if (length(years) > 1) {
@@ -258,47 +257,26 @@ year_choices <- function(years) {
 }
 
 
-
-## Baseline tab ----
-
-# for constructing the baseline summary table
-make_min_max <- function(df, var) {
-  v <- df[[var]]
-  if (length(v) == 0) return(tibble())
-  tibble(
-    observations = length(na.omit(v)),
-    min = df[which.min(v), ][[var]],
-    max = df[which.max(v), ][[var]],
-    date_of_min = df[which.min(v), ]$date,
-    date_of_max = df[which.max(v), ]$date
-  )
-}
-
-
 ## Nutrient tab ----
 
 phoslimit <- 0.075 # mg/L or ppm
 
 #' @param vals vector of phosphorus readings
 getPhosEstimate <- function(vals) {
-  vals <- na.omit(vals)
-  log_vals <- log(vals + .001)
-  n <- length(vals)
-  meanp <- mean(log_vals)
-  se <- sd(log_vals) / sqrt(n)
   suppressWarnings({
-    tval <- qt(p = 0.90, df = n - 1)
+    vals <- na.omit(vals)
+    n <- length(vals)
+    log_vals <- log(vals + .001)
+    log_mean <- mean(log_vals)
+    se <- sd(log_vals) / sqrt(n)
+    tval <- qt(p = 0.80, df = n - 1)
   })
-
   params <- list(
-    mean = meanp,
+    mean = log_mean,
     median = median(log_vals),
-    lower = meanp - tval * se,
-    upper = meanp + tval * se
-  )
-
-  params <- lapply(params, exp)
-  params <- lapply(params, round, 3)
+    lower = log_mean - tval * se,
+    upper = log_mean + tval * se
+  ) %>% lapply(exp) %>% lapply(signif, 3)
   params$n <- n
   params$limit <- phoslimit
   params
@@ -319,101 +297,16 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
   if (anyNA(c(median, lower, upper))) return(msg)
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (lower confidence interval > phosphorus limit).",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than phosphorus limit, but lower confidence interval below limit).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus limit, but upper confidence interval above limit).",
-    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (upper confidence interval below limit).",
+    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (median and entire confidence interval above phosphorus standard).",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
   msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))
 }
 
 
-
-## Thermistor tab ----
-
-createDailyThermData <- function(df, units, stn) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  df %>%
-    group_by(date) %>%
-    summarise(
-      hours = n(),
-      min = min(!!sym(temp_col)),
-      max = max(!!sym(temp_col)),
-      mean = round(mean(!!sym(temp_col)), 2),
-      units = units,
-      lat = latitude[1],
-      long = longitude[1]
-    ) %>%
-    mutate(
-      station_id = stn$station_id,
-      station_name = stn$station_name,
-      .before = lat
-    )
-}
-
-createThermSummary <- function(df, units) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  monthly <- df %>%
-    mutate(temp = .[[temp_col]]) %>%
-    arrange(month) %>%
-    mutate(name = fct_inorder(format(date, "%B"))) %>%
-    summarize(
-      days = n_distinct(date),
-      min = round(min(temp, na.rm = T), 1),
-      q10 = round(quantile(temp, .1, na.rm = T), 1),
-      mean = round(mean(temp, na.rm = T), 1),
-      q90 = round(quantile(temp, .9, na.rm = T), 1),
-      max = round(max(temp, na.rm = T), 1),
-      .by = c(month, name)
-    ) %>%
-    clean_names("title")
-
-  total <- df %>%
-    mutate(temp = .[[temp_col]]) %>%
-    summarize(
-      name = "Total",
-      days = n_distinct(date),
-      min = round(min(temp, na.rm = T), 1),
-      q10 = round(quantile(temp, .1, na.rm = T), 1),
-      mean = round(mean(temp, na.rm = T), 1),
-      q90 = round(quantile(temp, .9, na.rm = T), 1),
-      max = round(max(temp, na.rm = T), 1)
-    ) %>%
-    clean_names("title")
-
-  bind_rows(monthly, total)
-}
-
-
-
-## Watershed/Landscape tab ----
-
-buildWatershedInfo <- function(stn) {
-  require(glue)
-
-  maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
-  wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
-  ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
-  # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
-
-  shiny::HTML(paste(
-    glue("<b>Station name:</b> {stn$station_name}"),
-    glue("<b>Station ID:</b> {stn$station_id}"),
-    glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
-    glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
-    glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
-    glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
-    glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
-    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
-    glue("<b>Major basin:</b> {stn$major_basin}"),
-    glue("<b>County name:</b> {stn$county_name} County"),
-    glue("<b>DNR region:</b> {stn$dnr_region}"),
-    sep = "<br>"
-  ))
-}
 
 
 ## Reports ----
@@ -494,7 +387,7 @@ buildReportSummary <- function(params) {
       pull(text) %>%
       combine_words()
     msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report generated ", Sys.Date(), ".")
+    msg <- paste0(msg, " Report downloaded on ", format(Sys.Date(), "%b %d, %Y"), ".")
   }
 
   list(counts = counts, has = has, message = msg)

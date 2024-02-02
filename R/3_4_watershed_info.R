@@ -1,4 +1,35 @@
-# Watershed Information
+### Watershed & Landscape Info Tab ###
+
+
+# Functions ---------------------------------------------------------------
+
+buildWatershedInfo <- function(stn) {
+  require(glue)
+
+  maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
+  wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
+  ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
+  # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
+
+  shiny::HTML(paste(
+    glue("<b>Station name:</b> {stn$station_name}"),
+    glue("<b>Station ID:</b> {stn$station_id}"),
+    glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
+    glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
+    glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
+    glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
+    glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
+    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
+    glue("<b>Major basin:</b> {stn$major_basin}"),
+    glue("<b>County name:</b> {stn$county_name} County"),
+    glue("<b>DNR region:</b> {stn$dnr_region}"),
+    sep = "<br>"
+  ))
+}
+
+
+
+# Static UI ---------------------------------------------------------------
 
 watershedInfoUI <- function() {
   ns <- NS("watershed")
@@ -30,6 +61,9 @@ watershedInfoUI <- function() {
   )
 }
 
+
+
+# Server ------------------------------------------------------------------
 
 #' Requires global variable `landscape_data`
 #' @param `cur_stn` a `reactive()` expression containing the 1-line data frame `cur_stn()`
@@ -160,19 +194,8 @@ watershedInfoServer <- function(cur_stn, has_focus) {
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
-        fname <- paste0("Landscape composition - ", selected_name(), ".png")
-        p(class = "note", align = "center",
-          a("Click here to download the landscape plots above as a PNG.",
-            style = "cursor: pointer;",
-            onclick = sprintf("
-              html2canvas(
-                document.querySelector('#landscape-plot-container'),
-                {scale: 3}
-              ).then(canvas => {
-                saveAs(canvas.toDataURL(), '%s')
-              })", fname)
-          )
-        )
+        filename <- sprintf("Landscape composition - %s.png", selected_name())
+        buildPlotDlBtn("#landscape-plot-container", filename)
       })
 
 

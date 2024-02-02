@@ -89,14 +89,14 @@ ph_colors <- c("#ff4331", "#ffd43a", "#00b82b", "#0099f7", "#844cbf")
 
 
 baseline_data %>%
-  filter(station_id == 10020461, year == 2022) %>%
-  makeReportPlots("trans")
+  filter(station_id == 10009387, year == 2023) %>%
+  makeReportPlots("nutrient")
 
 
 makeReportPlots(test_baseline, "temp")
 makeReportPlots(test_baseline, "do")
 makeReportPlots(test_baseline, "ph")
-
+makeReportPlots(test_baseline, "flow")
 makeReportPlots(test_baseline, "trans")
 
 

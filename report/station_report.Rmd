@@ -9,7 +9,8 @@ header-includes:
   - \usepackage{longtable}
   - \usepackage{fancyhdr} # page header and footer
   - \usepackage{lastpage} # allow page 'X of Y'
-  - \usepackage{fontspec}
+  - \usepackage{titlesec}
+  - \usepackage{fontspec} # set font
   - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
 params:
   year: NA
@@ -23,6 +24,13 @@ options(knitr.kable.NA = "-")
 options(scipen = 999)
 p <- function(content) cat("\n\n", content, "\n\n", sep = "")
 pg <- function() p("\\newpage")
+
+# adjust titlesec heading spacing on wisc connect server
+if (Sys.getenv("SERVER") == "wisc") {
+  titlespacing <- c(1.5, 0)
+} else {
+  titlespacing <- c(3, 1.5)
+}
 
 stn <- params$stn
 safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
@@ -44,34 +52,39 @@ has <- report_summary$has
 
 interp <- list()
 
-water_temp_class_text <- "**Coldwater** streams have maximum summer temperatures below 20.7°C (69.3°F), **coolwater** streams have maximum temperatures between 20.7°C and 24.6°C (76.3°F), and **warmwater** streams have maximum temperatures above 24.6°C."
-getTempInterp <- function(temp) {
-  temp_class <- case_when(
-    temp < 20.7 ~ "coldwater",
-    temp < 24.6 ~ "coolwater",
+# uses Fahrenheit
+# f_to_c(c(69.3, 72.5, 76.3))
+getTempClass <- function(temp) {
+  case_when(
+    temp < 69.3 ~ "coldwater",
+    temp < 72.5 ~ "cool-cold",
+    temp < 76.3 ~ "cool-warm",
     T ~ "warmwater"
   )
-  sprintf("***Based on the maximum water temperature of %s°C (%s°F), this is a %s stream.***", signif(temp, 3), signif(c_to_f(temp), 3), temp_class)
 }
 
 if (has$water_temp) {
-  max_baseline_temp <- max(baseline$water_temp, na.rm = T)
-  interp$baseline_temp <- getTempInterp(max_baseline_temp)
+  max_temp_c <- signif(max(baseline$water_temp, na.rm = T), 3)
+  max_temp_f <- signif(c_to_f(max_temp_c), 3)
+  temp_class <- getTempClass(max_temp_f)
+  interp$baseline_temp <- glue("***Based on the maximum observed water temperature of {max_temp_f}°F ({max_temp_c}°C), this is likely to be a {temp_class} stream.***")
 }
 
 if (has$thermistor) {
-  max_therm_temp <- max(summarize(thermistor, temp_c = mean(temp_c), .by = date)$temp_c)
-  interp$therm_temp <- getTempInterp(max_therm_temp)
+  max_temp_c <- signif(max(summarize(thermistor, temp_c = mean(temp_c), .by = date)$temp_c), 3)
+  max_temp_f <- signif(c_to_f(max_temp_c), 3)
+  temp_class <- getTempClass(max_temp_f)
+  interp$therm_temp <- glue("***Based on the maximum mean daily water temperature of {max_temp_f}°F ({max_temp_c}°C), this is likely to be a {temp_class} stream.***")
 }
 
 if (has$d_o) {
   min_do <- min(baseline$d_o, na.rm = T)
   do_class <- case_when(
-    min_do >= 7 ~ "Cold Waters communities during spawning season",
-    min_do >= 6 ~ "Cold Waters communities",
-    min_do >= 5 ~ "Warm Waters communities",
-    min_do >= 3 ~ "a Limited Forage Fishery",
-    T ~ "Limited Aquatic Life"
+    min_do >= 7 ~ "coldwater communities during spawning season",
+    min_do >= 6 ~ "coldwater communities",
+    min_do >= 5 ~ "warmwater communities",
+    min_do >= 3 ~ "limited forage fish",
+    T ~ "limited to no aquatic life"
   )
   interp$d_o <- glue("***Based on the minimum recorded dissolved oxygen of {min_do} mg/L, this stream can support {do_class}.***")
 }
@@ -112,12 +125,18 @@ if (has$streamflow) {
 ```
 
 \pagestyle{fancy}
-\setlength{\headheight}{14pt}
 \lhead{Station `r str_trunc(safe_label, 65)`}
 \rhead{`r params$year` Fieldwork Report}
 \lfoot{\url{wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
+\setlength{\headheight}{14pt}
+\setlength{\baselineskip}{12pt}
+\setlength{\parskip}{8pt}
+\titlespacing*{\section}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
+\titlespacing*{\subsection}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
+
+
 
 ```{r}
 knitr::include_graphics("header.png", error = F)
@@ -160,7 +179,7 @@ The WAV program is supported by the Wisconsin Department of Natural Resources (D
 All data collected by WAV stream monitoring volunteers are entered by the volunteers into SWIMS, the Wisconsin DNR’s surface water database. Data for most variables are collected once per month from May through October, approximately 30 days apart. WAV volunteers follow the same protocols and use the same tools to collect water quality data to provide consistency across the state:
 
 * *Temperature:* Glass thermometer or digital meter
-* *Dissolved oxygen:* Hach Company D.O. titration kit or digital meter
+* *Dissolved oxygen:* Hach Company DO titration kit or digital meter
 * *Water transparency:* 120 centimeter turbidity tube
 * *Streamflow:* Tennis ball float method, Flo-Mate meter, or U.S. Geological Survey stream gauge
 * *Total phosphorus:* Water samples collected and shipped to an approved lab for analysis
@@ -178,9 +197,7 @@ Nationally, watersheds are defined by the US Geological Survey in the National H
 
 # Understanding this report
 
-Fieldwork results are presented on the following pages. For each type of fieldwork data, we have provided some explanatory text below each figure to help guide the interpretation of the results. In some cases where the results may be compared against an established set of standards (e.g. temperature, streamflow, total phosphorus), the report generates a brief interpretation of the data. These interpretations may not be reliable if insufficient or inaccurate data was collected and so should be reviewed carefully.
-
-All guidelines are derived from Wisconsin DNR standards outlined in the _[Wisconsin Consolidated Assessment and Listing Methodology (WisCALM)](https://dnr.wisconsin.gov/topic/SurfaceWater/WisCALM.html)_ document.
+Fieldwork results are presented on the following pages. For each type of fieldwork data, we have provided some summary statistics and explanatory text below each figure to help guide the interpretation of the results. In cases where the results may be compared against an established set of standards (e.g. temperature, streamflow, total phosphorus), the report generates a brief interpretation of the data based on the Wisconsin DNR's  _[Wisconsin Consolidated Assessment and Listing Methodology (WisCALM)](https://dnr.wisconsin.gov/topic/SurfaceWater/WisCALM.html)_ document.
 
 ## Basic summary statistics
 
@@ -190,19 +207,20 @@ In this report, we provide several basic summary statistics to help interpret th
 * *Min/Max:* The minimum and maximum values for the year.
 * *Mean:* The average value for the year (the mean is the sum of values divided by the number of values).
 * *Median:* The middle value of a set of observations, or the mean of the two middle observations if there is an even number of values. It is less likely to be influenced by outliers compared to the mean.
-* *Standard deviation (SD):* The spread of values (a large SD means there is a lot of variation in the data). The SD is calculated by averaging the squared differences between each value and the mean.
+* *Standard deviation (SD):* The spread of values (a large SD means there is a lot of variation in the data).
 * *Coefficient of variation (CV):* Shows how big the standard deviation is relative to the mean and is another way to look at the consistency or spread of the data (a CV less than 100% means the standard deviation is smaller than the mean, and a CV greater than 100% means the standard deviation is larger than the mean). Calculated by dividing the standard deviation by the mean.
+* *Confidence interval (CI):* A confidence interval (the 80% confidence interval in the case of total phosphorus monitoring) represents range such that we are 80% confident (or some other confidence, such as 90%) that the true mean value that we are measuring lies between the upper and lower boundaries of that range. When making repeated observations, natural variation will result in different observations. More observations, or a lower level of natural variation, will result in tighter confidence intervals around a mean.
 
 ## Automatic data interpretations
 
-Some of the pages in this report include a brief interpretation of the data, which is based on the criteria listed below and developed by the Wisconsin DNR. Always be sure to inspect the data with a critical eye and keep in mind that there may be data entry errors that can result in invalid data being included on the dashboard and in these reports.
+Some of the pages in this report include a brief interpretation of the data, which is based on the specific criteria outlined below. Always be sure to inspect the data with a critical eye and keep in mind that there may be data entry errors that can result in invalid data being included on the dashboard and in these reports. It is also important to review several years of data from a stream to develop a better understanding of the stream's health and natural community classification.
 
-* **Water temperature:** `r water_temp_class_text` For baseline sampling, we use the maximum single value. For hourly temperature logger data (where available), we use the maximum daily average temperature.
-* **Dissolved oxygen:** Cold Waters communities during fish spawning season require a minimum of 7 mg/L, Cold Waters communities during other times of year require a minimum of 6 mg/L, Warm Waters communities require a minimum of 5 mg/L, a Limited Forage Fishery requires a minimum of 3 mg/L, and limited aquatic life can survive at levels down to 1 mg/L.
+* **Water temperature:** Both water temperature and streamflow need to be reviewed together to assign a Natural Community classification to a stream. For water temperature, the DNR uses four categories: *Coldwater* streams have maximum daily average temperatures below 69.3°F (20.7°C), *cool-cold* streams have maximum average temperatures between 69.3°F and 72.5°F (22.5°C), *cool-warm* streams have maximum average temperatures between 72.5°F and 76.3°F (24.6°C), and *warmwater* streams have maximum average temperatures above 76.3°F.
+* **Dissolved oxygen:** Coldwater fish communities during spawning season (fall-spring) require a minimum of 7 mg/L, coldwater communities during other times of year require a minimum of 6 mg/L, and warmwater communities require a minimum of 5 mg/L. Few fish can survive when DO drops to 3 mg/L, and virtually no aquatic life can survive DO levels of 1 mg/L or less.
 * **pH:** The optimal pH for fish is around 7.5. The DNR's water quality standard sets a minimum (most acidic) pH of 6.0 and a maximum (most basic) pH of 9.0.
-* **Specific conductance:** The aquatic life threshold in Wisconsin for chloride is a maximum of 395 mg/L, but specific conductance does not only measure the amount of chloride dissolved in water. Other dissolved minerals and ions contribute to water conductivity, so specific conductance thresholds are approximate. Specific conductance readings over 800 µS/cm are typically considered high and these levels are potentially detrimental to aquatic life. Specific conductance readings in the 1500-2000 µS/cm range are likely from high chloride levels and are approaching the State of Wisconsin’s 395 mg/L chloride toxicity threshold for aquatic life.
-* **Streamflow:** Ephemeral streams have minimum flows <0.03 cfs, headwater streams between 0.03 and 3 cfs, mainstem streams between 3 and 150 cfs, and large rivers have minimum flow greater than 150 cfs. Technically these values are for the 90% exceedance flow (90% of streamflow greater than this value), but most volunteers collect less than 10 streamflow values per year so the minimum streamflow is used here.
-* **Total phosphorus:** The DNR established a phosphorus limit of 0.075 mg/L for streams. For a stream to be listed as impaired, 6 monthly samples must be collected for two successive years, and the lower 90% confidence interval for the median value in each year must exceed the state standard. We use the following language for characterizing phosphorus levels: A stream site ***clearly exceeds*** the phosphorus limit if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit.
+* **Specific conductance:** The aquatic life threshold in Wisconsin for chronic chloride exposure is a maximum of 395 mg/L, while the acute threshold is 795 mg/L, but specific conductance does not only measure the amount of chloride dissolved in water. Other dissolved minerals and ions contribute to water conductivity, so specific conductance thresholds are approximate. Specific conductance readings over 800 µS/cm are typically considered high and these levels are potentially detrimental to aquatic life. Specific conductance readings in the 1500-2000 µS/cm range are likely from high chloride levels and are approaching the State of Wisconsin’s 395 mg/L chloride toxicity threshold for aquatic life.
+* **Streamflow:** Ephemeral streams have minimum flows <0.03 cfs, headwater streams between 0.03 and 3 cfs, mainstem streams between 3 and 150 cfs, and large rivers have minimum flow greater than 150 cfs. Technically these values are for the 90% exceedance flow (90% of streamflow rates greater than this value), but most volunteers collect less than 10 streamflow values per year so the minimum streamflow is used here.
+* **Total phosphorus:** The DNR established a phosphorus criteria of 0.075 mg/L for streams. For a stream to be listed as impaired, 6 monthly samples must be collected in each of two or more different years, and the entire 80% confidence interval for the median phosphorus value in each year must exceed the state standard. We use the following language for characterizing phosphorus levels: A stream site ***clearly exceeds*** the phosphorus criteria if the lower confidence limit exceeds the state standard. A stream site ***may exceed*** the phosphorus criteria if the median is higher than the standard but the lower confidence interval does not exceed the standard. A stream site ***may meet*** the phosphorus criteria if the median is below than the standard, but the upper confidence interval remains above the standard. When the median and the entire confidence interval is below the phosphorus standard, the stream ***clearly meets*** the state phosphorus criteria.
 
 ## Making the most of this report
 
@@ -210,15 +228,15 @@ Here are a few important points to keep in mind as you explore this stream’s d
 
 *	**Look at multiple years of data:** A stream’s characteristics will vary from year to year, so volunteers are encouraged to look at 2-5 years of data when making inferences about stream health and water quality. Extreme weather years can also create unrepresentative conditions.
 *	**Look at the story from May through October:** Ideally we should have data for every month from May to October, to see how the stream’s water quality and baseline characteristics fluctuate naturally through the season. However, volunteers may miss one or more months of data collection for various reasons.
-*	**Watch for outliers:** This report shares raw data reported by stream monitors that has undergone minimal cleaning. If you see any outliers (values far outside a typical range of values for the stream), consider the cause: Is there a logical reason for the outlier value based on other data collected that month? Was the data collected after a large storm event in non-baseline conditions? Or perhaps it’s a data entry error?
 *	**Consider how the variables interact:** Each page shares data for a different parameter, such as water temperature or streamflow. But these variables all interact with and influence one another.
 *	**Remember this stream is part of a larger watershed:** Ultimately, the conditions in the stream or river are affected by land use and activities upstream in the watershed.
+*	**Watch for outliers:** This report shares raw data reported by stream monitors that has undergone minimal cleaning. If you see any outliers (values far outside a typical range of values for the stream), consider the cause: Is there a logical reason for the outlier value based on other data collected that month? Was the data collected after a large storm event in non-baseline conditions? Unusual values may also be due to data entry errors such as missing a decimal point or adding an extra number. Unfortunately SWIMS does not do any data checking or validation when volunteers submit data. If you notice an error and you were the data submitter, you may be able to log on to SWIMS and correct the error.
 
 \newpage
 
 ```{r results, fig.width=7}
 
-## Baseline ##
+## Baseline summary ##
 
 if (has$baseline) {
   p("# Baseline Monitoring Summary")
@@ -242,36 +260,50 @@ if (has$baseline) {
 }
 
 
-## Baseline Temperature ##
+## Baseline temperature ##
 
 if (has$air_temp | has$water_temp) {
   pg()
   p("# Baseline Temperature Measurements")
   baseline %>% makeReportPlots(type = "temp") %>% print()
   baseline %>%
+    mutate(across(c(air_temp, water_temp), c_to_f)) %>%
     summarizeReportCols(c(
-      `Air temp (°C)` = "air_temp",
-      `Water temp (°C)` = "water_temp"
+      `Air temp (°F)` = "air_temp",
+      `Water temp (°F)` = "water_temp"
     )) %>% kable() %>% print()
   p("## Why measure water temperature?")
-  p("Water temperature, along with streamflow, has a strong impact on the biological community in a stream. Aquatic plant and animal species are adapted to different temperature ranges, so measuring baseline water temperature throughout the year can help characterize a stream’s Natural Community. Salmonids such as Wisconsin’s native brook trout require cool water temperatures to live and reproduce, while other fish species such as bass, darter and sucker species are adapted to live in warmwater streams. Coldwater streams generally have higher levels of dissolved oxygen which is beneficial to aquatic life. Many coldwater streams in Wisconsin receive most of their flow from groundwater, while other streams and rivers are fed by warmer surface waters. Warmer water temperatures can indicate a stream is a natural warmwater stream or river, or they can indicate shallow, pooled or stagnant water. This is why it is important to look at water temperature and streamflow together when characterizing a stream's Natural Community.")
-  p(paste("The Wisconsin DNR classifies streams into three temperature categories:", water_temp_class_text))
+  p("Water temperature, along with streamflow, has a strong impact on the biological community in a stream. Aquatic plant and animal species are adapted to different temperature ranges, so measuring baseline water temperature throughout the year can help characterize a stream’s Natural Community. Salmonids such as Wisconsin’s native brook trout require cold water temperatures to live and reproduce, while other fish species such as bass, darter and sucker species are adapted to live in warmwater streams. Coldwater streams generally have higher levels of dissolved oxygen which is beneficial to aquatic life. Many coldwater streams in Wisconsin receive most of their flow from groundwater, while other streams and rivers are fed by warmer surface waters. Warmer water temperatures can indicate a stream is a natural warmwater stream or river, or they can indicate shallow, pooled or stagnant water, or a once colder stream that has been impacted by human activity. This is why it is important to look at water temperature and streamflow together when characterizing a stream's Natural Community.")
   if (has$water_temp) p(interp$baseline_temp)
 }
 
 
-## Baseline Dissolved Oxygen ##
+## Thermistor ##
+
+if (has$thermistor) {
+  pg()
+  p("# Hourly Temperature Logger Measurements")
+  thermistor %>% makeReportPlots(type = "thermistor") %>% print()
+  p("_On the chart above, the cutoffs for a stream's temperature classification are shown as shaded areas._")
+  p("**What does water temperature tell us?** Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support.")
+  p("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.")
+  p("It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
+  p(interp$therm_temp)
+}
+
+
+## Baseline dissolved oxygen ##
 
 if (has$d_o) {
   pg()
   p("# Baseline Dissolved Oxygen Measurements")
   baseline %>% makeReportPlots(type = "do") %>% print()
   baseline %>% summarizeReportCols(c(
-    `D.O. (mg/L)` = "d_o",
-    `D.O. (% sat.)` = "d_o_percent_saturation"
+    `DO (mg/L)` = "d_o",
+    `DO (% sat.)` = "d_o_percent_saturation"
   )) %>% kable() %>% print()
   p("## Why measure dissolved oxygen?")
-  p("Dissolved oxygen (D.O.) is a gas found in water that is critical for sustaining aquatic life (just as atmospheric oxygen is required for humans to survive). Oxygen dissolves into water when mixing with the air from wind, rapids, dams and waterfalls, and is produced by aquatic plants and algae in the stream during photosynthesis. Aquatic plants, fish, macroinvertebrates and bacteria use this dissolved oxygen as they respire. Most fish and many macroinvertebrates cannot survive in waters with D.O. levels below 4-5 mg/L for a sustained period of time. Macroinvertebrate species sensitive to dissolved oxygen, such as stoneflies, and coldwater fish species such as trout, require high levels of dissolved oxygen. D.O. percent saturation reflects the amount of oxygen currently dissolved in water relative to the equilibrium amount that water will hold at a given temperature and ambient air pressure. Values above 100% indicate the water is supersaturated with oxygen, which can be an indicator of excess plant or algae growth and other water quality issues if the values are too high. Values far below 100% can indicate excess plants, algae, sewage or organic matter in the stream and higher levels of decay of this organic matter.")
+  p("Dissolved oxygen (DO) is a gas found in water that is critical for sustaining aquatic life (just as atmospheric oxygen is required for humans to survive). Oxygen dissolves into water when mixing with the air from wind, rapids, dams and waterfalls, and is produced by aquatic plants and algae in the stream during photosynthesis. Aquatic plants, fish, macroinvertebrates and bacteria use this dissolved oxygen as they respire. Most fish and many macroinvertebrates cannot survive in waters with DO levels below 4-5 mg/L for a sustained period of time. Macroinvertebrate species sensitive to dissolved oxygen, such as stoneflies, and coldwater fish species such as trout, require high levels of dissolved oxygen. DO percent saturation reflects the amount of oxygen currently dissolved in water relative to the equilibrium amount that water will hold at a given temperature and ambient air pressure. Values above 100% indicate the water is supersaturated with oxygen, which can be an indicator of excess plant or algae growth and other water quality issues if the values are too high. Values far below 100% can indicate excess plants, algae, sewage or organic matter in the stream and higher levels of decay of this organic matter.")
   p(interp$d_o)
 }
 
@@ -318,8 +350,8 @@ if (has$transparency) {
     `Transparency (cm)` = "transparency"
   )) %>% kable() %>% print()
   p("## Why measure water transparency?")
-  p("These measurements reflect the visual transparency, or clarity, of the water. The higher the transparency, the clearer the water. Transparency is easy to measure and is related to turbidity, which is commonly used to quantify the amount of suspended particles in the water, but requires specialized equipment to measure. All streams have a natural amount of background turbidity. Fish and macroinvertebrates have evolved over time to adapt to natural, short term changes in turbidity, but the longer a stream or river remains at unusually high turbidity levels, the greater effect it has aquatic life. Extremely high levels of turbidity impair survival by blocking the membranes aquatic life use to breathe, by interfering with filter feeding animals, and by making it difficult for fish to find food. Turbid waters also hold more heat, increasing stream temperatures and reducing dissolved oxygen levels.")
-  p("Low transparency indicates there is more suspended sediment or algae particles in the stream, perhaps from recent storm events kicking up silt within the stream, surface water runoff and soil erosion, or excess nutrients fueling algae growth. Transparency is also associated with the color of the water, as some waters are more “tea-stained” in appearance due to decomposition of organic matter. Acceptable maximum turbidity levels for aquatic life in streams are < 10 NTUs (Nephelometric Turbidity Units), which is comparable to a 54.7 cm transparency reading. There is no state criteria in Wisconsin for turbidity.")
+  p("These measurements reflect the visual transparency, or clarity, of the water. The higher the transparency, the clearer the water. Transparency is easy to measure and is related to turbidity, which is commonly used to quantify the amount of suspended particles in the water, but requires specialized equipment to measure. All streams have a natural amount of background turbidity. Fish and macroinvertebrates have evolved over time to adapt to natural, short term changes in turbidity, but the longer a stream or river remains at unusually high turbidity levels, the greater effect it has on aquatic life. Extremely high levels of turbidity impair survival by blocking the membranes that aquatic life use to breathe, by interfering with filter-feeding animals, and by making it difficult for fish to find food. Turbid waters also hold more heat, increasing stream temperatures and reducing dissolved oxygen levels.")
+  p("Low transparency indicates there are more suspended sediment or algae particles in the stream, perhaps from recent storm events stirring up silt within the stream, surface water runoff and soil erosion, or excess nutrients fueling algae growth. Transparency is also associated with the color of the water, as some waters are more “tea-stained” in appearance due to decomposition of organic matter. Acceptable maximum turbidity levels for aquatic life in streams are < 10 NTUs (Nephelometric Turbidity Units), which is comparable to a 54.7 cm transparency reading. There is no state criteria in Wisconsin for turbidity.")
 }
 
 
@@ -339,7 +371,7 @@ if (has$streamflow) {
 }
 
 
-### NUTRIENT ###
+## Total Phosphorus ##
 
 if (has$nutrient) {
   phos_estimate <- getPhosEstimate(nutrient$tp)
@@ -358,23 +390,8 @@ if (has$nutrient) {
     )) %>%
     kable() %>% print()
   p("## Why measure total phosphorus?")
-  p("Phosphorus is a nutrient that enters streams via runoff and can contribute to algae blooms in lakes and rivers. The Wisconsin DNR has established a total phosphorus threshold of 0.075 mg/L (ppm) and a monitoring protocol that must be followed. The shaded horizontal band on the plot represents the 90% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 90% chance that the true median total phosphorus concentration falls somewhere between those lines.")
-  p("A stream site ***clearly exceeds*** the phosphorus limit if the lower 90% confidence limit of the sample median exceeds the state limit. A stream site ***may exceed*** the phosphorus limit if the median is higher than the limit, but the lower confidence interval is below the limit. A stream site ***may meet*** the phosphorus criteria if the median is lower than the limit, but the upper confidence interval remains above the limit. When the entire confidence interval is below the phosphorus limit, the site ***clearly meets*** the state phosphorus limit.")
+  p("Phosphorus is a nutrient that enters streams via runoff and can contribute to algae blooms in lakes and rivers. The Wisconsin DNR has established a total phosphorus threshold of 0.075 mg/L (ppm) and a monitoring protocol that must be followed. The shaded horizontal band on the plot represents the 80% confidence interval for the median total phosphorus (TP) at this site (if more than one month of data was collected). This means that, given the TP concentrations measured this year, there is about an 80% chance that the true median total phosphorus concentration falls somewhere between those lines.")
   p(sprintf("***%s***", phos_exceedance_text))
-}
-
-
-### THERMISTOR ###
-
-if (has$thermistor) {
-  pg()
-  p("# Hourly Temperature Logger Measurements")
-  thermistor %>% makeReportPlots(type = "thermistor") %>% print()
-  p(glue("_On the chart above, the cutoffs for a stream's temperature classification are shown as shaded areas. {water_temp_class_text}_"))
-  p("**What does water temperature tell us?** Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support.")
-  p("Anomalous temperature readings at the very beginning and end of the data may reflect air temperatures before the logger was deployed into the stream. It's also possible that the logger because exposed to the air during deployment if water levels dropped. Depending on the depth and location of the logger, there may be sections of the stream that are consistently warmer or colder than the logger recorded.")
-  p("It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
-  p(interp$therm_temp)
 }
 
 ```

@@ -19,7 +19,15 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
   # handle units
   temp_col <- paste0("temp_", tolower(units))
   ytitle <- paste0("Temperature (°", units, ")")
-  yrange <- ifelse(units == "F", c(30, 100), c(0, 37))
+  default_yrange <- { if (units == "F") c(40, 90) else c(5, 30) }
+  data_yrange <- c(
+    min(df_hourly[[temp_col]], na.rm = T),
+    max(df_hourly[[temp_col]], na.rm = T)
+  )
+  yrange <- c(
+    floor(min(default_yrange[1], data_yrange[1])),
+    ceiling(max(default_yrange[2], data_yrange[2]))
+  )
 
   plt <- plot_ly() %>%
     add_ribbons(
@@ -34,6 +42,8 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       fillcolor = "lightblue",
       opacity = 0.5,
       name = "Daily Range",
+      connectgaps = F,
+      fill = "tozeroy",
       hovertemplate = "Daily Range<extra></extra>") %>%
     add_lines(
       data = df_daily,
@@ -75,7 +85,10 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       line = list(
         color = "orange")) %>%
     layout(
-      title = "Stream Temperature",
+      title = list(
+        text = "Stream Temperature",
+        y = .99,
+        yanchor = "top"),
       showlegend = TRUE,
       xaxis = list(title = "Date and Time"),
       yaxis = list(
@@ -85,10 +98,10 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       hovermode = "x unified",
       legend = list(
         orientation = "h",
+        yanchor = "bottom",
         x = 0.25,
         y = 1),
-      margin = list(
-        t = 50)) %>%
+      margin = list(t = 50)) %>%
     config(displayModeBar = F)
 
   # add annotation color bands
@@ -98,9 +111,9 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       if (units == "C") temps <- f_to_c(temps)
       colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
     } else if (annotations == "wtemp") {
-      temps <- c(32, 72, 77, 100) # F
+      temps <- c(-40, 69.3, 72.5, 76.3, 150) # F
       if (units == "C") temps <- f_to_c(temps)
-      colors <- c("blue", "cornflowerblue", "darkorange")
+      colors <- c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
     }
 
     plt <- plt %>%

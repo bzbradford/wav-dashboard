@@ -44,33 +44,25 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       add_lines(
         x = ~date,
         y = ~phoslimit,
-        name = "TP limit",
-        # xperiod = "M1",
-        # xperiodalignment = "middle",
+        name = "TP criteria",
         opacity = 0.75,
         line = list(color = "red", width = 2)) %>%
       add_lines(
         x = ~date,
         y = ~lower,
         name = "Lower 90% CI",
-        # xperiod = "M1",
-        # xperiodalignment = "middle",
         opacity = 0.5,
         line = list(color = ci_color, width = 0.5)) %>%
       add_lines(
         x = ~date,
         y = ~median,
         name = "Median",
-        # xperiod = "M1",
-        # xperiodalignment = "middle",
         opacity = 0.5,
         line = list(color = "black", dash = "dash", width = 1.5)) %>%
       add_lines(
         x = ~date,
         y = ~upper,
         name = "Upper 90% CI",
-        # xperiod = "M1",
-        # xperiodalignment = "middle",
         opacity = 0.5,
         line = list(color = ci_color, width = 0.5))
 
@@ -93,8 +85,6 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       color = ~exceedance,
       colors = "Set2",
       width = 0.5 * 1000 * 60 * 60 * 24 * 30, # time in milliseconds
-      # xperiod = "M1",
-      # xperiodalignment = "middle",
       marker = list(
         line = list(
           color = "rgb(8,48,107)",
@@ -109,7 +99,6 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         hoverformat = "%B %d, %Y",
         tickformat = "%B<br>%Y",
         dtick = "M1",
-        # ticklabelmode = "period",
         range = date_range,
         fixedrange = T),
       yaxis = list(
