@@ -86,17 +86,24 @@ makeReportPlots <- function(df, type) {
 
     if (type == "thermistor") {
 
+
+      n_days <- as.numeric(max(df$date) - min(df$date))
+      date_breaks <- ifelse(n_days > 150, "months", "weeks")
+      date_format <- ifelse(n_days > 150, "%b", "%b %d")
       daily_min <- df %>%
         slice_min(order_by = temp_f, by = date) %>%
         select(date_time, min = temp_f)
       daily_max <- df %>%
         slice_max(order_by = temp_f, by = date) %>%
         select(date_time, max = temp_f)
-      daily_range <- bind_rows(daily_min, daily_max) %>%
+      daily_range <-
+        bind_rows(daily_min, daily_max) %>%
         arrange(date_time) %>%
         mutate(across(c(min, max), ~zoo::na.approx(.x, na.rm = F))) %>%
-        mutate(mean = (min + max) / 2) %>%
-        na.omit()
+        drop_na()
+      daily_means <- df %>%
+        summarize(mean = mean(temp_f), .by = date) %>%
+        mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
 
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
@@ -123,12 +130,13 @@ makeReportPlots <- function(df, type) {
           aes(ymin = min, ymax = max),
           color = alpha("#2590da", .25), fill = NA) +
         geom_line(
+          data = daily_means,
           aes(y = mean),
           color = "orange",
           linewidth = 1) +
         scale_x_datetime(
-          breaks = "weeks",
-          date_labels = "%b %d") +
+          breaks = date_breaks,
+          date_labels = date_format) +
         scale_y_continuous(
           breaks = scales::pretty_breaks(),
           labels = ~sprintf("%s°F\n(%s°C)", .x, round(f_to_c(.x), 1))) +

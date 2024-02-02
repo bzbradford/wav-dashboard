@@ -92,7 +92,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
           uiOutput(ns("moreInfoUI")), br(),
           bsCollapse(
             bsCollapsePanel(
-              title = "View or download nutrient data data",
+              title = "View or download nutrient data",
               uiOutput(ns("viewDataUI"))
             )
           )
@@ -131,7 +131,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
         req(input$year)
-        filename <- sprintf("WAV nutrient data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+        filename <- sprintf("WAV Nutrient Data - Stn %s - %s.png", cur_stn()$station_id, input$year)
         buildPlotDlBtn("#nutrient-plot-container", filename)
       })
 
@@ -140,7 +140,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
-        btn_year <- downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
+        btn_year <-
         btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
 
         if (input$year == "All") {
@@ -150,11 +150,18 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         }
 
         tagList(
-          p(dl_btns),
-          div(
-            style = "overflow: auto;",
-            dataTableOutput(ns("dataTable"))
+          p(
+            strong("Station ID:"), cur_stn()$station_id, br(),
+            strong("Station Name:"), cur_stn()$station_name, br(),
+            strong("Waterbody:"), cur_stn()$waterbody
           ),
+          p(
+            if (input$year != "All")
+              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year)),
+            downloadButton(ns("downloadStn"), "Download station data (all years)"),
+            downloadButton(ns("downloadBaseline"), "Download entire nutrient dataset")
+          ),
+          div(style = "overflow: auto;", dataTableOutput(ns("dataTable"))),
           p(em("Total phosphorus is shown in units of mg/L (ppm)."))
         )
       })
@@ -168,21 +175,28 @@ nutrientDataServer <- function(cur_stn, has_focus) {
           clean_names(case = "big_camel")
       })
 
-      ## downloadYear ----
-      output$downloadYear <- downloadHandler(
-        paste0("stn-", cur_stn()$station_id, "-nutrient-data-", input$year, ".csv"),
-        function(file) {write_csv(selected_data(), file)}
+      ## downloadStnYear ----
+      output$downloadStnYear <- downloadHandler(
+        sprintf("WAV Stn %s Nutrient Data (%s).csv", cur_stn()$station_id, input$year),
+        function(file) { write_csv(selected_data(), file, na = "") }
       )
 
-      ## downloadAll ----
-      output$downloadAll <- downloadHandler(
-        paste0("stn-", cur_stn()$station_id, "-nutrient-data.csv"),
-        function(file) {write_csv(cur_data(), file)}
+      ## downloadStn ----
+      output$downloadStn <- downloadHandler(
+        sprintf("WAV Stn %s Nutrient Data.csv", cur_stn()$station_id),
+        function(file) { write_csv(cur_data(), file, na = "") }
+      )
+
+      ## downloadBaseline ----
+      output$downloadBaseline <- downloadHandler(
+        "WAV Nutrient Data.csv",
+        function(file) { write_csv(nutrient_data, file, na = "") }
       )
 
 
       # Return values ----
       return(reactive(list(year = input$year)))
+
     }
   )
 }

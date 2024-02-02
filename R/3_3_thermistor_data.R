@@ -1,4 +1,65 @@
-## THERMISTOR TAB ##
+### Thermistor Data Tab ###
+
+
+# Functions ---------------------------------------------------------------
+
+createDailyThermData <- function(df, units, stn) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  df %>%
+    group_by(date) %>%
+    summarise(
+      hours = n(),
+      min = min(!!sym(temp_col)),
+      max = max(!!sym(temp_col)),
+      mean = round(mean(!!sym(temp_col)), 2),
+      units = units,
+      lat = latitude[1],
+      long = longitude[1]
+    ) %>%
+    mutate(
+      station_id = stn$station_id,
+      station_name = stn$station_name,
+      .before = lat
+    )
+}
+
+createThermSummary <- function(df, units) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  daily <- df %>%
+    mutate(temp = .[[temp_col]]) %>%
+    drop_na(temp) %>%
+    arrange(date) %>%
+    summarize(temp = mean(temp), .by = c(date, month))
+
+  monthly <- daily %>%
+    mutate(name = fct_inorder(format(date, "%B"))) %>%
+    summarize(
+      days = n_distinct(date),
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1),
+      .by = c(month, name)
+    ) %>%
+    clean_names("title")
+
+  total <- daily %>%
+    summarize(
+      name = "Total",
+      days = n_distinct(date),
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1)
+    ) %>%
+    clean_names("title")
+
+  bind_rows(monthly, total)
+}
+
+
+
+# Static UI ---------------------------------------------------------------
 
 thermistorDataUI <- function() {
   ns <- NS("thermistor")
@@ -9,6 +70,9 @@ thermistorDataUI <- function() {
   )
 }
 
+
+
+# Server ------------------------------------------------------------------
 
 #' requires global data frame 'therm_data'
 #' @param cur_stn a `reactive()` expression containing the current station
@@ -175,7 +239,30 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(input$units)
         req(input$annotations)
 
-        makeThermistorPlot(selected_data(), daily_data(), input$units, input$annotations)
+        df_hourly <- selected_data()
+        df_daily <- daily_data()
+
+        # insert rows to break plotly lines across years
+        # ribbon can't handle NA values to min/max are pinched to = mean
+        if (input$year == "All") {
+          df_daily <- df_daily %>%
+            mutate(days_to_next = as.numeric(lead(date) - date)) %>%
+            mutate(days_since_last = as.numeric(date - lag(date)))
+          gap_starts <- df_daily %>%
+            filter(days_to_next > 7) %>%
+            mutate(date = date + 1, min = mean, max = mean)
+          gap_ends <- df_daily %>%
+            filter(days_since_last > 7) %>%
+            mutate(date = date - 1, min = mean, max = mean)
+          df_daily <- df_daily %>%
+            bind_rows(gap_starts, gap_ends) %>%
+            arrange(date)
+          df_hourly <- df_hourly %>%
+            bind_rows(gap_starts, gap_ends) %>%
+            arrange(date)
+        }
+
+        makeThermistorPlot(df_hourly, df_daily, input$units, input$annotations)
       })
 
       ## plotCaptionUI ----
@@ -252,8 +339,8 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(selected_data_ready())
         req(input$units)
 
-        min_date <- min(selected_data()$date)
-        max_date <- max(selected_data()$date)
+        dates <- unique(selected_data()$date)
+        date_span <- as.numeric(max(dates) - min(dates)) + 1
         monthly_dt <- summary_data() %>%
           mutate(across(c(Min, Mean, Max), ~sprintf("%.1f %s", .x, input$units))) %>%
           renderDataTable(
@@ -280,11 +367,22 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             strong("Station Name:"), cur_stn()$station_name, br(),
             strong("Waterbody:"), cur_stn()$waterbody, br(),
             strong("Date range:"),
-            paste0(
-              format(min_date, "%B %d"), " - ",
-              format(max_date, "%B %d, %Y"),
-              " (", max_date - min_date, " days)"
-            ), br(),
+            paste(
+              format(
+                min(dates),
+                ifelse(year(min(dates)) == year(max(dates)), "%B %d", "%B %d, %Y")
+              ), "-",
+              format(max(dates), "%B %d, %Y")
+            ),
+            br(),
+            strong("Coverage:"),
+            sprintf(
+              "%s calendar days, %s with data (%.0f%%)",
+              date_span,
+              length(dates),
+              length(dates) / date_span * 100
+            ),
+            br(),
             strong("Logger SN:"), logger_serials()
           ),
           tabsetPanel(
@@ -312,14 +410,14 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## downloadDaily ----
       output$downloadDaily <- downloadHandler(
-        paste0("stn-", cur_stn()$station_id, "-therm-daily-data-", input$year, ".csv"),
-        function(file) {write_csv(daily_data(), file)}
+        sprintf("WAV Stn %s Daily Temperature Data (%s).csv", cur_stn()$station_id, input$year),
+        function(file) { write_csv(daily_data(), file, na = "") }
       )
 
       ## downloadDaily ----
       output$downloadHourly <- downloadHandler(
-        paste0("stn-", cur_stn()$station_id, "-therm-hourly-data-", input$year, ".csv"),
-        function(file) {write_csv(selected_data(), file)}
+        sprintf("WAV Stn %s Hourly Temperature Data (%s)", cur_stn()$station_id, input$year),
+        function(file) { write_csv(selected_data(), file, na = "")}
       )
 
 

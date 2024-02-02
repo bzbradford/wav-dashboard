@@ -42,6 +42,8 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       fillcolor = "lightblue",
       opacity = 0.5,
       name = "Daily Range",
+      connectgaps = F,
+      fill = "tozeroy",
       hovertemplate = "Daily Range<extra></extra>") %>%
     add_lines(
       data = df_daily,
@@ -83,7 +85,10 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       line = list(
         color = "orange")) %>%
     layout(
-      title = "Stream Temperature",
+      title = list(
+        text = "Stream Temperature",
+        y = .99,
+        yanchor = "top"),
       showlegend = TRUE,
       xaxis = list(title = "Date and Time"),
       yaxis = list(
@@ -93,10 +98,10 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       hovermode = "x unified",
       legend = list(
         orientation = "h",
+        yanchor = "bottom",
         x = 0.25,
         y = 1),
-      margin = list(
-        t = 50)) %>%
+      margin = list(t = 50)) %>%
     config(displayModeBar = F)
 
   # add annotation color bands

@@ -1,3 +1,10 @@
+**Feb 2023**
+
+* Add buttons to download entire baseline and nutrient datasets
+* Some cosmetic improvements to download sections
+* Improve thermistor plot behavior across deployment gaps when showing multiple years
+* Fix mean temperature calculation for report's thermistor plot
+
 **Jan 2023**
 
 * Final adjustments for PDF report generation.

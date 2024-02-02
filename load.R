@@ -33,16 +33,9 @@ tab_names <- list(
   baseline = "Baseline data",
   nutrient = "Nutrient data",
   thermistor = "Thermistor data",
-  watershed = "Landscape context",
+  watershed = "Watershed & landscape context",
   reports = "Downloadable reports",
   more = "Learn more"
-)
-
-wiscalm_temps <- list(
-  cold_c = 20.7,
-  cold_f = 69.3,
-  warm_c = 24.6,
-  warm_f = 76.3
 )
 
 
@@ -264,23 +257,6 @@ year_choices <- function(years) {
 }
 
 
-
-## Baseline tab ----
-
-# for constructing the baseline summary table
-make_min_max <- function(df, var) {
-  v <- df[[var]]
-  if (length(v) == 0) return(tibble())
-  tibble(
-    observations = length(na.omit(v)),
-    min = df[which.min(v), ][[var]],
-    max = df[which.max(v), ][[var]],
-    date_of_min = df[which.min(v), ]$date,
-    date_of_max = df[which.max(v), ]$date
-  )
-}
-
-
 ## Nutrient tab ----
 
 phoslimit <- 0.075 # mg/L or ppm
@@ -331,90 +307,6 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
 }
 
 
-
-## Thermistor tab ----
-
-createDailyThermData <- function(df, units, stn) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  df %>%
-    group_by(date) %>%
-    summarise(
-      hours = n(),
-      min = min(!!sym(temp_col)),
-      max = max(!!sym(temp_col)),
-      mean = round(mean(!!sym(temp_col)), 2),
-      units = units,
-      lat = latitude[1],
-      long = longitude[1]
-    ) %>%
-    mutate(
-      station_id = stn$station_id,
-      station_name = stn$station_name,
-      .before = lat
-    )
-}
-
-createThermSummary <- function(df, units) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  daily <- df %>%
-    mutate(temp = .[[temp_col]]) %>%
-    drop_na(temp) %>%
-    arrange(date) %>%
-    summarize(temp = mean(temp), .by = c(date, month))
-
-  monthly <- daily %>%
-    mutate(name = fct_inorder(format(date, "%B"))) %>%
-    summarize(
-      days = n_distinct(date),
-      min = round(min(temp), 1),
-      mean = round(mean(temp), 1),
-      max = round(max(temp), 1),
-      .by = c(month, name)
-    ) %>%
-    clean_names("title")
-
-  total <- daily %>%
-    summarize(
-      name = "Total",
-      days = n_distinct(date),
-      min = round(min(temp), 1),
-      mean = round(mean(temp), 1),
-      max = round(max(temp), 1)
-    ) %>%
-    clean_names("title")
-
-  bind_rows(monthly, total)
-}
-
-
-
-## Watershed/Landscape tab ----
-
-buildWatershedInfo <- function(stn) {
-  require(glue)
-
-  maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
-  wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
-  ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
-  # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
-
-  shiny::HTML(paste(
-    glue("<b>Station name:</b> {stn$station_name}"),
-    glue("<b>Station ID:</b> {stn$station_id}"),
-    glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
-    glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
-    glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
-    glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
-    glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
-    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
-    glue("<b>Major basin:</b> {stn$major_basin}"),
-    glue("<b>County name:</b> {stn$county_name} County"),
-    glue("<b>DNR region:</b> {stn$dnr_region}"),
-    sep = "<br>"
-  ))
-}
 
 
 ## Reports ----
