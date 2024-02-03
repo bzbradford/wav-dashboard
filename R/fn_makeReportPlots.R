@@ -18,7 +18,7 @@ makeReportPlots <- function(df, type) {
       y = c(68, 70.9, 74.4, 78),
       label = c(
         "Coldwater stream (< 69.3°F)",
-        "Cold-cool stream (69.3 - 72.5°F)",
+        "Cool-cold stream (69.3 - 72.5°F)",
         "Cool-warm stream (72.5 - 76.3°F)",
         "Warmwater stream (> 76.3°F)")
       )
@@ -85,7 +85,6 @@ makeReportPlots <- function(df, type) {
     # Thermistor ----
 
     if (type == "thermistor") {
-
 
       n_days <- as.numeric(max(df$date) - min(df$date))
       date_breaks <- ifelse(n_days > 150, "months", "weeks")
@@ -162,7 +161,7 @@ makeReportPlots <- function(df, type) {
         label = paste0(d_o, ifelse(n_dates < 8, " mg/L", ""), sat_label))
       x_lims <- setReportDateRange(df$date, pad_right = T)
       y_lims <- setAxisLimits(df$d_o, 0, 8)
-      col_width <- ifelse(n_dates > 8, 10, 15)
+      col_width <- ifelse(n_dates > 6, 10, 15)
       do_labels <- tibble(
         y = c(1, 3, 5, 6, 7),
         label = c(
@@ -195,7 +194,7 @@ makeReportPlots <- function(df, type) {
           width = col_width) +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3.5,
+          size = 3,
           nudge_y = .25,
           min.segment.length = 0) +
         scale_x_date(
@@ -251,9 +250,9 @@ makeReportPlots <- function(df, type) {
           size = 10) +
         ggrepel::geom_text_repel(
           aes(label = round(ph, 1)),
+          size = 3,
           nudge_y = .35,
-          size = 3.5,
-          min.segment.length = unit(0, "lines")) +
+          min.segment.length = 0) +
         scale_x_date(
           breaks = "months",
           date_labels = "%b\n%Y") +
@@ -316,9 +315,9 @@ makeReportPlots <- function(df, type) {
           size = 4) +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3.5,
+          size = 3,
           nudge_y = max(df$cond) / 20,
-          min.segment.length = unit(0, "lines")) +
+          min.segment.length = 0) +
         scale_x_date(
           breaks = "months",
           date_labels = "%b\n%Y") +
@@ -348,7 +347,7 @@ makeReportPlots <- function(df, type) {
         label = paste0(trans, if_else(trans == tube, "+", ""), if_else(n_dates < 8, " cm", "")))
       x_lims <- setReportDateRange(df$date)
       y_lims <- setAxisLimits(df$trans, 0, 120)
-      col_width <- ifelse(n_dates > 8, 10, 15)
+      col_width <- ifelse(n_dates > 6, 10, 15)
 
       plt <- df %>%
         ggplot(aes(x = date, y = trans)) +
@@ -356,6 +355,7 @@ makeReportPlots <- function(df, type) {
           aes(y = tube, color = "grey50"),
           position = "identity",
           fill = "grey95",
+          alpha = .25,
           width = col_width) +
         geom_col(
           aes(fill = trans),
@@ -364,7 +364,8 @@ makeReportPlots <- function(df, type) {
           width = col_width) +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3, nudge_y = 1,
+          size = 3,
+          nudge_y = 1,
           min.segment.length = 0) +
         scale_x_date(
           breaks = "months",
@@ -435,7 +436,7 @@ makeReportPlots <- function(df, type) {
           size = 4) +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3.5,
+          size = 3,
           nudge_y = max(df$flow) / 20,
           min.segment.length = 0) +
         scale_x_date(
@@ -507,8 +508,9 @@ makeReportPlots <- function(df, type) {
         } +
         ggrepel::geom_text_repel(
           aes(label = label),
-          size = 3.5,
-          nudge_y = .005) +
+          size = 3,
+          nudge_y = .005,
+          min.segment.length = 0) +
         scale_x_date(
           breaks = dates,
           date_labels = "%b %d\n%Y") +
@@ -518,7 +520,7 @@ makeReportPlots <- function(df, type) {
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_fill_manual(
           breaks = c(T, F),
-          values = c("#FFA168", "#40b0a6"),
+          values = c("#ffb568", "#40b0a6"),
           labels = c("Yes", "No")) +
         labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L criteria?") +
         common_theme +
@@ -526,9 +528,5 @@ makeReportPlots <- function(df, type) {
 
       return(plt)
     }
-
-
-
-
   })
 }

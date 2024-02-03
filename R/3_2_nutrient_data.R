@@ -109,7 +109,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         tagList(
           div(
             class = "plot-caption",
-            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."
+            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band."
           ),
           div(
             class = "plot-caption",

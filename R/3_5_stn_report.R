@@ -43,7 +43,7 @@ stnReportServer <- function(cur_stn, has_focus) {
         baseline_obs <- df$baseline %>%
           summarize(
             `Baseline<br>temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
-            `Baseline<br>D.O.` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
+            `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
             `Baseline<br>pH` = sum(!is.na(ph)),
             `Baseline<br>conductivity` = sum(!is.na(specific_cond)),
             `Baseline<br>transparency` = sum(!is.na(transparency)),

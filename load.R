@@ -297,16 +297,14 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
   if (anyNA(c(median, lower, upper))) return(msg)
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (median and entire confidence interval above phosphorus standard).",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
-    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (median and entire confidence interval below phosphorus standard).",
+    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
   msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))
 }
-
-
 
 
 ## Reports ----
@@ -315,8 +313,8 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
 report_baseline_cols <- c(
   `Air temp (°C)` = "air_temp",
   `Water temp (°C)` = "water_temp",
-  `D.O. (mg/L)` = "d_o",
-  `D.O. (% sat.)` = "d_o_percent_saturation",
+  `DO (mg/L)` = "d_o",
+  `DO (% sat.)` = "d_o_percent_saturation",
   `pH` = "ph",
   `Specific conductance (μS/cm)` = "specific_cond",
   `Transparency (cm)` = "transparency",
