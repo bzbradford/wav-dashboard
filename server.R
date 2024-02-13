@@ -309,7 +309,9 @@ server <- function(input, output, session) {
   )
 
   ## Station list tab ----
-  stationListServer()
+  stationListServer(
+    stn_list = reactive(stn_list())
+  )
 
   ## Baseline data tab ----
   baselineReturn <- baselineDataServer(

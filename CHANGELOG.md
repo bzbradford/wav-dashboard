@@ -4,6 +4,7 @@
 * Some cosmetic improvements to download sections
 * Improve thermistor plot behavior across deployment gaps when showing multiple years
 * Fix mean temperature calculation for report's thermistor plot
+* Improve station lists tab with more data columns and a collapse for stations shown on the map
 
 **Jan 2023**
 
