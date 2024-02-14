@@ -64,7 +64,7 @@ recentStationsServer <- function(cur_stn, stn_list) {
           mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
           mutate(action = lapply(ids, function(id) {
             paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
-          }), .before = everything()) %>%
+          }), .before = 1) %>%
           mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
           clean_names("title")
       },

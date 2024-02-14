@@ -13,14 +13,25 @@ stationListUI <- function() {
   }
 
   tagList(
-    p(em("Open the panels below to view or download a list of WAV stations, information, and locations shown in this dashboard.")),
-    bsCollapse(
-      createStnPanel("Stations currently shown on map", "dl_cur_stns", "cur_stns"),
-      createStnPanel("All baseline monitoring stations", "dl_baseline_stns", "baseline_stns"),
-      createStnPanel("All nutrient monitoring stations", "dl_nutrient_stns", "nutrient_stns"),
-      createStnPanel("All thermistor stations", "dl_therm_stns", "therm_stns"),
-      createStnPanel("All WAV stations", "dl_all_stns", "all_stns")
-    )
+    radioButtons(
+      inputId = ns("stn_set"),
+      label = "Select which set of stations to view:",
+      choices = list(
+        `Shown on map` = "map",
+        `All baseline` = "baseline",
+        `All nutrient` = "nutrient",
+        `All thermistor` = "therm",
+        `All stations` = "all"
+      ),
+      inline = T
+    ),
+    div(
+      id = "resize_wrapper",
+      style = "margin: 1em 0px; padding: 10px; border: 1px solid grey; border-radius: 5px; background: white; min-height: 550px;",
+      dataTableOutput(ns("stn_tbl")) %>% withSpinnerProxy(proxy.height = 530)
+    ),
+    p(uiOutput(ns("dl_btns"))),
+    em("Use the buttons at the top of this section to select which set of stations to show and download. 'Shown on map' means any stations shown on the map above; use the map options to change which stations to show, such as selecting a specific year or type of station. If a station is not shown on the map, the 'Select' action button will not be available for that station. You can also download the station lists as a CSV, as a KML for viewing in Google Earth, or as a GeoJSON for viewing in a GIS application such as QGIS.")
   )
 }
 
@@ -34,8 +45,6 @@ stationListServer <- function(stn_list) {
     function(input, output, session) {
       ns <- session$ns
 
-      # Station lists ----
-
       fmtStns <- function(df) {
         df %>%
           select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) %>%
@@ -43,46 +52,115 @@ stationListServer <- function(stn_list) {
       }
 
       cur_stns <- reactive({
-        all_stns %>%
-          filter(station_id %in% stn_list()) %>%
-          fmtStns()
+        req(input$stn_set)
+        set <- input$stn_set
+
+        if (set == "map") {
+          all_stns %>% filter(station_id %in% stn_list()) %>% fmtStns()
+        } else if (set == "baseline") {
+          all_stns %>% filter(baseline_stn) %>% fmtStns()
+        } else if (set == "nutrient") {
+          all_stns %>% filter(nutrient_stn) %>% fmtStns()
+        } else if (set == "therm") {
+          all_stns %>% filter(therm_stn) %>% fmtStns()
+        } else {
+          fmtStns(all_stns)
+        }
       })
 
-      baseline_stns <- all_stns %>%
-        filter(baseline_stn) %>%
-        fmtStns()
+      dt_data <- reactive({
 
-      nutrient_stns <- all_stns %>%
-        filter(nutrient_stn) %>%
-        fmtStns()
+        cur_stns() %>%
+          mutate(Action = if_else(
+            StationId %in% stn_list(),
+            paste0("<a class='btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=", StationId, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>"),
+            ""
+          ) %>% lapply(shiny::HTML), .before = 1)
+      })
 
-      therm_stns <- all_stns %>%
-        filter(therm_stn) %>%
-        fmtStns()
+      filename <- reactive({
+        req(input$stn_set)
+        case_match(
+          input$stn_set,
+          "map" ~ "WAV Selected Station List",
+          "baseline" ~ "WAV Baseline Stations",
+          "nutrient" ~ "WAV Nutrient Stations",
+          "therm" ~ "WAV Thermistor Stations",
+          "all" ~ "WAV Station List"
+        )
+      })
 
-      all_stns_fmt <- fmtStns(all_stns)
+      output$stn_tbl <- renderDataTable(
+        isolate(dt_data()),
+        rownames = F,
+        selection = "none",
+        extensions = "FixedColumns",
+        options = list(
+          dom = "iftrp",
+          scrollResize = T,
+          scrollX = T,
+          scrollY = 400,
+          scrollCollapse = T,
+          pageLength = 20,
+          fixedColumns = list(leftColumns = 1),
+          columnDefs = list(
+            list(
+              targets = 2:24,
+              render = JS("
+                function(data, type, row, meta) {
+                  return (type === 'display' && data && data.length > 30) ?
+                    '<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;
+                }
+              ")
+            )
+          )
+        )
+      )
 
+      observe({
+        dataTableProxy("stn_tbl") %>%
+          replaceData(dt_data(), rownames = F)
+      })
 
-      # Output tables ----
+      output$dl_btns <- renderUI({
+        validate(
+          need(nrow(cur_stns()) > 0, "No stations in list.")
+        )
 
-      output$cur_stns <- renderDataTable(cur_stns(), selection = "none")
-      output$baseline_stns <- renderDataTable(baseline_stns, selection = "none")
-      output$nutrient_stns <- renderDataTable(nutrient_stns, selection = "none")
-      output$therm_stns <- renderDataTable(therm_stns, selection = "none")
-      output$all_stns <- renderDataTable(all_stns_fmt, selection = "none")
+        div(
+          strong("Download list as:", style = "margin-right: 10px;"),
+          downloadButton(ns("dl_csv"), "CSV"),
+          downloadButton(ns("dl_kml"), "KML"),
+          downloadButton(ns("dl_geojson"), "GeoJSON")
+        )
+      })
 
+      output$dl_csv <- downloadHandler(
+        filename = paste0(filename(), ".csv"),
+        content = function(file) {
+          write_csv(cur_stns(), file)
+        }
+      )
 
-      # Download handlers ----
+      output$dl_kml <- downloadHandler(
+        filename = paste0(filename(), ".kml"),
+        content = function(file) {
+          cur_stns() %>%
+            mutate(Name = paste(StationId, StationName), .before = 1) %>%
+            st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%
+            write_sf(file, layer = "")
+        }
+      )
 
-      createStnDl <- function(fname, df) {
-        downloadHandler(fname, function(file) { write_csv(df, file) } )
-      }
-
-      output$dl_cur_stns <- createStnDl("WAV Selected Station List.csv", cur_stns())
-      output$dl_baseline_stns <- createStnDl("WAV Baseline Stations.csv", baseline_stns)
-      output$dl_nutrient_stns <- createStnDl("WAV Nutrient Stations.csv", nutrient_stns)
-      output$dl_therm_stns <- createStnDl("WAV Thermistor Stations.csv", therm_stns)
-      output$dl_all_stns <- createStnDl("WAV Station List.csv", all_stns_fmt)
+      output$dl_geojson <- downloadHandler(
+        filename = paste0(filename(), ".geojson"),
+        content = function(file) {
+          cur_stns() %>%
+            mutate(Name = paste(StationId, StationName), .before = 1) %>%
+            st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%
+            write_sf(file)
+        }
+      )
 
     }
   )
