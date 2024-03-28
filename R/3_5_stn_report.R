@@ -153,37 +153,31 @@ stnReportServer <- function(cur_stn, has_focus) {
         temp_out <- file.path(temp_dir, paste0(hash(report$filename), ".pdf"))
         runjs("document.querySelector('#report-msg-container').style.display = 'none';")
         runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})")
-        use_existing <- F
-        if (file.exists(temp_out) & use_existing) {
-          file.copy(temp_out, file)
-        } else {
-          tryCatch({
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
-            temp_rmd <- file.path(temp_dir, "report.Rmd")
-            file.copy("report/station_report.Rmd", temp_rmd, overwrite = T)
-            file.copy("report/header.png", temp_dir, overwrite = T)
-            lapply(list.files("report", "*.ttf", full.names = T), function(f) { file.copy(f, temp_dir) })
-            rmarkdown::render(
-              input = temp_rmd,
-              output_file = temp_out,
-              params = list(
-                year = yr,
-                stn = report$stn,
-                data = report$data
-              )
+        tryCatch({
+          runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
+          temp_rmd <- file.path(temp_dir, "report.Rmd")
+          file.copy("report/station_report.Rmd", temp_rmd, overwrite = T)
+          file.copy("report/header.png", temp_dir, overwrite = T)
+          lapply(list.files("report", "*.ttf", full.names = T), function(f) { file.copy(f, temp_dir) })
+          rmarkdown::render(
+            input = temp_rmd,
+            output_file = temp_out,
+            params = list(
+              year = yr,
+              stn = report$stn,
+              data = report$data
             )
-            file.copy(temp_out, file)
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
-          }, error = function(cond) {
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
-            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff with this information and we will get it fixed.';", yr, report$stn$label))
-            runjs("document.querySelector('#report-msg-container').style.display = null;")
-          })
-        }
+          )
+          file.copy(temp_out, file)
+          runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
+        }, error = function(cond) {
+          runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
+          runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff with this information and we will get it fixed.';", yr, report$stn$label))
+          runjs("document.querySelector('#report-msg-container').style.display = null;")
+        })
         runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = false;});")
       }
 
-      # end
-    }
+    } # end server
   )
 }

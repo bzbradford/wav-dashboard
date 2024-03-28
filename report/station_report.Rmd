@@ -9,7 +9,8 @@ header-includes:
   - \usepackage{longtable}
   - \usepackage{fancyhdr} # page header and footer
   - \usepackage{lastpage} # allow page 'X of Y'
-  - \usepackage{titlesec}
+  - \usepackage{titlesec} # heading spacing
+  - \usepackage{enumitem} # list spacing
   - \usepackage{fontspec} # set font
   - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
 params:
@@ -24,13 +25,6 @@ options(knitr.kable.NA = "-")
 options(scipen = 999)
 p <- function(content) cat("\n\n", content, "\n\n", sep = "")
 pg <- function() p("\\newpage")
-
-# adjust titlesec heading spacing on wisc connect server
-if (Sys.getenv("SERVER") == "wisc") {
-  titlespacing <- c(1.5, 0)
-} else {
-  titlespacing <- c(3, 1.5)
-}
 
 stn <- params$stn
 safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
@@ -130,11 +124,13 @@ if (has$streamflow) {
 \lfoot{\url{wateractionvolunteers.org}}
 \cfoot{}
 \rfoot{Page \thepage\ of \pageref{LastPage}}
-\setlength{\headheight}{14pt}
-\setlength{\baselineskip}{12pt}
+\setlength{\headheight}{16pt}
+\setlength{\baselineskip}{11pt}
 \setlength{\parskip}{8pt}
-\titlespacing*{\section}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
-\titlespacing*{\subsection}{0pt}{`r titlespacing[1]`ex}{`r titlespacing[2]`ex}
+\setlength{\parsep}{8pt}
+\setlist{topsep=0pt, itemsep=4pt, partopsep=0pt, parsep=4pt}
+\titlespacing*{\section}{0pt}{12pt}{0pt}
+\titlespacing*{\subsection}{0pt}{12pt}{0pt}
 
 
 
@@ -195,8 +191,6 @@ Volunteers may also collect pH and specific conductance measurements, but there 
 A *watershed* is an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term "watershed" is often used interchangeably with "drainage basin," which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed.
 
 Nationally, watersheds are defined by the US Geological Survey in the National Hydrography Dataset. These boundaries encompass successively smaller areas called _hydrological units_ and are given a numerical designation called a _hydrological unit code_ (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 sub-basins (8 digit HUC), 372 watersheds (10 digit HUC), and 1,808 sub-watersheds (12 digit HUC). Some of these watershed boundaries extend across state lines. Any water falling into a watershed will ultimately collect into the same water body before flowing downstream into another waterbody, unless the basin has no outflow (e.g. Utah's Great Salt Lake). In Wisconsin, the DNR has its own naming and numbering system for watersheds (roughly equivalent to HUC10 scale from the USGS), which is included in the *Station Information* section. Use these names and codes to look up watershed information on the DNR's website.
-
-\newpage
 
 # Understanding this report
 
