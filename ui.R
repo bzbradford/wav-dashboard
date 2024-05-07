@@ -30,7 +30,7 @@ stnSelectorUI <- function() {
             uiOutput("bookmark_btn", inline = TRUE)
           )
         ),
-        div(class = "note", "To search for a station by name or ID, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You can also search for stations in the Station Lists tab.")
+        div(class = "note", style = "margin-top: 5px;", "To search for a station by name or ID, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You can also search for stations in the Station Lists tab.")
       ),
       tabPanel("Recently Viewed Stations", recentStationsUI()),
       tabPanel("Station Details", stationInfoUI()),
