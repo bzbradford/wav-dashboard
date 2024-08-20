@@ -132,7 +132,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         div(
           class = "well", style = "margin-top: 25px; overflow: auto",
           h4("Station data summary", style = "margin-top: 0px; border-bottom: 2px solid #d0d7d9;"),
-          tableOutput(ns("stnSummaryTable"))
+          tableOutput(ns("stnSummaryTable")) %>% withSpinnerProxy(proxy.height = "135px")
         )
       })
 

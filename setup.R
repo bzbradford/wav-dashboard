@@ -476,22 +476,22 @@ fmt_area <- function(area) {
   )
 }
 
-counties <- readRDS("data/shp/counties")
-waterbodies <- readRDS("data/shp/waterbodies")
-nkes <- readRDS("data/shp/nkes") %>%
+counties <- readRDS("data/shp/counties.rds")
+waterbodies <- readRDS("data/shp/waterbodies.rds")
+nkes <- readRDS("data/shp/nkes.rds") %>%
   mutate(Label = paste0(
     "<b>", PlanName, "</b>",
     "<br>Ends: ", EndDate,
     "<br>Objective: ", Objective
   ))
-huc8 <- readRDS("data/shp/huc8") %>%
+huc8 <- readRDS("data/shp/huc8.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc8Name, " Subbasin</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC8 Code: ", Huc8Code,
     "<br>HUC6 basin: ", MajorBasin
   ))
-huc10 <- readRDS("data/shp/huc10") %>%
+huc10 <- readRDS("data/shp/huc10.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc10Name, " Watershed</b>",
     "<br>Area: ", fmt_area(Area),
@@ -500,7 +500,7 @@ huc10 <- readRDS("data/shp/huc10") %>%
     "<br>HUC6 basin: ", MajorBasin
   ))
 suppressWarnings({ huc10_centroids <- st_centroid(huc10) })
-huc12 <- readRDS("data/shp/huc12") %>%
+huc12 <- readRDS("data/shp/huc12.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",
     "<br>Area: ", fmt_area(Area),
@@ -513,7 +513,7 @@ huc12 <- readRDS("data/shp/huc12") %>%
 
 # Station lists ----
 
-station_list <- readRDS("data/station-list")
+station_list <- readRDS("data/station-list.rds")
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
@@ -525,8 +525,9 @@ station_types <- list(
 
 # Baseline data ----
 
-baseline_data <- readRDS("data/baseline-data") %>%
-  arrange(station_id, date)
+baseline_data <- readRDS("data/baseline-data.rds") %>%
+  arrange(station_id, date) %>%
+  rename(fieldwork_seq_no = fsn)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -541,7 +542,7 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 # Nutrient data ----
 
-nutrient_data <- readRDS("data/tp-data") %>%
+nutrient_data <- readRDS("data/tp-data.rds") %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
@@ -556,8 +557,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 # Thermistor data ----
 
-therm_data <- readRDS("data/therm-data")
-therm_info <- readRDS("data/therm-inventory")
+therm_data <- readRDS("data/therm-data.rds")
+therm_info <- readRDS("data/therm-inventory.rds")
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -763,8 +764,8 @@ stn_color_choices <- append(
 
 # Landscape data ----
 
-landcover_classes <- readRDS("data/nlcd_classes")
-landscape_data <- readRDS("data/landcover") %>%
+landcover_classes <- readRDS("data/nlcd-classes.rds")
+landscape_data <- readRDS("data/nlcd-landcover.rds") %>%
   left_join(landcover_classes, join_by(class)) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")
