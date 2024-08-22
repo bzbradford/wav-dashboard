@@ -5,8 +5,8 @@ account: bbradford
 server: connect.doit.wisc.edu
 hostUrl: https://connect.doit.wisc.edu/__api__
 appId: 7
-bundleId: 2077
+bundleId: 2120
 url: https://connect.doit.wisc.edu/wav-dashboard/
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: test.R|test_station_report.R|data
+ignoredFiles: test.R|test_station_report.R

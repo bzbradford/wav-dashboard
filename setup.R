@@ -543,6 +543,7 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 # Nutrient data ----
 
 nutrient_data <- readRDS("data/tp-data.rds") %>%
+  rename(fieldwork_seq_no = fsn) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)

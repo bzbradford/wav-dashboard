@@ -84,7 +84,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       textposition = "auto",
       color = ~exceedance,
       colors = "Set2",
-      width = 0.5 * 1000 * 60 * 60 * 24 * 30, # time in milliseconds
+      width = 0.75 * 1000 * 60 * 60 * 24 * 30, # time in milliseconds
       marker = list(
         line = list(
           color = "rgb(8,48,107)",
@@ -99,8 +99,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         hoverformat = "%B %d, %Y",
         tickformat = "%B<br>%Y",
         dtick = "M1",
-        range = date_range,
-        fixedrange = T),
+        range = date_range),
       yaxis = list(
         title = "Total phosphorus",
         ticksuffix = " mg/L",
