@@ -250,10 +250,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             mutate(days_since_last = as.numeric(date - lag(date)))
           gap_starts <- df_daily %>%
             filter(days_to_next > 7) %>%
-            mutate(date = date + 1, min = mean, max = mean)
+            mutate(date = date + 1, min = mean, max = mean, mean = NA)
           gap_ends <- df_daily %>%
             filter(days_since_last > 7) %>%
-            mutate(date = date - 1, min = mean, max = mean)
+            mutate(date = date - 1, min = mean, max = mean, mean = NA)
           df_daily <- df_daily %>%
             bind_rows(gap_starts, gap_ends) %>%
             arrange(date)
@@ -401,6 +401,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
+              p("The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."),
               p(downloadButton(ns("downloadHourly"), "Download this data")),
               hourly_dt
             )
@@ -416,7 +417,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## downloadDaily ----
       output$downloadHourly <- downloadHandler(
-        sprintf("WAV Stn %s Hourly Temperature Data (%s)", cur_stn()$station_id, input$year),
+        sprintf("WAV Stn %s Hourly Temperature Data (%s).csv", cur_stn()$station_id, input$year),
         function(file) { write_csv(selected_data(), file, na = "")}
       )
 

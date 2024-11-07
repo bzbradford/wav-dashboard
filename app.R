@@ -2,7 +2,7 @@
 # Ben Bradford, UW-Madison
 # Requires data prep in separate RProj
 
-shiny::shinyApp(ui, server, enableBookmarking = "url")
+# shiny::shinyApp(ui, server, enableBookmarking = "url")
 
 
 

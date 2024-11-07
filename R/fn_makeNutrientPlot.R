@@ -16,7 +16,8 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
       levels = c("TP OK", "TP High", "No data"))) %>%
     drop_na(tp) %>%
-    mutate(phoslimit = phoslimit)
+    mutate(phoslimit = phoslimit) %>%
+    distinct(date, .keep_all = T)
 
   min_year <- min(df$year)
   max_year <- max(df$year)

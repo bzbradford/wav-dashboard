@@ -320,54 +320,68 @@ mapServer <- function(cur_stn, main_session) {
         color <- "blue"
         fill_color <- "lightblue"
 
-        # Nine Key Elements
-        delay(1000, {
-          map %>%
-            addPolygons(
-              data = nkes,
-              group = layers$nkes,
-              label = ~ lapply(Label, HTML),
-              popup = ~ lapply(Label, HTML),
-              weight = 1,
-              color = "blue",
-              fillColor = "blue",
-              fillOpacity = 0.1,
-              options = pathOptions(pane = "nkes"),
-              labelOptions = labelOptions(
-                style = list("width" = "300px", "white-space" = "normal"))) %>%
-            addPolygons(
-              data = huc8,
-              group = layers$huc8,
-              label = ~ lapply(Label, HTML),
-              popup = ~ lapply(Label, HTML),
-              weight = 1.5,
-              color = color,
-              opacity = .25,
-              fillColor = fill_color,
-              fillOpacity = 0.15,
-              options = pathOptions(pane = "huc8")) %>%
-            addPolygons(
-              data = huc10,
-              group = layers$huc10,
-              label = ~ lapply(Label, HTML),
-              popup = ~ lapply(Label, HTML),
-              weight = 1,
-              color = color,
-              opacity = .25,
-              fillColor = fill_color,
-              fillOpacity = .1,
-              options = pathOptions(pane = "huc10")) %>%
-            addPolygons(
-              data = huc12,
-              group = layers$huc12,
-              label = ~ lapply(Label, HTML),
-              popup = ~ lapply(Label, HTML),
-              weight = 0.5,
-              color = color,
-              opacity = .25,
-              fillColor = fill_color,
-              fillOpacity = 0.05,
-              options = pathOptions(pane = "huc12"))
+        # use a delay so the stations show up before watersheds are loaded silently
+        delay(100, {
+          # NKES
+          addPolygons(
+            map,
+            data = nkes,
+            group = layers$nkes,
+            label = ~ lapply(Label, HTML),
+            popup = ~ lapply(Label, HTML),
+            weight = 1,
+            color = "blue",
+            fillColor = "blue",
+            fillOpacity = 0.1,
+            options = pathOptions(pane = "nkes"),
+            labelOptions = labelOptions(
+              style = list("width" = "300px", "white-space" = "normal"))
+          )
+
+          # HUC8
+          addPolygons(
+            map,
+            data = huc8,
+            group = layers$huc8,
+            label = ~ lapply(Label, HTML),
+            popup = ~ lapply(Label, HTML),
+            weight = 1.5,
+            color = color,
+            opacity = .25,
+            fillColor = fill_color,
+            fillOpacity = 0.15,
+            options = pathOptions(pane = "huc8")
+          )
+
+          # HUC10
+          addPolygons(
+            map,
+            data = huc10,
+            group = layers$huc10,
+            label = ~ lapply(Label, HTML),
+            popup = ~ lapply(Label, HTML),
+            weight = 1,
+            color = color,
+            opacity = .25,
+            fillColor = fill_color,
+            fillOpacity = .1,
+            options = pathOptions(pane = "huc10")
+          )
+
+          # HUC12
+          addPolygons(
+            map,
+            data = huc12,
+            group = layers$huc12,
+            label = ~ lapply(Label, HTML),
+            popup = ~ lapply(Label, HTML),
+            weight = 0.5,
+            color = color,
+            opacity = .25,
+            fillColor = fill_color,
+            fillOpacity = 0.05,
+            options = pathOptions(pane = "huc12")
+          )
         })
       })
 
