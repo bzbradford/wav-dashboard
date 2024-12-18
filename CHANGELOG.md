@@ -1,3 +1,9 @@
+**Dec 2024**
+
+* Update baseline, total phosphorus, and thermistor temperature logger data for 2024 from WAV and Milwaukee Riverkeeper.
+* Improve nutrient plot by adjusting column widths
+* Set watersheds to lazy load on the map
+
 **Aug & Nov 2024**
 
 * Update baseline and nutrient data

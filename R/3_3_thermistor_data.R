@@ -170,7 +170,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               inputId = ns("year"),
               label = NULL,
               choices = year_choices(cur_years()),
-              selected = last(cur_years())
+              selected = first_truthy(
+                intersect(isolate(input$year), cur_years()),
+                last(cur_years())
+              )
             )
           ),
           uiOutput(ns("plotOptionsUI")),

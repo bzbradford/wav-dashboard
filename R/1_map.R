@@ -103,13 +103,15 @@ mapServer <- function(cur_stn, main_session) {
 
       # Reactive vals ----
 
-      ## user_loc_shown ----
-      user_loc_shown <- reactiveVal(F)
+      rv <- reactiveValues(
+        user_loc_shown = FALSE,
 
-      ## selected_stn ----
-      # holds the last selected station in case cur_stn() becomes blocked
-      selected_stn <- reactiveVal()
-      observe({ selected_stn(cur_stn()) })
+        # holds the last selected station in case cur_stn() becomes blocked
+        selected_stn = NULL,
+
+        # tracks which map layers have been loaded
+        rendered_layers = list()
+      )
 
       ## avail_stns ----
       avail_stns <- reactive({
@@ -225,13 +227,13 @@ mapServer <- function(cur_stn, main_session) {
       }
 
       layers <- list(
+        stations = "Monitoring stations",
         counties = "Counties/Regions",
         nkes = "NKE Plans",
         huc8 = "HUC8 Subbasins",
         huc10 = "HUC10 Watersheds",
         huc12 = "HUC12 Subwatersheds",
-        stations = "Monitoring stations",
-        pins = "Station clusters (groups and pins)"
+        pins = "Station clusters"
       )
 
       hidden_layers <- c(layers$nkes, layers$huc8, layers$huc10, layers$huc12, layers$dnr_wsheds, layers$pins)
@@ -312,79 +314,6 @@ mapServer <- function(cur_stn, main_session) {
           )
       })
 
-      # Delayed map actions ----
-
-      ## Load watersheds ----
-      observeEvent(TRUE, {
-        map <- leafletProxy(ns("map"))
-        color <- "blue"
-        fill_color <- "lightblue"
-
-        # use a delay so the stations show up before watersheds are loaded silently
-        delay(100, {
-          # NKES
-          addPolygons(
-            map,
-            data = nkes,
-            group = layers$nkes,
-            label = ~ lapply(Label, HTML),
-            popup = ~ lapply(Label, HTML),
-            weight = 1,
-            color = "blue",
-            fillColor = "blue",
-            fillOpacity = 0.1,
-            options = pathOptions(pane = "nkes"),
-            labelOptions = labelOptions(
-              style = list("width" = "300px", "white-space" = "normal"))
-          )
-
-          # HUC8
-          addPolygons(
-            map,
-            data = huc8,
-            group = layers$huc8,
-            label = ~ lapply(Label, HTML),
-            popup = ~ lapply(Label, HTML),
-            weight = 1.5,
-            color = color,
-            opacity = .25,
-            fillColor = fill_color,
-            fillOpacity = 0.15,
-            options = pathOptions(pane = "huc8")
-          )
-
-          # HUC10
-          addPolygons(
-            map,
-            data = huc10,
-            group = layers$huc10,
-            label = ~ lapply(Label, HTML),
-            popup = ~ lapply(Label, HTML),
-            weight = 1,
-            color = color,
-            opacity = .25,
-            fillColor = fill_color,
-            fillOpacity = .1,
-            options = pathOptions(pane = "huc10")
-          )
-
-          # HUC12
-          addPolygons(
-            map,
-            data = huc12,
-            group = layers$huc12,
-            label = ~ lapply(Label, HTML),
-            popup = ~ lapply(Label, HTML),
-            weight = 0.5,
-            color = color,
-            opacity = .25,
-            fillColor = fill_color,
-            fillOpacity = 0.05,
-            options = pathOptions(pane = "huc12")
-          )
-        })
-      })
-
       ## Hide the legend ----
       observeEvent(TRUE, {
         delay(3000, {
@@ -394,6 +323,38 @@ mapServer <- function(cur_stn, main_session) {
               overlayGroups = unlist(layers, use.names = FALSE),
             )
         })
+      })
+
+
+      # On-demand layer loading ----
+      # observers are destroyed once they fire once
+      lapply(c("nkes", "huc8", "huc10", "huc12"), function(layer) {
+        obs_name <- paste0(layer, "_observer")
+        assign(
+          envir = env_parent(),
+          obs_name,
+          observe({
+            group <- layers[[layer]]
+            if (group %in% input$map_groups) {
+              leafletProxy("map") %>%
+                addPolygons(
+                  data = get(layer),
+                  group = group,
+                  label = ~ lapply(Label, HTML),
+                  popup = ~ lapply(Label, HTML),
+                  weight = 1,
+                  color = "blue",
+                  fillColor = "lightblue",
+                  fillOpacity = 0.1,
+                  options = pathOptions(pane = layer),
+                  labelOptions = labelOptions(
+                    style = list("width" = "300px", "white-space" = "normal")
+                  )
+                )
+              get(obs_name)$destroy()
+            }
+          })
+        )
       })
 
 
@@ -584,7 +545,7 @@ mapServer <- function(cur_stn, main_session) {
       ## user_loc ----
       # shows a house icon and displays watershed info for the user's location
       observeEvent(input$user_loc, {
-        if (user_loc_shown()) return()
+        if (rv$user_loc_shown) return()
         map <- leafletProxy("map")
         loc <- input$user_loc %>% lapply(\(x) round(x, 4))
         pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
@@ -656,7 +617,7 @@ mapServer <- function(cur_stn, main_session) {
             fillOpacity = 0.1,
             options = pathOptions(pane = "cur_huc")
           )
-        user_loc_shown(TRUE)
+        rv$user_loc_shown <- TRUE
       })
 
       ## remove_user_loc ----
@@ -667,12 +628,12 @@ mapServer <- function(cur_stn, main_session) {
           removeShape("user_watershed8") %>%
           removeShape("user_watershed10") %>%
           removeShape("user_watershed12")
-        user_loc_shown(FALSE)
+        rv$user_loc_shown <- FALSE
       })
 
       ## Zoom events ----
       zoomToSite <- function(z = input$map_zoom) {
-        stn <- selected_stn()
+        stn <- rv$selected_stn
         leafletProxy(ns("map")) %>%
           setView(
             lat = stn$latitude,

@@ -17,7 +17,15 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       levels = c("TP OK", "TP High", "No data"))) %>%
     drop_na(tp) %>%
     mutate(phoslimit = phoslimit) %>%
-    distinct(date, .keep_all = T)
+    distinct(date, .keep_all = T) %>%
+    # determine column width, constrained to between 7 and 30 days
+    arrange(date) %>%
+    mutate(
+      days_since_last = as.integer(date - lag(date)),
+      days_to_next = as.integer(lead(date) - date)) %>%
+    rowwise() %>%
+    mutate(bar_width = max(7, min(30, days_since_last, days_to_next, na.rm = T))) %>%
+    replace_na(list(bar_width = 30))
 
   min_year <- min(df$year)
   max_year <- max(df$year)
@@ -85,7 +93,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       textposition = "auto",
       color = ~exceedance,
       colors = "Set2",
-      width = 0.75 * 1000 * 60 * 60 * 24 * 30, # time in milliseconds
+      width = ~0.75 * 1000 * 60 * 60 * 24 * bar_width, # time in milliseconds
       marker = list(
         line = list(
           color = "rgb(8,48,107)",

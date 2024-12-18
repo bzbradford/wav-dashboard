@@ -24,13 +24,13 @@ stnSelectorUI <- function() {
           ),
           div(
             class = "stn-btns",
-            actionButton("prev_stn", "<", class = "stn-btn", title = "Next closest station West"),
-            actionButton("next_stn", ">", class = "stn-btn", title = "Next closes station East"),
-            actionButton("rnd_stn", "?", class = "stn-btn", title = "Random station"),
+            actionButton("prev_stn", icon("arrow-left"), class = "stn-btn", title = "Next closest station West"),
+            actionButton("next_stn", icon("arrow-right"), class = "stn-btn", title = "Next closes station East"),
+            actionButton("rnd_stn", icon("random"), class = "stn-btn", title = "Random station"),
             uiOutput("bookmark_btn", inline = TRUE)
           )
         ),
-        div(class = "note", style = "margin-top: 5px;", "To search for a station by name or ID, delete the text above and start typing. To show the station ID in the browser URL and page title (for bookmarking a site to easily return to it), click the star button. You can also search for stations in the Station Lists tab.")
+        div(class = "note", style = "margin-top: 5px;", "To search for a station by name or ID, delete the text above and start typing. Click the bookmark icon above to show the station ID in the browser URL and page title (for sharing a site or bookmarking the page to easily return to it). You can also search for stations in the Station Lists tab.")
       ),
       tabPanel("Recently Viewed Stations", recentStationsUI()),
       tabPanel("Station Details", stationInfoUI()),

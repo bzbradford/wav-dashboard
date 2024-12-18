@@ -88,6 +88,25 @@ check_missing_stns <- function(data, pts, type) {
 
 ## Utility ----
 
+# message and print an object to the console for testing
+echo <- function(x) {
+  message(deparse(substitute(x)))
+  print(x)
+}
+
+# swaps names and values in a list or vector
+invert <- function(x) {
+  y <- as(names(x), class(x))
+  names(y) <- x
+  y
+}
+
+# return the first truthy argument
+first_truthy <- function(...) {
+  for (arg in list(...)) if (shiny::isTruthy(arg)) return(arg)
+  NULL
+}
+
 c_to_f <- function(c, d = 1) {
   round(c * 1.8 + 32, d)
 }

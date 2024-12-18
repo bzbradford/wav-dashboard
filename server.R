@@ -281,9 +281,9 @@ server <- function(input, output, session) {
 
   output$bookmark_btn <- renderUI({
     if (bookmarking()) {
-      actionButton("bookmarking", "★", class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
+      actionButton("bookmarking", icon("bookmark", class = "fa-solid"), class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
     } else {
-      actionButton("bookmarking", "☆", class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
+      actionButton("bookmarking", icon("bookmark"), class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
     }
   })
 
