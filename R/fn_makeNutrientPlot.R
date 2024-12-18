@@ -12,20 +12,22 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
   if (nrow(df) == 0) return()
 
   df <- df %>%
-    mutate(exceedance = factor(
-      ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
-      levels = c("TP OK", "TP High", "No data"))) %>%
-    drop_na(tp) %>%
-    mutate(phoslimit = phoslimit) %>%
-    distinct(date, .keep_all = T) %>%
-    # determine column width, constrained to between 7 and 30 days
+    summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) %>%
+    mutate(
+      exceedance = factor(
+        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
+        levels = c("TP OK", "TP High", "No data")
+      ),
+      phoslimit = phoslimit
+    ) %>%
+    # determine column width, constrained to between 7 and 28 days
     arrange(date) %>%
     mutate(
       days_since_last = as.integer(date - lag(date)),
       days_to_next = as.integer(lead(date) - date)) %>%
     rowwise() %>%
-    mutate(bar_width = max(7, min(30, days_since_last, days_to_next, na.rm = T))) %>%
-    replace_na(list(bar_width = 30))
+    mutate(bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))) %>%
+    replace_na(list(bar_width = 28))
 
   min_year <- min(df$year)
   max_year <- max(df$year)
