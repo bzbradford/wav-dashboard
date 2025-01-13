@@ -26,37 +26,36 @@ stationInfoServer <- function(cur_stn) {
     id = "station-info",
     function(input, output, session) {
 
+      # Station details table
       output$details <- renderUI({
+        df <- cur_stn() %>%
+          select(station_id:geometry) %>%
+          st_set_geometry(NULL) %>%
+          mutate(across(everything(), as.character)) %>%
+          clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
+          pivot_longer(
+            cols = everything(),
+            names_to = "Property",
+            values_to = "Value") %>%
+          na.omit()
+
         tagList(
           h4("Station Information"),
-          renderTable({
-            cur_stn() %>%
-              select(station_id:geometry) %>%
-              st_set_geometry(NULL) %>%
-              mutate(across(everything(), as.character)) %>%
-              clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
-              pivot_longer(
-                cols = everything(),
-                names_to = "Property",
-                values_to = "Value") %>%
-              na.omit()
-          })
+          renderTable(df)
         )
       })
 
+      # Station data coverage table
       output$coverage <- renderUI({
-        list(
+        df <- all_stn_data %>%
+          filter(station_id == cur_stn()$station_id) %>%
+          select(-station_id) %>%
+          arrange(desc(year)) %>%
+          clean_names(case = "title")
+
+        tagList(
           h4("Station Data Coverage"),
-          renderTable(
-            {
-              all_stn_data %>%
-                filter(station_id == cur_stn()$station_id) %>%
-                select(-station_id) %>%
-                arrange(desc(year)) %>%
-                clean_names(case = "title")
-            },
-            align = "c"
-          )
+          renderTable(df, align = "c")
         )
       })
     }

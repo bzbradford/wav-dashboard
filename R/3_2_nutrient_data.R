@@ -143,14 +143,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
-        btn_year <-
+        btn_year <-  downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
         btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
-
-        if (input$year == "All") {
-          dl_btns <- list(btn_all)
-        } else {
-          dl_btns <- list(btn_year, btn_all)
-        }
+        dl_btns <- if (input$year == "All") list(btn_all) else list(btn_year, btn_all)
 
         tagList(
           p(

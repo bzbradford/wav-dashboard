@@ -33,8 +33,11 @@ buildWatershedInfo <- function(stn) {
 
 watershedInfoUI <- function() {
   ns <- NS("watershed")
-  link1 <- a("2021 USGS National Land Cover Database", href = "https://www.usgs.gov/centers/eros/science/national-land-cover-database", target = "_blank", .noWS = "outside")
-  link2 <- a("Click here", href = "https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description", target = "_blank", .noWS = "outside")
+
+  links <- list(
+    nlcd = HTML("<a href='https://www.usgs.gov/centers/eros/science/national-land-cover-database' target='_blank'>2021 USGS National Land Cover Database</a>"),
+    nlcd_classes = HTML("<a href='https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description' target='_blank'>Click here</a>")
+  )
 
   div(
     class = "data-tab",
@@ -43,7 +46,7 @@ watershedInfoUI <- function() {
     p(HTML("In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale); see the entry in the table below for links to the DNR's information pages for each watershed. Use the layers menu (upper right) in the map above or"), strong(a(href = "#map", onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
     uiOutput(ns("watershedInfoUI")) %>% withSpinnerProxy(proxy.height = 200),
     h4(strong("Landscape composition")),
-    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", link1, ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ", link2, " for more information and specific definitions of each land cover class."),
+    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", links$nlcd, ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ", links$nlcd_classes, " for more information and specific definitions of each land cover class."),
     div(class = "well flex-row year-btns",
       div(class = "year-btn-text", em("Landscape scale:")),
       radioGroupButtons(

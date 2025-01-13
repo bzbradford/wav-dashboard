@@ -51,6 +51,9 @@ stationListServer <- function(stn_list) {
           clean_names(case = "big_camel")
       }
 
+      # Reactives ----
+
+      ## cur_stns // reactive ----
       cur_stns <- reactive({
         req(input$stn_set)
         set <- input$stn_set
@@ -68,8 +71,8 @@ stationListServer <- function(stn_list) {
         }
       })
 
+      ## dt_data // reactive ----
       dt_data <- reactive({
-
         cur_stns() %>%
           mutate(Action = if_else(
             StationId %in% stn_list(),
@@ -78,6 +81,8 @@ stationListServer <- function(stn_list) {
           ) %>% lapply(shiny::HTML), .before = 1)
       })
 
+      ## filename // reactive ----
+      # sets file name for downloads
       filename <- reactive({
         req(input$stn_set)
         case_match(
@@ -90,6 +95,12 @@ stationListServer <- function(stn_list) {
         )
       })
 
+
+      # Data table ----
+
+      ## stn_tbl // renderDataTable ----
+      # handle initial rendering of the data table
+      # later, an observer is used to inject new data into the existing DT
       output$stn_tbl <- renderDataTable(
         isolate(dt_data()),
         rownames = F,
@@ -103,25 +114,28 @@ stationListServer <- function(stn_list) {
           scrollCollapse = T,
           pageLength = 20,
           fixedColumns = list(leftColumns = 1),
-          columnDefs = list(
-            list(
-              targets = 2:24,
-              render = JS("
-                function(data, type, row, meta) {
-                  return (type === 'display' && data && data.length > 30) ?
-                    '<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;
-                }
-              ")
-            )
-          )
+          columnDefs = list(list(
+            targets = 2:24,
+            render = JS("
+              function(data, type, row, meta) {
+                return (type === 'display' && data && data.length > 30) ?
+                  '<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;
+              }
+            ")
+          ))
         )
       )
 
+      ## observe // update data table when source data changes ----
       observe({
         dataTableProxy("stn_tbl") %>%
           replaceData(dt_data(), rownames = F)
       })
 
+
+      # Downloads ----
+
+      ## dl_btns // renderUI ----
       output$dl_btns <- renderUI({
         validate(
           need(nrow(cur_stns()) > 0, "No stations in list.")
@@ -134,6 +148,9 @@ stationListServer <- function(stn_list) {
           downloadButton(ns("dl_geojson"), "GeoJSON")
         )
       })
+
+
+      ## Download handlers per file type ----
 
       output$dl_csv <- downloadHandler(
         filename = paste0(filename(), ".csv"),
