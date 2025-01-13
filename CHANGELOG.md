@@ -8,7 +8,7 @@
 
 * Update baseline and nutrient data
 
-**Feb 2023**
+**Feb 2024**
 
 * Add buttons to download entire baseline and nutrient datasets
 * Some cosmetic improvements to download sections
@@ -16,7 +16,7 @@
 * Fix mean temperature calculation for report's thermistor plot
 * Improve station lists tab with more data columns, download buttons, and station selection buttons.
 
-**Jan 2023**
+**Jan 2024**
 
 * Final adjustments for PDF report generation.
 * Modify some app language and interpretations to match the station reports.
