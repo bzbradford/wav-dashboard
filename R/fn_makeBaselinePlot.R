@@ -129,16 +129,19 @@ makeBaselinePlot <- function(df) {
         title = "",
         type = "date",
         range = date_range,
-        fixedrange = F, # allow user to zoom the axis?
+        fixedrange = T, # allow user to zoom the axis?
         dtick = date_tick,
         ticklabelmode = "period",
         hoverformat = "%b %d, %Y",
-        domain = c(.1, .9)),
+        domain = c(.1, .9)
+      ),
       yaxis = list(
         title = "Dissolved oxygen",
         ticksuffix = " mg/L",
         range = yranges$d_o,
-        fixedrange = T),
+        fixedrange = T,
+        automargin = T
+      ),
       yaxis2 = list(
         title = "Temperature",
         overlaying = "y",
@@ -148,7 +151,9 @@ makeBaselinePlot <- function(df) {
         showgrid = F,
         zeroline = F,
         range = yranges$temp,
-        fixedrange = T),
+        fixedrange = T,
+        automargin = T
+      ),
       yaxis3 = list(
         title = "Transparency",
         overlaying = "y",
@@ -157,7 +162,9 @@ makeBaselinePlot <- function(df) {
         showgrid = F,
         zeroline = F,
         range = yranges$trans,
-        fixedrange = T),
+        fixedrange = T,
+        automargin = T
+      ),
       yaxis4 = list(
         title = "Stream flow",
         overlaying = "y",
@@ -167,6 +174,9 @@ makeBaselinePlot <- function(df) {
         showgrid = F,
         zeroline = F,
         range = yranges$cfs,
-        fixedrange = T)) %>%
+        fixedrange = T,
+        automargin = T
+      )
+    ) %>%
     config(displayModeBar = F)
 }

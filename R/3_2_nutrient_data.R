@@ -88,7 +88,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
           div(
             id = "nutrient-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = F),
+            plotlyOutput(ns("plot")),
             uiOutput(ns("plotCaptionUI"))
           ),
           uiOutput(ns("plotExportUI")), br(),
@@ -159,7 +159,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             downloadButton(ns("downloadStn"), "Download station data (all years)"),
             downloadButton(ns("downloadBaseline"), "Download entire nutrient dataset")
           ),
-          div(style = "overflow: auto;", dataTableOutput(ns("dataTable"))),
+          dataTableOutput(ns("dataTable")),
           p(em("Total phosphorus is shown in units of mg/L (ppm)."))
         )
       })
@@ -168,10 +168,21 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       output$dataTable <- renderDataTable({
         req(selected_data_ready())
 
-        selected_data() %>%
+        df <- selected_data() %>%
           drop_na(tp) %>%
           clean_names(case = "big_camel")
-      })
+
+        datatable(
+          df,
+          selection = "none",
+          rownames = F,
+          options = list(
+            paging = F,
+            scrollX = T,
+            scrollCollapse = T
+          )
+        )
+      }, server = F)
 
       ## downloadStnYear ----
       output$downloadStnYear <- downloadHandler(

@@ -1,20 +1,19 @@
 ### Baseline Data Tab ###
 
 
-# Static UI ---------------------------------------------------------------
+# Static UI --------------------------------------------------------------------
 
 baselineDataUI <- function() {
   ns <- NS("baseline")
 
   div(
     class = "data-tab",
-    uiOutput(ns("mainUI")) %>% withSpinnerProxy(),
+    uiOutput(ns("uiWrapper")) %>% withSpinnerProxy(),
   )
 }
 
 
-
-# Server ------------------------------------------------------------------
+# Server -----------------------------------------------------------------------
 
 #' requires global data frame 'baseline_data'
 #' @param cur_stn a `reactive()` single line data frame
@@ -25,35 +24,37 @@ baselineDataServer <- function(cur_stn, has_focus) {
     function(input, output, session) {
       ns <- session$ns
 
-      # Reactive vals ----
+
+      # REACTIVE VALUES ----
+
+      rv <- reactiveValues(
+        ready = FALSE
+      )
 
       ## cur_data ----
       cur_data <- reactive({
         req(cur_stn())
-
-        baseline_data %>%
-          filter(station_id == cur_stn()$station_id)
+        baseline_data %>% filter(station_id == cur_stn()$station_id)
       })
 
-      ## data_ready ----
-      data_ready <- reactive({
-        nrow(cur_data()) > 0
+      observe({
+        ready <- nrow(cur_data()) > 0
+        if (rv$ready != ready) rv$ready <- ready
       })
 
       ## cur_years ----
       cur_years <- reactive({
+        req(rv$ready)
         sort(unique(cur_data()$year))
       })
 
       ## selected_data ----
       selected_data <- reactive({
-        req(input$year)
-
-        if (input$year == "All") {
-          cur_data()
-        } else {
-          cur_data() %>% filter(year == input$year)
-        }
+        switch(
+          req(input$plot_type),
+          "annual" = cur_data() %>% filter(year == req(input$year)),
+          "trend" = cur_data()
+        )
       })
 
       ## selected_data_ready ----
@@ -62,36 +63,28 @@ baselineDataServer <- function(cur_stn, has_focus) {
       })
 
 
-      # Rendered UI ----
+      # MAIN UI ----
+
+      ## uiWrapper ----
+      output$uiWrapper <- renderUI({
+        if (rv$ready) {
+          uiOutput(ns("mainUI"))
+        } else {
+          div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station.")
+        }
+      })
 
       ## mainUI ----
       output$mainUI <- renderUI({
-        if (!data_ready()) {
-          return(div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station."))
-        }
-
-        req(cur_stn())
         tagList(
           div(
-            class = "well flex-row year-btns",
-            div(class = "year-btn-text", em("Choose year:")),
-            radioGroupButtons(
-              inputId = ns("year"),
-              label = NULL,
-              choices = year_choices(cur_years()),
-              selected = first_truthy(
-                intersect(isolate(input$year), cur_years()),
-                last(cur_years())
-              )
-            )
+            class = "well flex-row",
+            uiOutput(ns("plotTypeUI")),
+            uiOutput(ns("plotYearUI")),
+            uiOutput(ns("trendTypeUI")),
+            uiOutput(ns("trendValueUI"))
           ),
-          div(
-            id = "baseline-plot-container",
-            h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = F),
-          ),
-          div(class = "plot-caption", "Click on any of the plot legend items to show or hide it in the plot. Click and drag left-to-right to select a date range (double click to reset)."),
-          uiOutput(ns("plotExportUI")),
+          uiOutput(ns("plotUI")),
           uiOutput(ns("stnSummaryUI")),
           uiOutput(ns("infoUI")),
           br(),
@@ -104,18 +97,161 @@ baselineDataServer <- function(cur_stn, has_focus) {
         )
       })
 
+
+      ## PLOT OPTIONS ----
+
+      ## plotTypeUI ----
+      output$plotTypeUI <- renderUI({
+        choices <- OPTS$baseline_plot_type_choices
+
+        radioGroupButtons(
+          inputId = ns("plot_type"),
+          label = "Plot type",
+          size = "sm",
+          choices = choices,
+          selected = input$plot_type %||% first(choices)
+        )
+      })
+
+      ## plotYearUI ----
+      output$plotYearUI <- renderUI({
+        type <- req(input$plot_type)
+        req(type == "annual")
+
+        radioGroupButtons(
+          inputId = ns("year"),
+          label = "Year",
+          size = "sm",
+          choices = cur_years(),
+          selected = first_truthy(
+            intersect(isolate(input$year), cur_years()),
+            last(cur_years())
+          )
+        )
+      })
+
+      ## trendTypeUI ----
+      output$trendTypeUI <- renderUI({
+        type <- req(input$plot_type)
+        req(type == "trend")
+
+        choices <- OPTS$baseline_trend_type_choices
+
+        radioGroupButtons(
+          inputId = ns("trend_type"),
+          label = "Group by",
+          size = "sm",
+          choices = choices,
+          selected = input$trend_type %||% first(choices)
+        )
+      })
+
+      ## trendValueUI ----
+      output$trendValueUI <- renderUI({
+        type <- req(input$plot_type)
+        req(type == "trend")
+        req(selected_data_ready())
+
+        opts <- OPTS$baseline_plot_opts
+        df <- selected_data() %>%
+          pivot_longer(all_of(opts$col), names_to = "col") %>%
+          drop_na(value) %>%
+          summarize(n = n(), .by = col) %>%
+          left_join(opts, join_by(col))
+        choices <- setNames(df$col, df$name)
+
+        radioGroupButtons(
+          inputId = ns("trend_value"),
+          label = "Measurement",
+          size = "sm",
+          choices = choices,
+          selected = input$trend_value %||% first(choices)
+        )
+      })
+
+
+      ## PLOT UI ----
+
+      ## stnTitleUI ----
+      output$stnTitleUI <- renderUI({
+        h3(str_to_title(cur_stn()$label), align = "center")
+      })
+
       ## infoUI ----
       output$infoUI <- renderUI({
         includeMarkdown("md/baseline_info.md")
       })
 
+      ## plotUI ----
+      output$plotUI <- renderUI({
+        switch(
+          req(input$plot_type),
+          "annual" = {
+            tagList(
+              div(
+                id = "baseline-plot-container",
+                uiOutput(ns("stnTitleUI")),
+                plotlyOutput(ns("annualPlot")),
+              ),
+              uiOutput(ns("plotCaptionUI"))
+            )
+          },
+          "trend" = {
+            tagList(
+              div(
+                id = "baseline-plot-container",
+                uiOutput(ns("stnTitleUI")),
+                plotlyOutput(ns("trendPlot"))
+              ),
+              uiOutput(ns("plotCaptionUI")),
+              h4("Observation heatmap"),
+              plotlyOutput(ns("ribbonPlot"), height = 130),
+            )
+          }
+        )
+      })
 
-      # Plot ----
-
-      ## plot ----
-      output$plot <- renderPlotly({
+      ## annualPlot ----
+      output$annualPlot <- renderPlotly({
         req(selected_data_ready())
-        makeBaselinePlot(selected_data())
+        df <- selected_data()
+        req(length(unique(df$year)) == 1)
+        makeBaselinePlot(df)
+      })
+
+      ## trendPlot ----
+      output$trendPlot <- renderPlotly({
+        req(rv$ready)
+        type <- req(input$trend_type)
+        value_col <- req(input$trend_value)
+        df <- cur_data()
+        switch(
+          type,
+          "scatter" = makeBaselineScatterplot(df, value_col),
+          "box_month" = makeBaselineBoxplot(df, value_col, "month"),
+          "box_year" = makeBaselineBoxplot(df, value_col, "year")
+        )
+      })
+
+      ## ribbonPlot ----
+      output$ribbonPlot <- renderPlotly({
+        req(rv$ready)
+        df <- cur_data()
+        makeBaselineRibbonPlot(df)
+      })
+
+      ## plotCaptionUI ----
+      output$plotCaptionUI <- renderUI({
+        caption <- switch(
+          req(input$plot_type),
+          "annual" = "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters.",
+          "trend" = OPTS$baseline_trend_captions[[req(input$trend_type)]]
+        )
+
+        tagList(
+          div(class = "plot-caption", caption),
+          uiOutput(ns("plotExportUI"))
+        )
       })
 
       ## plotExportUI ----
@@ -126,7 +262,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
       })
 
 
-      # Station summary box ----
+      # SUMMARY TABLE ----
 
       ## stnSummaryUI ----
       output$stnSummaryUI <- renderUI({
@@ -135,7 +271,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         div(
           class = "well", style = "margin-top: 25px; overflow: auto",
           h4("Station data summary", style = "margin-top: 0px; border-bottom: 2px solid #d0d7d9;"),
-          tableOutput(ns("stnSummaryTable")) %>% withSpinnerProxy(proxy.height = "135px")
+          tableOutput(ns("stnSummaryTable"))
         )
       })
 
@@ -146,17 +282,6 @@ baselineDataServer <- function(cur_stn, has_focus) {
         spacing = "xs",
         align = "lccccc"
       )
-
-      ## baseline_summary_vars ----
-      baseline_summary_vars <- tribble(
-        ~var, ~parameter, ~units,
-        "d_o", "Dissolved oxygen", "mg/L",
-        "water_temp", "Water temperature", "°C",
-        "air_temp", "Air temperature", "°C",
-        "transparency", "Transparency", "cm",
-        "streamflow", "Stream flow", "cfs",
-        "average_stream_depth", "Stream depth", "ft",
-      ) %>% rowwise()
 
       ## stnSummaryData ----
       makeMinMax <- function(df, var) {
@@ -172,13 +297,10 @@ baselineDataServer <- function(cur_stn, has_focus) {
       }
 
       stnSummaryData <- reactive({
-        req(input$year)
         req(selected_data_ready())
-
-        df <- selected_data() %>%
-          distinct(date, .keep_all = T)
-        date_fmt <- ifelse(input$year == "All", "%b %e, %Y", "%b %e")
-        baseline_summary_vars %>%
+        df <- selected_data()
+        date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
+        OPTS$baseline_summary_vars %>%
           reframe(pick(everything()), makeMinMax(df, var)) %>%
           mutate(across(c(min, max), ~paste(.x, units))) %>%
           mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
@@ -187,12 +309,11 @@ baselineDataServer <- function(cur_stn, has_focus) {
       })
 
 
-
-      # View Baseline Data ----
+      # VIEW DATA ----
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
-        req(input$year)
+        type <- req(input$plot_type)
 
         tagList(
           p(
@@ -201,12 +322,12 @@ baselineDataServer <- function(cur_stn, has_focus) {
             strong("Waterbody:"), cur_stn()$waterbody
           ),
           p(
-            if (input$year != "All")
+            if (type == "annual")
               downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year)),
             downloadButton(ns("downloadStn"), "Download station data (all years)"),
             downloadButton(ns("downloadBaseline"), "Download entire baseline dataset")
           ),
-          div(style = "overflow: auto;", dataTableOutput(ns("dataTable")))
+          dataTableOutput(ns("dataTable"))
         )
       })
 
@@ -214,8 +335,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
       output$dataTable <- renderDataTable({
         req(selected_data_ready())
 
-        date_fmt <- ifelse(input$year == "All", "%b %d, %Y", "%b %d")
-        df <- selected_data() %>%
+        df <- selected_data()
+        date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %d, %Y", "%b %d")
+        df <- df %>%
           arrange(date) %>%
           distinct(date, .keep_all = T) %>%
           clean_names(case = "title") %>%
@@ -226,9 +348,17 @@ baselineDataServer <- function(cur_stn, has_focus) {
           mutate(Parameter = gsub("D o", "DO", Parameter)) %>%
           mutate(Parameter = gsub("P h", "pH", Parameter))
 
-        datatable(df, selection = "none", options = list(paging = F))
-      },
-        server = F)
+        datatable(
+          df,
+          selection = "none",
+          rownames = F,
+          options = list(
+            paging = F,
+            scrollX = T,
+            scrollCollapse = T
+          )
+        )
+      }, server = F)
 
       ## downloadStnYear ----
       output$downloadStnYear <- downloadHandler(
@@ -250,7 +380,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
 
       # Return values ----
-      return(reactive(list(year = input$year)))
+      # return(reactive(list(year = input$year)))
     }
   )
 }

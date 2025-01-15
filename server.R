@@ -224,9 +224,9 @@ server <- function(input, output, session) {
   })
 
   ## screenshot => download pdf ----
-  observeEvent(stns_avail(), {
-    if (stns_avail()) enable("screenshot") else disable("screenshot")
-  })
+  # observeEvent(stns_avail(), {
+  #   if (stns_avail()) enable("screenshot") else disable("screenshot")
+  # })
 
   #' use html2canvas to screenshot the main page content
   #' have to remove the map div for now because leaflet is using svg instead of canvas

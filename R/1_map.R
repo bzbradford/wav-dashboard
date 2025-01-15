@@ -113,6 +113,10 @@ mapServer <- function(cur_stn, main_session) {
         rendered_layers = list()
       )
 
+      observe({
+        rv$selected_stn <- cur_stn()
+      })
+
       ## avail_stns ----
       avail_stns <- reactive({
         types <- input$stn_types

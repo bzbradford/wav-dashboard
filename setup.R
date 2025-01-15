@@ -783,14 +783,14 @@ stn_attr_totals <- stn_fieldwork_counts %>%
 # summary(stn_attr_totals)
 
 stn_color_opts <- tribble(
-  ~label,            ~value,          ~domain,   ~rev, ~pal,
-  "Years of data",    "n_years",      c(0, 10),  F,    "viridis",
-  # "Fieldwork events", "n_fieldwork",  c(0, 100), F,    "viridis",
-  "Mean water temp (°C)",       "water_temp",   c(10, 30), T,    "RdYlBu",
-  "Mean dissolved oxygen (mg/L)", "d_o",          c(3, 12),  F,    "RdYlBu",
-  "Mean transparency (cm)",     "transparency", c(0, 120), F,    "BrBG",
-  "Mean streamflow (cfs)",       "streamflow",   c(0, 50),  T,    "RdBu",
-  "Mean phosphorus (mg/L)", "tp",           c(0, .25), T,    "Spectral",
+  ~label, ~value, ~domain, ~rev, ~pal,
+  "Years of data", "n_years", c(0, 10), F, "viridis",
+  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
+  "Mean water temp (°C)", "water_temp", c(5, 25), T, "RdYlBu",
+  "Mean dissolved oxygen (mg/L)", "d_o", c(3, 12), F, "RdYlBu",
+  "Mean transparency (cm)", "transparency", c(0, 120), F, "BrBG",
+  "Mean streamflow (cfs)", "streamflow", c(0, 50), T, "RdBu",
+  "Mean phosphorus (mg/L)", "tp", c(0, .25), T, "Spectral",
 )
 
 stn_color_choices <- append(
