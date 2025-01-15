@@ -62,6 +62,22 @@ baselineDataServer <- function(cur_stn, has_focus) {
         nrow(selected_data()) > 0
       })
 
+      ## trend_value_choices ----
+      trend_value_choices <- reactive({
+        req(req(input$plot_type) == "trend")
+        req(selected_data_ready())
+
+        opts <- OPTS$baseline_plot_opts
+
+        df <- selected_data() %>%
+          pivot_longer(all_of(opts$col), names_to = "col") %>%
+          drop_na(value) %>%
+          summarize(n = n(), .by = col) %>%
+          left_join(opts, join_by(col))
+
+        setNames(df$col, df$name)
+      })
+
 
       # MAIN UI ----
 
@@ -148,17 +164,10 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
       ## trendValueUI ----
       output$trendValueUI <- renderUI({
-        type <- req(input$plot_type)
-        req(type == "trend")
+        req(req(input$plot_type) == "trend")
         req(selected_data_ready())
 
-        opts <- OPTS$baseline_plot_opts
-        df <- selected_data() %>%
-          pivot_longer(all_of(opts$col), names_to = "col") %>%
-          drop_na(value) %>%
-          summarize(n = n(), .by = col) %>%
-          left_join(opts, join_by(col))
-        choices <- setNames(df$col, df$name)
+        choices <- trend_value_choices()
 
         radioGroupButtons(
           inputId = ns("trend_value"),
@@ -197,6 +206,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
             )
           },
           "trend" = {
+            n_vars <- length(trend_value_choices())
             tagList(
               div(
                 id = "baseline-plot-container",
@@ -205,7 +215,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
               ),
               uiOutput(ns("plotCaptionUI")),
               h4("Observation heatmap"),
-              plotlyOutput(ns("ribbonPlot"), height = 130),
+              plotlyOutput(ns("ribbonPlot"), height = 20 + 15 * n_vars),
             )
           }
         )

@@ -28,7 +28,7 @@ makeBaselineBoxplot <- function(.data, col, type = c("month", "year")) {
     add_trace(
       x = ~x,
       y = ~value,
-      name = "Boxplot",
+      name = "Summary",
       type = "box",
       boxpoints = F,
       boxmean = T,

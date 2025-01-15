@@ -61,7 +61,7 @@ OPTS <- lst(
   ),
 
   baseline_trend_captions = list(
-    "scatter" = "All measurements are shown as points above, with a best-fit linear model and a smoothed trend line (LOESS) shown to illustrate any trends in the data over time. Click on an item in the legend to hide or show it on the plot.",
+    "scatter" = "All measurements are shown as points above, with a best-fit linear model and a smoothed trend line shown to illustrate any trends in the data over time. Click on an item in the legend to hide or show it on the plot.",
     "box_month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points. Change the grouping options and the measurement type using the buttons above the plot.",
     "box_year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points. Change the grouping options and the measurement type using the buttons above the plot."
   ),

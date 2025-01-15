@@ -37,6 +37,7 @@ makeBaselineRibbonPlot <- function(.data) {
     ) %>%
     layout(
       showlegend = F,
+      margin = list(t = 0),
       yaxis = list(
         title = NA,
         automargin = T,
