@@ -1,6 +1,7 @@
 **Jan 2025**
 
 * Add trend plots to the baseline tab. These include a scatterplot by date and boxplots by month or year, and an observation heatmap plot.
+* Add interpretive ranges to the baseline trend plots.
 
 **Dec 2024**
 

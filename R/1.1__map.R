@@ -104,13 +104,12 @@ mapServer <- function(cur_stn, main_session) {
       # Reactive vals ----
 
       rv <- reactiveValues(
-        user_loc_shown = FALSE,
-
         # holds the last selected station in case cur_stn() becomes blocked
         selected_stn = NULL,
-
         # tracks which map layers have been loaded
-        rendered_layers = list()
+        rendered_layers = list(),
+        # holds lat/lng for user location
+        user_loc_shown = FALSE
       )
 
       observe({
@@ -246,13 +245,31 @@ mapServer <- function(cur_stn, main_session) {
       # Render initial map ----
 
       output$map <- renderLeaflet({
+        # map buttons
+        btn1 <- easyButton(
+          position = "topleft",
+          icon = "fa-location",
+          title = "Show my location on the map",
+          onClick = JS("(btn, map) => { Shiny.setInputValue('map-map_btn', 'user_loc', {priority: 'event'}); }")
+        )
+
+        btn2 <- easyButton(
+          position = "topleft",
+          icon = "fa-location-pin",
+          title = "Zoom to selected site",
+          onClick = JS("(btn, map) => { Shiny.setInputValue('map-map_btn', 'zoom_site', {priority: 'event'}); }")
+        )
+
+        btn3 <- easyButton(
+          position = "topleft",
+          icon = "fa-globe",
+          title = "Reset map view",
+          onClick = JS("(btn, map) => { Shiny.setInputValue('map-map_btn', 'zoom_extent', {priority: 'event'}); }")
+        )
+
+        # render map
         leaflet() %>%
-          fitBounds(
-            lat1 = 42.4,
-            lat2 = 47.1,
-            lng1 = -92.9,
-            lng2 = -86.8
-          ) %>%
+          fitBounds(lat1 = 42.4, lat2 = 47.1, lng1 = -92.9, lng2 = -86.8) %>%
           addBasemaps() %>%
           addMapPane("counties", 410) %>%
           addMapPane("cur_huc", 420) %>%
@@ -269,35 +286,7 @@ mapServer <- function(cur_stn, main_session) {
             overlayGroups = unlist(layers, use.names = F),
             options = layersControlOptions(collapsed = F)
           ) %>%
-          addFullscreenControl(pseudoFullscreen = T) %>%
-          addEasyButtonBar(
-            easyButton(
-              position = "topleft",
-              icon = "fa-crosshairs",
-              title = "Show my location on the map",
-              onClick = JS("
-                function(btn, map) {
-                  map.locate({
-                    setView: true,
-                    enableHighAccuracy: false,
-                    maxZoom: 12
-                  }).on('locationfound', (event) => {
-                    Shiny.setInputValue('map-user_loc', event.latlng, {priority: 'event'})
-                  })
-                }
-              ")
-            ),
-            easyButton(
-              position = "topleft",
-              icon = "fa-globe",
-              title = "Reset map view",
-              onClick = JS("
-                function(btn, map) {
-                  map.fitBounds([[47.1, -86.8], [42.4, -92.9]])
-                }
-              ")
-            )
-          ) %>%
+          addEasyButtonBar(btn1, btn2, btn3) %>%
           suspendScroll(
             sleepTime = 0,
             wakeTime = 1000,
@@ -315,7 +304,9 @@ mapServer <- function(cur_stn, main_session) {
             fillColor = ~ colorFactor("Dark2", counties$DnrRegion)(DnrRegion),
             weight = 1,
             options = pathOptions(pane = "counties")
-          )
+          ) %>%
+          # assign leaflet map object to global var 'map'
+          htmlwidgets::onRender("() => { map = this; }")
       })
 
       ## Hide the legend ----
@@ -380,6 +371,7 @@ mapServer <- function(cur_stn, main_session) {
         req(nrow(stns) > 0)
 
         if (color_by == "stn_type") {
+          # set station colors
           stns <- stns %>%
             mutate(color = case_when(
               nutrient_stn & ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
@@ -387,10 +379,17 @@ mapServer <- function(cur_stn, main_session) {
               T ~ stn_colors$baseline
             )) %>%
             arrange(max_fw_date)
+
+          # no legend for station types
+          map %>% removeControl("legend")
         } else {
+          # prepare color palette
           opts <- filter(stn_color_opts, value == color_by)
           domain <- unlist(opts$domain)
           pal <- colorNumeric(opts$pal, domain, reverse = opts$rev)
+          pal_rev <- colorNumeric(opts$pal, domain, reverse = !opts$rev)
+
+          # select stations, add color
           stns <- stns %>%
             left_join(stn_attr_totals, join_by(station_id)) %>%
             rename(attr = all_of(color_by)) %>%
@@ -398,8 +397,20 @@ mapServer <- function(cur_stn, main_session) {
             mutate(color = pal(attr_clamped)) %>%
             arrange(!is.na(attr), attr) %>%
             mutate(map_label = lapply(paste0(map_label, "<br>", opts$label, ": ", attr), shiny::HTML))
+
+          # add legend
+          map %>%
+            addLegend(
+              layerId = "legend",
+              position = "bottomright",
+              pal = pal_rev,
+              bins = 5,
+              values = domain,
+              labFormat = labelFormat(transform = function(x) sort(x, TRUE))
+            )
         }
 
+        # add stations to map
         map %>%
           addCircleMarkers(
             data = stns,
@@ -414,6 +425,7 @@ mapServer <- function(cur_stn, main_session) {
             options = markerOptions(pane = "stations", sticky = F)
           )
       })
+
 
       ## Map markers/clusters ----
       # update map pins/clusters on available stations change
@@ -457,7 +469,6 @@ mapServer <- function(cur_stn, main_session) {
             group = "cur_point"
           )
 
-        # create hollow station icon if coloring by variable
         if (input$stn_color_by == "stn_type") {
           map %>%
             addCircleMarkers(
@@ -476,6 +487,7 @@ mapServer <- function(cur_stn, main_session) {
               fillOpacity = 1
             )
         } else {
+          # create hollow station icon if coloring by variable
           map %>%
             addCircleMarkers(
               data = stn,
@@ -541,98 +553,16 @@ mapServer <- function(cur_stn, main_session) {
       })
 
 
-
-
-
       # Event reactives ----
 
-      ## user_loc ----
-      # shows a house icon and displays watershed info for the user's location
-      observeEvent(input$user_loc, {
-        if (rv$user_loc_shown) return()
-        map <- leafletProxy("map")
-        loc <- input$user_loc %>% lapply(\(x) round(x, 4))
-        pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
-          st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = F)
-
-        # TEST
-        # message("==> huc12 crs: ", st_crs(huc12)$proj4string)
-        # message("==> user loc crs: ", st_crs(pt)$proj4string)
-
-        # TODO: st_transform used here to avoid error due to old PROJ version on server
-        suppressWarnings({
-          watershed <- st_intersection(huc12, st_transform(pt, st_crs(huc12)))
-        })
-
-        user_huc12 <- filter(huc12, Huc12Name == watershed$Huc12Name)
-        user_huc10 <- filter(huc10, Huc10Name == watershed$Huc10Name)
-        user_huc8 <- filter(huc8, Huc8Name == watershed$Huc8Name)
-        label <- glue::glue("
-          <b>My location ({pt$lat}, {pt$lng})</b><br>
-          <i>Click for more information on your watershed</i>
-        ")
-        popup <- glue::glue("
-          <b>My location ({pt$lat}, {pt$lng})</b><br>
-          <i>Your watershed:</i><br>
-          <div style='padding-left: 1em;'>
-            Major basin: {watershed$MajorBasin}<br>
-            HUC8 Subbasin: {watershed$Huc8Name}<br>
-            HUC10 Watershed: {watershed$Huc10Name}<br>
-            HUC12 Subwatershed: {watershed$Huc12Name}
-          </div>
-        ")
-        popup <- paste0(popup, "<br>
-          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-toggle_watersheds', false, {priority: 'event'})\">Toggle watersheds on map</a> |
-          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-remove_user_loc', true, {priority: 'event'})\">Hide my location</a>
-        ")
-        icon <- makeAwesomeIcon(icon = "home", markerColor = "#c5050c", library = "ion")
-        map %>%
-          addAwesomeMarkers(
-            data = pt,
-            label = HTML(label),
-            popup = HTML(popup),
-            icon = icon,
-            group = "user_loc"
-          ) %>%
-          addPolygons(
-            data = user_huc8,
-            group = layers$huc8,
-            layerId = "user_watershed8",
-            weight = 2,
-            color = "#c5050c",
-            fillOpacity = 0.1,
-            options = pathOptions(pane = "cur_huc")
-          ) %>%
-          addPolygons(
-            data = user_huc10,
-            group = layers$huc10,
-            layerId = "user_watershed10",
-            weight = 2,
-            color = "#c5050c",
-            fillOpacity = 0.1,
-            options = pathOptions(pane = "cur_huc")
-          ) %>%
-          addPolygons(
-            data = user_huc12,
-            group = layers$huc12,
-            layerId = "user_watershed12",
-            weight = 2,
-            color = "#c5050c",
-            fillOpacity = 0.1,
-            options = pathOptions(pane = "cur_huc")
-          )
-        rv$user_loc_shown <- TRUE
-      })
-
-      ## remove_user_loc ----
-      observeEvent(input$remove_user_loc, {
-        map <- leafletProxy("map")
-        map %>%
-          clearGroup("user_loc") %>%
-          removeShape("user_watershed8") %>%
-          removeShape("user_watershed10") %>%
-          removeShape("user_watershed12")
-        rv$user_loc_shown <- FALSE
+      ## Handle map button clicks ----
+      observe({
+        switch(
+          req(input$map_btn),
+          user_loc = getUserLoc(),
+          zoom_site = zoomToSite(12),
+          zoom_extent = zoomAllSites()
+        )
       })
 
       ## Zoom events ----
@@ -644,6 +574,27 @@ mapServer <- function(cur_stn, main_session) {
             lng = stn$longitude,
             zoom = z
           )
+      }
+
+      zoomAllSites <- function() {
+        map <- leafletProxy("map")
+        if (any_stns()) {
+          fitBounds(
+            map,
+            lat1 = min(avail_pts()$latitude),
+            lat2 = max(avail_pts()$latitude),
+            lng1 = min(avail_pts()$longitude),
+            lng2 = max(avail_pts()$longitude)
+          )
+        } else {
+          fitBounds(
+            map,
+            lat1 = min(all_pts$latitude),
+            lat2 = max(all_pts$latitude),
+            lng1 = min(all_pts$longitude),
+            lng2 = max(all_pts$longitude)
+          )
+        }
       }
 
       ### cur_stn ----
@@ -664,23 +615,7 @@ mapServer <- function(cur_stn, main_session) {
 
       ### zoom_all_btn ----
       observeEvent(input$zoom_all_btn, {
-        if (any_stns()) {
-          leafletProxy(ns("map")) %>%
-            fitBounds(
-              lat1 = min(avail_pts()$latitude),
-              lat2 = max(avail_pts()$latitude),
-              lng1 = min(avail_pts()$longitude),
-              lng2 = max(avail_pts()$longitude)
-            )
-        } else {
-          leafletProxy(ns("map")) %>%
-            fitBounds(
-              lat1 = min(all_pts$latitude),
-              lat2 = max(all_pts$latitude),
-              lng1 = min(all_pts$longitude),
-              lng2 = max(all_pts$longitude)
-            )
-        }
+        zoomAllSites()
       })
 
       ## show_watersheds ----
@@ -714,6 +649,111 @@ mapServer <- function(cur_stn, main_session) {
             showGroup(layers$huc12)
         }
       })
+
+
+      ## Handle user location ----
+
+      getUserLoc <- function() {
+        runjs("
+          map.getMap().locate({ setView: false }).on('locationfound', (event) => {
+            Shiny.setInputValue('map-user_loc', event.latlng, {priority: 'event'})
+          })
+        ")
+      }
+
+      # shows a house icon and displays watershed info for the user's location
+      observeEvent(input$user_loc, {
+        if (rv$user_loc_shown) return()
+
+        map <- leafletProxy("map")
+        loc <- input$user_loc %>% lapply(\(x) round(x, 4))
+        pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
+          st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = F)
+
+        # TEST
+        # message("==> huc12 crs: ", st_crs(huc12)$proj4string)
+        # message("==> user loc crs: ", st_crs(pt)$proj4string)
+
+        # TODO: st_transform used here to avoid error due to old PROJ version on server
+        suppressWarnings({
+          watershed <- st_intersection(huc12, st_transform(pt, st_crs(huc12)))
+        })
+
+        # map info for user loc
+        label <- str_glue("
+          <b>My location ({pt$lat}, {pt$lng})</b><br>
+          <i>Click for more information on your watershed</i>
+        ")
+        popup <- str_glue("
+          <b>My location ({pt$lat}, {pt$lng})</b><br>
+          <i>Your watershed:</i><br>
+          <div style='padding-left: 1em;'>
+            Major basin: {watershed$MajorBasin}<br>
+            HUC8 Subbasin: {watershed$Huc8Name}<br>
+            HUC10 Watershed: {watershed$Huc10Name}<br>
+            HUC12 Subwatershed: {watershed$Huc12Name}
+          </div>
+        ")
+        popup <- paste0(popup, "<br>
+          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-toggle_watersheds', false, {priority: 'event'})\">Toggle watersheds on map</a> |
+          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-remove_user_loc', true, {priority: 'event'})\">Hide my location</a>
+        ")
+        icon <- makeAwesomeIcon(icon = "home", markerColor = "#c5050c", library = "ion")
+
+        # identify local watersheds
+        user_huc12 <- filter(huc12, Huc12Name == watershed$Huc12Name)
+        user_huc10 <- filter(huc10, Huc10Name == watershed$Huc10Name)
+        user_huc8 <- filter(huc8, Huc8Name == watershed$Huc8Name)
+
+        # add to map
+        map %>%
+          addAwesomeMarkers(
+            data = pt,
+            label = HTML(label),
+            popup = HTML(popup),
+            icon = icon,
+            group = "user_loc"
+          ) %>%
+          addPolygons(
+            data = user_huc8,
+            group = layers$huc8,
+            layerId = "user_watershed8",
+            weight = 2, color = "#c5050c", fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          ) %>%
+          addPolygons(
+            data = user_huc10,
+            group = layers$huc10,
+            layerId = "user_watershed10",
+            weight = 2, color = "#c5050c", fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          ) %>%
+          addPolygons(
+            data = user_huc12,
+            group = layers$huc12,
+            layerId = "user_watershed12",
+            weight = 2, color = "#c5050c", fillOpacity = 0.1,
+            options = pathOptions(pane = "cur_huc")
+          ) %>%
+          setView(
+            lat = loc$lat,
+            lng = loc$lng,
+            zoom = 12
+          )
+
+        rv$user_loc_shown <- TRUE
+      })
+
+      ## remove_user_loc ----
+      observeEvent(input$remove_user_loc, {
+        leafletProxy("map") %>%
+          clearGroup("user_loc") %>%
+          removeShape("user_watershed8") %>%
+          removeShape("user_watershed10") %>%
+          removeShape("user_watershed12")
+        rv$user_loc_shown <- FALSE
+      })
+
 
       # Return values ----
       # return the clicked point to the main session

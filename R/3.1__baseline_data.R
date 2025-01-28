@@ -73,7 +73,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
           pivot_longer(all_of(opts$col), names_to = "col") %>%
           drop_na(value) %>%
           summarize(n = n(), .by = col) %>%
-          left_join(opts, join_by(col))
+          left_join(opts, join_by(col)) %>%
+          mutate(name = factor(name, levels = opts$name)) %>%
+          arrange(name)
 
         setNames(df$col, df$name)
       })
@@ -171,7 +173,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
         radioGroupButtons(
           inputId = ns("trend_value"),
-          label = "Measurement",
+          label = "Parameter",
           size = "sm",
           choices = choices,
           selected = input$trend_value %||% first(choices)
@@ -214,8 +216,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
                 plotlyOutput(ns("trendPlot"))
               ),
               uiOutput(ns("plotCaptionUI")),
-              h4("Observation heatmap"),
+              h4("Station observation heatmap"),
               plotlyOutput(ns("ribbonPlot"), height = 20 + 15 * n_vars),
+              div(class = "plot-caption", "The observation heatmap shows which parameters have been measured for this station since 2015. Each column represents one month of data.")
             )
           }
         )
@@ -235,12 +238,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         type <- req(input$trend_type)
         value_col <- req(input$trend_value)
         df <- cur_data()
-        switch(
-          type,
-          "scatter" = makeBaselineScatterplot(df, value_col),
-          "box_month" = makeBaselineBoxplot(df, value_col, "month"),
-          "box_year" = makeBaselineBoxplot(df, value_col, "year")
-        )
+        makeBaselineTrendPlot(df, value_col, type)
       })
 
       ## ribbonPlot ----

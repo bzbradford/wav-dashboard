@@ -24,6 +24,9 @@ makeBaselineRibbonPlot <- function(.data) {
       .by = measure
     )
 
+  # param order for y axis
+  yorder <- rev(intersect(opts$name, unique(df$name)))
+
   plot_ly(df) %>%
     add_trace(
       type = "heatmap",
@@ -44,7 +47,9 @@ makeBaselineRibbonPlot <- function(.data) {
         showgrid = F,
         fixedrange = T,
         tickmode = "linear",
-        dtick = 1
+        dtick = 1,
+        categoryorder = "array",
+        categoryarray = yorder
       ),
       xaxis = list(
         title = NA,

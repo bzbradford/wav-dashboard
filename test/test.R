@@ -1255,3 +1255,31 @@ plot_ly() %>%
       range = yranges$cfs,
       fixedrange = T)) %>%
   config(displayModeBar = F)
+
+
+
+
+
+plot_ly(
+  x = c("giraffes", "orangutans", "monkeys"),
+  y = c(20, 14, 23),
+  name = "SF Zoo",
+  type = "bar") %>%
+  layout(xaxis = list(categoryorder = "array",
+    categoryarray = c("giraffes",
+      "orangutans",
+      "monkeys")))
+
+OPTS$baseline_plot_opts$name
+
+plot_ly(
+  x = c("giraffes", "orangutans", "monkeys"),
+  y = c(20, 14, 23),
+  name = "SF Zoo",
+  type = "bar") %>%
+  layout(
+    xaxis = list(
+      categoryorder = "array",
+      categoryarray = OPTS$baseline_plot_opts$name
+    )
+  )

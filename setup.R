@@ -28,7 +28,6 @@ library(janitor)
 library(sf)
 library(shiny)
 library(shinycssloaders)
-library(glue)
 
 
 # Clear environment ----
@@ -172,7 +171,7 @@ withSpinnerProxy <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
-buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
+buildPlotDlBtn <- function(id, filename, text = "Download plot") {
   require(shiny)
   p(
     class = "plot-caption",
@@ -182,7 +181,7 @@ buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
       class = "btn btn-default btn-sm",
       style = "cursor: pointer;",
       onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
-      text
+      icon("save"), " ", text
     )
   )
 }
@@ -406,7 +405,7 @@ buildReportSummary <- function(params) {
     pull(text) %>%
     combine_words()
 
-  msg <- glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
+  msg <- str_glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
 
   if (has$baseline) {
     baseline_counts <- data$baseline %>%
@@ -485,7 +484,7 @@ buildReportFieldworkComments <- function(baseline) {
     mutate(across(where(is.character), xtable::sanitize)) %>%
     rowwise() %>%
     mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
-    mutate(fieldwork_desc = glue(
+    mutate(fieldwork_desc = str_glue(
       "* **{format(date, '%b %d, %Y')}** - ",
       "SWIMS fieldwork number: {fsn}. ",
       if_else(is.na(wx), "", " Weather: {wx}."),
@@ -700,7 +699,7 @@ all_pts <- station_pts %>%
   mutate(
     station_id = as.numeric(station_id),
     label = paste(station_id, station_name, sep = ": "),
-    map_label = lapply(glue::glue("
+    map_label = lapply(str_glue("
       <b>{data_sources} Monitoring Station</b><br>
       Station ID: {station_id}<br>
       Name: {str_trunc(station_name, 50)}<br>
