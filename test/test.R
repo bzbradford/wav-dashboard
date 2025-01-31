@@ -650,3 +650,636 @@ tibble(date = gap_starts$date + gap_starts$dateskip / 2)
 
 test_therm %>%
   bind_rows(tibble(date = gap_starts$date + gap_starts$dateskip / 2))
+
+
+
+
+
+# New baseline plot -------------------------------------------------------
+
+cur_baseline_data <- baseline_data %>% filter(station_id == sample(station_id, 1))
+cur_baseline_data <- baseline_data %>% filter(station_id == 10040742)
+cur_baseline_data <- baseline_data %>% filter(station_id == 10037514)
+
+
+df <- cur_baseline_data
+
+# df %>%
+#   pivot_longer(
+#     c(water_temp, air_temp, d_o, transparency, streamflow, ph, specific_cond),
+#     names_to = "measure"
+#   ) %>%
+#   mutate(period = if_else(between(month, 5, 10), month - 4, 0)) %>%
+#   select(year, period, measure, value) %>%
+#   complete(year, period, measure) %>%
+#   mutate(date = factor(interaction(year, period))) %>%
+#   mutate(scaled = scales::rescale(value), .by = measure) %>%
+#   ggplot(aes(x = date, y = measure, fill = scaled)) +
+#   geom_tile(color = "black", lwd = .1) +
+#   coord_equal() +
+#   scale_fill_viridis_c(na.value = "grey95")
+
+df %>%
+  mutate(
+    year = factor(year, levels = 2015:year(Sys.Date())),
+    month = factor(month, levels = 1:12)
+  ) %>%
+  complete(year, month) %>%
+  pivot_longer(
+    c(water_temp, air_temp, d_o, transparency, streamflow, ph, specific_cond),
+    names_to = "measure"
+  ) %>%
+  select(year, month, measure, value) %>%
+  mutate(date = as_date(paste(year, month, 1, sep = "-"))) %>%
+  filter(date < today()) %>%
+  summarize(value = mean(value, na.rm = T), .by = c(date, measure)) %>%
+  filter(!all(is.na(value)), .by = measure) %>%
+  left_join(baseline_plot_opts, join_by(measure == col)) %>%
+  mutate(scaled = scales::rescale(value), .by = measure) %>%
+  plot_ly() %>%
+  add_trace(
+    type = "heatmap",
+    x = ~date,
+    y = ~name,
+    z = ~scaled,
+    text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+    showscale = F,
+    hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
+  ) %>%
+  layout(
+    showlegend = F,
+    yaxis = list(
+      title = NA,
+      automargin = T,
+      showgrid = F,
+      fixedrange = T
+    ),
+    xaxis = list(
+      title = NA,
+      automargin = T,
+      showgrid = F,
+      fixedrange = T
+    )
+  ) %>%
+  config(displayModeBar = F)
+# %>%
+#   layout(yaxis = list(scaleanchor = "x"))
+
+
+# Baseline ribbon plot
+
+makeBaselineRibbonPlot <- function(.data) {
+  .data %>%
+    mutate(
+      year = factor(year, levels = 2015:year(Sys.Date())),
+      month = factor(month, levels = 1:12)
+    ) %>%
+    complete(year, month) %>%
+    pivot_longer(
+      c(water_temp, air_temp, d_o, transparency, streamflow, ph, specific_cond),
+      names_to = "measure"
+    ) %>%
+    select(year, month, measure, value) %>%
+    mutate(date = as_date(paste(year, month, 1, sep = "-"))) %>%
+    filter(date < today()) %>%
+    summarize(value = mean(value, na.rm = T), .by = c(date, measure)) %>%
+    filter(!all(is.na(value)), .by = measure) %>%
+    left_join(baseline_plot_opts, join_by(measure == col)) %>%
+    mutate(scaled = scales::rescale(value), .by = measure) %>%
+    plot_ly() %>%
+    add_trace(
+      type = "heatmap",
+      x = ~date,
+      y = ~name,
+      z = ~scaled,
+      text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+      showscale = F,
+      hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
+    ) %>%
+    layout(
+      showlegend = F,
+      yaxis = list(
+        title = NA,
+        automargin = T,
+        showgrid = F,
+        fixedrange = T
+      ),
+      xaxis = list(
+        title = NA,
+        automargin = T,
+        showgrid = F,
+        fixedrange = T
+      )
+    ) %>%
+    config(displayModeBar = F)
+}
+
+
+
+df %>%
+  mutate(
+    year = factor(year, levels = 2015:year(Sys.Date())),
+    month = factor(month, levels = 1:12)
+  ) %>%
+  complete(year, month) %>%
+  pivot_longer(
+    c(water_temp, air_temp, d_o, transparency, streamflow, ph, specific_cond),
+    names_to = "measure"
+  ) %>%
+  select(year, month, measure, value) %>%
+  mutate(date = as_date(paste(year, month, 1, sep = "-"))) %>%
+  filter(date < today()) %>%
+  summarize(value = mean(value, na.rm = T), .by = c(date, measure)) %>%
+  filter(!all(is.na(value)), .by = measure) %>%
+  left_join(baseline_plot_opts, join_by(measure == col)) %>%
+  mutate(
+    scaled = scales::rescale(value, from = c(min(c(value, range_min), na.rm = T), max(c(value, range_max), na.rm = T))),
+    .by = measure
+  )
+
+
+
+
+month.abb
+
+makeBaselineMonthlyPlot <- function(.data, col) {
+  df <- .data %>%
+    select(month, all_of(c(value = col))) %>%
+    drop_na(value)
+  plt <-
+    plot_ly(
+      type = "box",
+      boxpoints = "all",
+      jitter = 0,
+      pointpos = 0
+    ) %>%
+    layout(
+      title = list(text = col),
+      hovermode = "x unified",
+      coloraxis = list(visible = F)
+    )
+  for (m in 5:10) {
+    plt <- add_trace(
+      plt,
+      data = filter(df, month == m),
+      name = month.abb[m],
+      y = ~value,
+      color = ~median(value)
+    )
+  }
+  plt
+}
+
+plotly_monthly(df, "air_temp")
+plotly_monthly(df, "transparency")
+
+
+
+makeBaselineScatterplot <- function(.data, col) {
+  df <- .data %>%
+    select(date, all_of(c(value = col))) %>%
+    drop_na(value)
+
+  opts <- baseline_plot_opts %>% filter(col == !!col)
+
+  df %>%
+    plot_ly(
+      x = ~date,
+      y = ~value,
+      type = "scatter",
+      mode = "markers",
+      marker = list(color = opts$color)
+    ) %>%
+    layout(
+      title = list(text = opts$name),
+      xaxis = list(
+        title = NA,
+        automargin = T,
+        fixedrange = T
+      ),
+      yaxis = list(
+        title = opts$label,
+        automargin = T,
+        fixedrange = T
+      )
+    )
+}
+
+makeBaselineScatterplot(df, "air_temp")
+makeBaselineScatterplot(df, "transparency")
+
+makeBaselineBoxplot <- function(.data, opts) {
+  plot_ly(.data) %>%
+    add_trace(
+      x = ~x,
+      y = ~value,
+      name = "Boxplot",
+      type = "box",
+      boxpoints = F,
+      boxmean = T,
+      hoverinfo = list(extras = "none"),
+      line = list(color = alpha(opts$color, .8)),
+      fillcolor = alpha(opts$color, .25)
+    ) %>%
+    add_trace(
+      x = ~x,
+      y = ~value,
+      name = "Observation",
+      type = "scatter",
+      mode = "markers",
+      hoverinfo = list(extras = "none"),
+      marker = list(color = opts$color),
+      text = ~paste(month_name, year),
+      hovertemplate = paste("%{text}: %{y}", opts$unit)
+    ) %>%
+    layout(
+      title = opts$name,
+      hovermode = "unified",
+      showlegend = F,
+      xaxis = list(
+        title = NA,
+        automargin = T,
+        fixedrange = T
+      ),
+      yaxis = list(
+        title = opts$label,
+        automargin = T,
+        fixedrange = T,
+        range = as.vector(opts$domain)
+      )
+    )
+}
+
+makeBaselineMonthlyPlot <- function(.data, col) {
+  df <- .data %>%
+    select(year, month, all_of(c(value = col))) %>%
+    drop_na(value) %>%
+    mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
+    mutate(x = month_name)
+  opts <- baseline_plot_opts %>% filter(col == !!col)
+  makeBaselineBoxplot(df, opts)
+}
+
+# makeBaselineMonthlyPlot <- function(.data, col) {
+#   df <- .data %>%
+#     select(year, month, all_of(c(value = col))) %>%
+#     drop_na(value) %>%
+#     mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T))
+#
+#   opts <- baseline_plot_opts %>% filter(col == !!col)
+#
+#   # means <- df %>%
+#   #   summarize(
+#   #     min = min(value),
+#   #     max = max(value),
+#   #     mean = mean(value),
+#   #     n = n(),
+#   #     .by = month_name
+#   #   )
+#
+#   df %>%
+#     plot_ly(
+#       x = ~month_name,
+#       y = ~value
+#     ) %>%
+#     add_trace(
+#       name = "",
+#       type = "box",
+#       boxpoints = F,
+#       boxmean = T,
+#       line = list(color = alpha(opts$color, .75)),
+#       fillcolor = alpha(opts$color, .25)
+#     ) %>%
+#     add_trace(
+#       name = "",
+#       type = "scatter",
+#       mode = "markers",
+#       marker = list(color = opts$color),
+#       text = ~paste(month_name, year),
+#       hovertemplate = paste("%{text}: %{y}", opts$unit)
+#     ) %>%
+#     # add_trace(
+#     #   name = "",
+#     #   type = "scatter",
+#     #   mode = "lines+markers",
+#     #   data = means,
+#     #   y = ~mean,
+#     #   line = list(color = "purple"),
+#     #   marker = list(color = "purple"),
+#     #   hoverinfo = "skip"
+#     # ) %>%
+#     layout(
+#       title = opts$name,
+#       hovermode = "unified",
+#       showlegend = F,
+#       xaxis = list(
+#         title = NA,
+#         automargin = T,
+#         fixedrange = T
+#       ),
+#       yaxis = list(
+#         title = opts$label,
+#         automargin = T,
+#         fixedrange = T,
+#         range = as.vector(opts$domain)
+#       )
+#     )
+# }
+
+makeBaselineMonthlyPlot(df, "water_temp")
+makeBaselineMonthlyPlot(df, "air_temp")
+makeBaselineMonthlyPlot(df, "transparency")
+makeBaselineMonthlyPlot(df, "streamflow")
+
+
+
+makeBaselineAnnualPlot <- function(.data, col) {
+  df <- .data %>%
+    select(year, month, all_of(c(value = col))) %>%
+    drop_na(value) %>%
+    mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
+    mutate(x = factor(year, ordered = T))
+  opts <- baseline_plot_opts %>% filter(col == !!col)
+  makeBaselineBoxplot(df, opts)
+}
+
+makeBaselineAnnualPlot(df, "air_temp")
+makeBaselineAnnualPlot(df, "water_temp")
+makeBaselineAnnualPlot(df, "transparency")
+makeBaselineAnnualPlot(df, "streamflow")
+
+
+cur_baseline_data %>%
+  pivot_longer(all_of(baseline_plot_opts$col), names_to = "col") %>%
+  drop_na(value) %>%
+  summarize(n = n(), .by = col) %>%
+  left_join(baseline_plot_opts, join_by(col))
+
+
+
+
+
+
+df %>%
+  select(month, value = air_temp) %>%
+  drop_na(value) %>%
+  mutate(mean = mean(value), .by = month) %>%
+  mutate(color = colorNumeric("viridis", mean, reverse = T)(mean)) %>%
+  mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
+  plot_ly(x = ~month_name, y = ~value, type = "box", boxpoints = "all", jitter = 0, pointpos = 0) %>%
+  layout(hovermode = "x unified")
+
+
+
+fig <- plot_ly(ggplot2::diamonds, x = ~cut, y = ~price, color = ~clarity, type = "box")
+fig <- fig %>% layout(boxmode = "group")
+str(ggplot2::diamonds)
+fig
+
+
+plot_ly(type = "box") %>%
+  add_trace(data = filter(df, month == 5), name = "May", y = ~water_temp) %>%
+  add_trace(data = filter(df, month == 6), name = "Jun", y = ~water_temp) %>%
+  add_trace(data = filter(df, month == 7), name = "Jul", y = ~water_temp) %>%
+  add_trace(data = filter(df, month == 8), name = "Aug", y = ~water_temp) %>%
+  add_trace(data = filter(df, month == 9), name = "Sep", y = ~water_temp) %>%
+  add_trace(data = filter(df, month == 10), name = "Oct", y = ~water_temp)
+
+
+
+baseline_plot_opts$col
+
+df %>%
+  mutate(
+    year = factor(year, levels = min(year):max(year)),
+    month = factor(month, levels = 1:12)
+  ) %>%
+  complete(year, month) %>%
+  select(year, month, all_of(baseline_plot_opts$col)) %>%
+  mutate(date = as_date(paste(year, month, 15, sep = "-"))) %>%
+  summarize(
+    across(all_of(baseline_plot_opts$col), ~mean(.x, na.rm = T)),
+    .by = date
+  ) %>%
+  # mutate(scaled = scales::rescale(value), .by = measure) %>%
+  plot_ly() %>%
+  add_trace(
+    type = "heatmap",
+    x = ~date,
+    z = ~water_temp,
+    y = "Water temperature",
+    showscale = F
+  ) %>%
+  add_trace(
+    type = "heatmap",
+    x = ~date,
+    z = ~air_temp,
+    y = "Air temperature",
+    showscale = F
+  ) %>%
+  layout(
+    showlegend = F,
+    yaxis = list(
+      title = NA,
+      automargin = T,
+      showgrid = F
+    ),
+    xaxis = list(
+      title = NA,
+      automargin = T,
+      showgrid = F
+    ),
+    hovermode = "x unified"
+  ) %>%
+  config(displayModeBar = F)
+
+
+
+# modify and remove empties for each var
+do_data <- df %>%
+  filter(!is.na(d_o)) %>%
+  mutate(label = case_when(
+    is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
+    T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
+  rowwise() %>%
+  mutate(do_color = do_color(d_o))
+temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
+trans_data <- filter(df, !is.na(transparency))
+flow_data <- filter(df, !is.na(streamflow))
+ph_data <- filter(df, !is.na(ph))
+
+
+# get y-axis ranges for plot
+yranges <- list(
+  d_o = c(0, find_max(df$d_o, 12)),
+  temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
+  trans = c(0, 125),
+  cfs = c(0, find_max(df$streamflow, 10)))
+
+# date settings
+dates <- unique(df$date)
+years <- as.numeric(max(dates) - min(dates)) / 365
+date_tick <- "M1"
+marker_opacity <- 1
+if (years < 1) {
+  date_range <- setReportDateRange(dates)
+} else {
+  date_range <- c(min(dates) - 15, max(dates) + 15)
+}
+if (years > 3) {
+  date_tick <- "M3"
+  marker_opacity <- 0
+}
+if (years > 6) date_tick <- "M6"
+
+# create plot
+plot_ly() %>%
+  add_trace(
+    data = do_data,
+    name = "D.O.",
+    x = ~date,
+    y = ~d_o,
+    text = ~label,
+    marker = list(
+      color = ~do_color,
+      line = list(color = "black", width = 0.5)),
+    type = "bar",
+    width = 15 * (1000 * 60 * 60 * 24), # milliseconds per day
+    hovertemplate = "%{y}") %>%
+  add_trace(
+    data = temp_data,
+    name = "Water temp",
+    x = ~date,
+    y = ~water_temp,
+    type = "scatter",
+    mode = "lines+markers",
+    yaxis = "y2",
+    marker = list(
+      color = "lightblue",
+      size = 10,
+      line = list(color = "white", width = 1),
+      opacity = marker_opacity),
+    line = list(
+      color = "lightblue",
+      width = 3)) %>%
+  add_trace(
+    data = temp_data,
+    name = "Air temp",
+    x = ~date,
+    y = ~air_temp,
+    type = "scatter",
+    mode = "lines+markers",
+    yaxis = "y2",
+    marker = list(
+      color = "orange",
+      size = 10,
+      line = list(color = "white", width = 1),
+      opacity = marker_opacity),
+    line = list(color = "orange", width = 3)) %>%
+  add_trace(
+    data = trans_data,
+    name = "Transparency",
+    x = ~date,
+    y = ~transparency,
+    type = "scatter",
+    mode = "lines+markers",
+    yaxis = "y3",
+    marker = list(
+      color = "brown",
+      size = 10,
+      symbol = "square",
+      line = list(color = "white", width = 1),
+      opacity = marker_opacity),
+    line = list(color = "brown", width = 3)) %>%
+  add_trace(
+    data = flow_data,
+    name = "Stream flow",
+    x = ~date,
+    y = ~streamflow,
+    type = "scatter",
+    mode = "lines+markers",
+    yaxis = "y4",
+    marker = list(
+      color = "#48a67b",
+      size = 10,
+      symbol = "triangle-right",
+      line = list(color = "white", width = 1),
+      opacity = marker_opacity),
+    line = list(color = "#48a67b", width = 3)) %>%
+  layout(
+    title = "Baseline Measurements",
+    hovermode = "x unified",
+    margin = list(t = 50, r = 50),
+    legend = list(orientation = "h"),
+    xaxis = list(
+      title = "",
+      type = "date",
+      range = date_range,
+      fixedrange = F, # allow user to zoom the axis?
+      dtick = date_tick,
+      ticklabelmode = "period",
+      hoverformat = "%b %d, %Y",
+      domain = c(.1, .9)),
+    yaxis = list(
+      title = "Dissolved oxygen",
+      ticksuffix = " mg/L",
+      range = yranges$d_o,
+      fixedrange = T),
+    yaxis2 = list(
+      title = "Temperature",
+      overlaying = "y",
+      side = "left",
+      ticksuffix = "&deg;C",
+      position = 0,
+      showgrid = F,
+      zeroline = F,
+      range = yranges$temp,
+      fixedrange = T),
+    yaxis3 = list(
+      title = "Transparency",
+      overlaying = "y",
+      side = "right",
+      ticksuffix = " cm",
+      showgrid = F,
+      zeroline = F,
+      range = yranges$trans,
+      fixedrange = T),
+    yaxis4 = list(
+      title = "Stream flow",
+      overlaying = "y",
+      side = "right",
+      ticksuffix = " cfs",
+      position = 1,
+      showgrid = F,
+      zeroline = F,
+      range = yranges$cfs,
+      fixedrange = T)) %>%
+  config(displayModeBar = F)
+
+
+
+
+
+plot_ly(
+  x = c("giraffes", "orangutans", "monkeys"),
+  y = c(20, 14, 23),
+  name = "SF Zoo",
+  type = "bar") %>%
+  layout(xaxis = list(categoryorder = "array",
+    categoryarray = c("giraffes",
+      "orangutans",
+      "monkeys")))
+
+OPTS$baseline_plot_opts$name
+
+plot_ly(
+  x = c("giraffes", "orangutans", "monkeys"),
+  y = c(20, 14, 23),
+  name = "SF Zoo",
+  type = "bar") %>%
+  layout(
+    xaxis = list(
+      categoryorder = "array",
+      categoryarray = OPTS$baseline_plot_opts$name
+    )
+  )

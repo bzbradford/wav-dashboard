@@ -28,7 +28,7 @@ createThermSummary <- function(df, units) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
   daily <- df %>%
-    mutate(temp = .[[temp_col]]) %>%
+    mutate(temp = !!sym(temp_col)) %>%
     drop_na(temp) %>%
     arrange(date) %>%
     summarize(temp = mean(temp), .by = c(date, month))
@@ -170,7 +170,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               inputId = ns("year"),
               label = NULL,
               choices = year_choices(cur_years()),
-              selected = last(cur_years())
+              selected = first_truthy(
+                intersect(isolate(input$year), cur_years()),
+                last(cur_years())
+              )
             )
           ),
           uiOutput(ns("plotOptionsUI")),
@@ -196,6 +199,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       output$moreInfoUI <- renderUI({
         includeMarkdown("md/thermistor_info.md")
       })
+
 
       # Plot ----
 
@@ -250,10 +254,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             mutate(days_since_last = as.numeric(date - lag(date)))
           gap_starts <- df_daily %>%
             filter(days_to_next > 7) %>%
-            mutate(date = date + 1, min = mean, max = mean)
+            mutate(date = date + 1, min = mean, max = mean, mean = NA)
           gap_ends <- df_daily %>%
             filter(days_since_last > 7) %>%
-            mutate(date = date - 1, min = mean, max = mean)
+            mutate(date = date - 1, min = mean, max = mean, mean = NA)
           df_daily <- df_daily %>%
             bind_rows(gap_starts, gap_ends) %>%
             arrange(date)
@@ -267,20 +271,16 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## plotCaptionUI ----
       output$plotCaptionUI <- renderUI({
-        req(input$units)
-        req(input$annotations)
-
-        units <- input$units
+        units <- req(input$units)
+        annotation <- req(input$annotations)
         unit_text <- paste0("°", units)
-        annotation <- input$annotations
-
-        overlay_caption <- ""
+        caption <- ""
 
         if (annotation == "btrout") {
           temps <- c(52, 61, 72)
           if (units == "C") temps <- f_to_c(temps)
 
-          overlay_caption <- HTML(paste0(
+          caption <- HTML(paste0(
             "Optimal brook trout temperatures are shown shaded ", colorize("dark green", "darkgreen"),
             " (", temps[1], "-", temps[2], unit_text, "), acceptable temperatures in ", colorize("light green", "darkseagreen"),
             " (", temps[2], "-", temps[3], unit_text, "), too hot in ", colorize("orange", "orange"),
@@ -290,7 +290,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           temps <- c(69.3, 72.5, 76.3)
           if (units == "C") temps <- f_to_c(temps)
 
-          overlay_caption <- HTML(paste0(
+          caption <- HTML(paste0(
             "The DNR classifies streams into four 'Natural Community' types based on their maximum daily average temperature: ",
             colorize("coldwater", "blue"), " when below 69.3°F (20.7°C); ",
             colorize("cool-cold", "cornflowerblue"), " when between 69.3 and 72.5°F (20.7 and 22.5°C); ",
@@ -301,7 +301,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
         p(
           class = "plot-caption",
-          overlay_caption,
+          caption,
           "High or widely fluctuating temperatures may indicate that the logger became exposed to the air."
         )
       })
@@ -401,6 +401,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
+              p("The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."),
               p(downloadButton(ns("downloadHourly"), "Download this data")),
               hourly_dt
             )
@@ -416,7 +417,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## downloadDaily ----
       output$downloadHourly <- downloadHandler(
-        sprintf("WAV Stn %s Hourly Temperature Data (%s)", cur_stn()$station_id, input$year),
+        sprintf("WAV Stn %s Hourly Temperature Data (%s).csv", cur_stn()$station_id, input$year),
         function(file) { write_csv(selected_data(), file, na = "")}
       )
 

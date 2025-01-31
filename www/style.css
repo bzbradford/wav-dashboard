@@ -19,6 +19,10 @@ body {
   font-weight: bold;
 }
 
+.leaflet-control-attribution {
+  display: none;
+}
+
 .leaflet-container {
   max-height: min(90vh, 120vw);
 }

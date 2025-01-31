@@ -79,13 +79,16 @@ nutrientDataServer <- function(cur_stn, has_focus) {
               inputId = ns("year"),
               label = NULL,
               choices = year_choices(cur_years()),
-              selected = last(cur_years())
+              selected = first_truthy(
+                intersect(isolate(input$year), cur_years()),
+                last(cur_years())
+              )
             )
           ),
           div(
             id = "nutrient-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = F),
+            plotlyOutput(ns("plot")),
             uiOutput(ns("plotCaptionUI"))
           ),
           uiOutput(ns("plotExportUI")), br(),
@@ -109,7 +112,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         tagList(
           div(
             class = "plot-caption",
-            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 90% confidence interval for the true total phosphorus level are displayed as a horizontal band."
+            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection."
           ),
           div(
             class = "plot-caption",
@@ -140,14 +143,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
-        btn_year <-
+        btn_year <-  downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
         btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
-
-        if (input$year == "All") {
-          dl_btns <- list(btn_all)
-        } else {
-          dl_btns <- list(btn_year, btn_all)
-        }
+        dl_btns <- if (input$year == "All") list(btn_all) else list(btn_year, btn_all)
 
         tagList(
           p(
@@ -161,7 +159,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             downloadButton(ns("downloadStn"), "Download station data (all years)"),
             downloadButton(ns("downloadBaseline"), "Download entire nutrient dataset")
           ),
-          div(style = "overflow: auto;", dataTableOutput(ns("dataTable"))),
+          dataTableOutput(ns("dataTable")),
           p(em("Total phosphorus is shown in units of mg/L (ppm)."))
         )
       })
@@ -170,10 +168,21 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       output$dataTable <- renderDataTable({
         req(selected_data_ready())
 
-        selected_data() %>%
+        df <- selected_data() %>%
           drop_na(tp) %>%
           clean_names(case = "big_camel")
-      })
+
+        datatable(
+          df,
+          selection = "none",
+          rownames = F,
+          options = list(
+            paging = F,
+            scrollX = T,
+            scrollCollapse = T
+          )
+        )
+      }, server = F)
 
       ## downloadStnYear ----
       output$downloadStnYear <- downloadHandler(

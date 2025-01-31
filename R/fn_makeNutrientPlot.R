@@ -12,11 +12,22 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
   if (nrow(df) == 0) return()
 
   df <- df %>%
-    mutate(exceedance = factor(
-      ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
-      levels = c("TP OK", "TP High", "No data"))) %>%
-    drop_na(tp) %>%
-    mutate(phoslimit = phoslimit)
+    summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) %>%
+    mutate(
+      exceedance = factor(
+        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
+        levels = c("TP OK", "TP High", "No data")
+      ),
+      phoslimit = phoslimit
+    ) %>%
+    # determine column width, constrained to between 7 and 28 days
+    arrange(date) %>%
+    mutate(
+      days_since_last = as.integer(date - lag(date)),
+      days_to_next = as.integer(lead(date) - date)) %>%
+    rowwise() %>%
+    mutate(bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))) %>%
+    replace_na(list(bar_width = 28))
 
   min_year <- min(df$year)
   max_year <- max(df$year)
@@ -84,7 +95,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       textposition = "auto",
       color = ~exceedance,
       colors = "Set2",
-      width = 0.5 * 1000 * 60 * 60 * 24 * 30, # time in milliseconds
+      width = ~0.75 * 1000 * 60 * 60 * 24 * bar_width, # time in milliseconds
       marker = list(
         line = list(
           color = "rgb(8,48,107)",
@@ -99,8 +110,7 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         hoverformat = "%B %d, %Y",
         tickformat = "%B<br>%Y",
         dtick = "M1",
-        range = date_range,
-        fixedrange = T),
+        range = date_range),
       yaxis = list(
         title = "Total phosphorus",
         ticksuffix = " mg/L",

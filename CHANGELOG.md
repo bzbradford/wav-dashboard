@@ -1,11 +1,27 @@
-**Feb 2023**
+**Jan 2025**
+
+* Add trend plots to the baseline tab. These include a scatterplot by date and boxplots by month or year, and an observation heatmap plot.
+* Add interpretive ranges to the baseline trend plots.
+
+**Dec 2024**
+
+* Update baseline, total phosphorus, and thermistor temperature logger data for 2024 from WAV and Milwaukee Riverkeeper
+* Improve nutrient plot by adjusting column widths
+* Set watersheds to lazy load on the map
+
+**Aug & Nov 2024**
+
+* Update baseline and nutrient data
+
+**Feb 2024**
 
 * Add buttons to download entire baseline and nutrient datasets
 * Some cosmetic improvements to download sections
 * Improve thermistor plot behavior across deployment gaps when showing multiple years
 * Fix mean temperature calculation for report's thermistor plot
+* Improve station lists tab with more data columns, download buttons, and station selection buttons
 
-**Jan 2023**
+**Jan 2024**
 
 * Final adjustments for PDF report generation.
 * Modify some app language and interpretations to match the station reports.

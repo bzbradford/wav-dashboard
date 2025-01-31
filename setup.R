@@ -1,6 +1,23 @@
-##  load.R  ##
+## WAV DASHBOARD ##
+# Ben Bradford, UW-Madison
+# Requires data prep in separate RProj
+# Source this file to prepare .RData for deployment
 
-# source to perform all data loading and processing and save to .RData
+
+#- Renv for pkg management -#
+
+# renv::init()         # initiate renv if not already
+# renv::dependencies() # show project dependencies
+# renv::clean()        # remove unused packages
+# renv::update()       # update project libraries
+# renv::snapshot()     # save updated lock file to project
+# renv::restore()      # restore versions from lockfile
+
+
+#- Testing -#
+
+# shiny::devmode(TRUE)
+# shiny::devmode(FALSE)
 
 
 # Load packages ----
@@ -11,7 +28,6 @@ library(janitor)
 library(sf)
 library(shiny)
 library(shinycssloaders)
-library(glue)
 
 
 # Clear environment ----
@@ -88,6 +104,25 @@ check_missing_stns <- function(data, pts, type) {
 
 ## Utility ----
 
+# message and print an object to the console for testing
+echo <- function(x) {
+  message(deparse(substitute(x)))
+  print(x)
+}
+
+# swaps names and values in a list or vector
+invert <- function(x) {
+  y <- as(names(x), class(x))
+  names(y) <- x
+  y
+}
+
+# return the first truthy argument
+first_truthy <- function(...) {
+  for (arg in list(...)) if (shiny::isTruthy(arg)) return(arg)
+  NULL
+}
+
 c_to_f <- function(c, d = 1) {
   round(c * 1.8 + 32, d)
 }
@@ -136,7 +171,7 @@ withSpinnerProxy <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
-buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
+buildPlotDlBtn <- function(id, filename, text = "Download plot") {
   require(shiny)
   p(
     class = "plot-caption",
@@ -146,7 +181,7 @@ buildPlotDlBtn <- function(id, filename, text = "Download plot image") {
       class = "btn btn-default btn-sm",
       style = "cursor: pointer;",
       onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
-      text
+      icon("save"), " ", text
     )
   )
 }
@@ -297,16 +332,14 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
   if (anyNA(c(median, lower, upper))) return(msg)
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus clearly exceeds the DNR's criteria (median and entire confidence interval above phosphorus standard).",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
-    upper <= limit ~ "Total phosphorus clearly meets the DNR's criteria (median and entire confidence interval below phosphorus standard).",
+    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
   msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))
 }
-
-
 
 
 ## Reports ----
@@ -315,8 +348,8 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
 report_baseline_cols <- c(
   `Air temp (°C)` = "air_temp",
   `Water temp (°C)` = "water_temp",
-  `D.O. (mg/L)` = "d_o",
-  `D.O. (% sat.)` = "d_o_percent_saturation",
+  `DO (mg/L)` = "d_o",
+  `DO (% sat.)` = "d_o_percent_saturation",
   `pH` = "ph",
   `Specific conductance (μS/cm)` = "specific_cond",
   `Transparency (cm)` = "transparency",
@@ -372,7 +405,7 @@ buildReportSummary <- function(params) {
     pull(text) %>%
     combine_words()
 
-  msg <- glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
+  msg <- str_glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
 
   if (has$baseline) {
     baseline_counts <- data$baseline %>%
@@ -451,7 +484,7 @@ buildReportFieldworkComments <- function(baseline) {
     mutate(across(where(is.character), xtable::sanitize)) %>%
     rowwise() %>%
     mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
-    mutate(fieldwork_desc = glue(
+    mutate(fieldwork_desc = str_glue(
       "* **{format(date, '%b %d, %Y')}** - ",
       "SWIMS fieldwork number: {fsn}. ",
       if_else(is.na(wx), "", " Weather: {wx}."),
@@ -478,22 +511,22 @@ fmt_area <- function(area) {
   )
 }
 
-counties <- readRDS("data/shp/counties")
-waterbodies <- readRDS("data/shp/waterbodies")
-nkes <- readRDS("data/shp/nkes") %>%
+counties <- readRDS("data/shp/counties.rds")
+waterbodies <- readRDS("data/shp/waterbodies.rds")
+nkes <- readRDS("data/shp/nkes.rds") %>%
   mutate(Label = paste0(
     "<b>", PlanName, "</b>",
     "<br>Ends: ", EndDate,
     "<br>Objective: ", Objective
   ))
-huc8 <- readRDS("data/shp/huc8") %>%
+huc8 <- readRDS("data/shp/huc8.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc8Name, " Subbasin</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC8 Code: ", Huc8Code,
     "<br>HUC6 basin: ", MajorBasin
   ))
-huc10 <- readRDS("data/shp/huc10") %>%
+huc10 <- readRDS("data/shp/huc10.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc10Name, " Watershed</b>",
     "<br>Area: ", fmt_area(Area),
@@ -502,7 +535,7 @@ huc10 <- readRDS("data/shp/huc10") %>%
     "<br>HUC6 basin: ", MajorBasin
   ))
 suppressWarnings({ huc10_centroids <- st_centroid(huc10) })
-huc12 <- readRDS("data/shp/huc12") %>%
+huc12 <- readRDS("data/shp/huc12.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",
     "<br>Area: ", fmt_area(Area),
@@ -515,7 +548,7 @@ huc12 <- readRDS("data/shp/huc12") %>%
 
 # Station lists ----
 
-station_list <- readRDS("data/station-list")
+station_list <- readRDS("data/station-list.rds")
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
@@ -527,8 +560,9 @@ station_types <- list(
 
 # Baseline data ----
 
-baseline_data <- readRDS("data/baseline-data") %>%
-  arrange(station_id, date)
+baseline_data <- readRDS("data/baseline-data.rds") %>%
+  arrange(station_id, date) %>%
+  rename(fieldwork_seq_no = fsn)
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -543,7 +577,8 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 # Nutrient data ----
 
-nutrient_data <- readRDS("data/tp-data") %>%
+nutrient_data <- readRDS("data/tp-data.rds") %>%
+  rename(fieldwork_seq_no = fsn) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
@@ -558,8 +593,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 # Thermistor data ----
 
-therm_data <- readRDS("data/therm-data")
-therm_info <- readRDS("data/therm-inventory")
+therm_data <- readRDS("data/therm-data.rds")
+therm_info <- readRDS("data/therm-inventory.rds")
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -664,7 +699,7 @@ all_pts <- station_pts %>%
   mutate(
     station_id = as.numeric(station_id),
     label = paste(station_id, station_name, sep = ": "),
-    map_label = lapply(glue::glue("
+    map_label = lapply(str_glue("
       <b>{data_sources} Monitoring Station</b><br>
       Station ID: {station_id}<br>
       Name: {str_trunc(station_name, 50)}<br>
@@ -747,14 +782,14 @@ stn_attr_totals <- stn_fieldwork_counts %>%
 # summary(stn_attr_totals)
 
 stn_color_opts <- tribble(
-  ~label,            ~value,          ~domain,   ~rev, ~pal,
-  "Years of data",    "n_years",      c(0, 10),  F,    "viridis",
-  # "Fieldwork events", "n_fieldwork",  c(0, 100), F,    "viridis",
-  "Mean water temp (°C)",       "water_temp",   c(10, 30), T,    "RdYlBu",
-  "Mean dissolved oxygen (mg/L)", "d_o",          c(3, 12),  F,    "RdYlBu",
-  "Mean transparency (cm)",     "transparency", c(0, 120), F,    "BrBG",
-  "Mean streamflow (cfs)",       "streamflow",   c(0, 50),  T,    "RdBu",
-  "Mean phosphorus (mg/L)", "tp",           c(0, .25), T,    "Spectral",
+  ~label, ~value, ~domain, ~rev, ~pal,
+  "Years of data", "n_years", c(0, 10), F, "viridis",
+  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
+  "Mean water temp (°C)", "water_temp", c(5, 25), T, "RdYlBu",
+  "Mean dissolved oxygen (mg/L)", "d_o", c(3, 12), F, "RdYlBu",
+  "Mean transparency (cm)", "transparency", c(0, 120), F, "BrBG",
+  "Mean streamflow (cfs)", "streamflow", c(0, 50), T, "RdBu",
+  "Mean phosphorus (mg/L)", "tp", c(0, .25), T, "Spectral",
 )
 
 stn_color_choices <- append(
@@ -765,8 +800,8 @@ stn_color_choices <- append(
 
 # Landscape data ----
 
-landcover_classes <- readRDS("data/nlcd_classes")
-landscape_data <- readRDS("data/landcover") %>%
+landcover_classes <- readRDS("data/nlcd-classes.rds")
+landscape_data <- readRDS("data/nlcd-landcover.rds") %>%
   left_join(landcover_classes, join_by(class)) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")

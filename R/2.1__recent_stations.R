@@ -26,8 +26,9 @@ recentStationsServer <- function(cur_stn, stn_list) {
 
       # Reactive values ----
 
-      ## recent_stns ----
-      recent_stns <- reactiveVal(c())
+      rv <- reactiveValues(
+        recent_stns = c()
+      )
 
 
       # Event reactives ----
@@ -37,17 +38,17 @@ recentStationsServer <- function(cur_stn, stn_list) {
       observeEvent(cur_stn(), {
         cur_id <- cur_stn()$station_id
 
-        if (!(cur_id %in% recent_stns())) {
-          new_list <- c(cur_id, recent_stns())
+        if (!(cur_id %in% rv$recent_stns)) {
+          new_list <- c(cur_id, rv$recent_stns)
           if (length(new_list) > 5) new_list <- new_list[1:5]
-          recent_stns(new_list)
+          rv$recent_stns <- new_list
         }
       })
 
       ## input$clearList ----
       # clear recents on button press
       observeEvent(input$clearList, {
-        recent_stns(cur_stn()$station_id)
+        rv$recent_stns <- cur_stn()$station_id
       })
 
 
@@ -55,7 +56,7 @@ recentStationsServer <- function(cur_stn, stn_list) {
 
       ## table ----
       output$table <- renderDataTable({
-        ids <- recent_stns()
+        ids <- rv$recent_stns
         cur_id <- cur_stn()$station_id
 
         tibble(station_id = ids) %>%
@@ -64,7 +65,7 @@ recentStationsServer <- function(cur_stn, stn_list) {
           mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
           mutate(action = lapply(ids, function(id) {
             paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
-          }), .before = everything()) %>%
+          }), .before = 1) %>%
           mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
           clean_names("title")
       },
