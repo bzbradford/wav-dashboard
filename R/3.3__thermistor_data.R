@@ -185,8 +185,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             uiOutput(ns("naturalCommunityUI"))
           ),
           uiOutput(ns("plotExportUI")),
-          uiOutput(ns("moreInfoUI")),
-          br(),
+          div(
+            style = "margin-top: 1em; margin-bottom: 2em;",
+            includeMarkdown("md/thermistor_info.md")
+          ),
           bsCollapse(
             bsCollapsePanel(
               title = "View or download monthly, daily, and hourly temperature data",
@@ -194,10 +196,6 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             )
           )
         )
-      })
-
-      output$moreInfoUI <- renderUI({
-        includeMarkdown("md/thermistor_info.md")
       })
 
 
@@ -328,7 +326,11 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       output$plotExportUI <- renderUI({
         req(input$year)
         filename <- sprintf("WAV thermistor data - Stn %s - %s.png", cur_stn()$station_id, input$year)
-        buildPlotDlBtn("#therm-plot-container", filename)
+
+        p(
+          align = "center",
+          buildPlotDlBtn("#therm-plot-container", filename)
+        )
       })
 
 

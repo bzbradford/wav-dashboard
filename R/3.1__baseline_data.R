@@ -62,9 +62,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
         nrow(selected_data()) > 0
       })
 
-      ## trend_value_choices ----
-      trend_value_choices <- reactive({
-        req(req(input$plot_type) == "trend")
+      ## parameter_choices ----
+      parameter_choices <- reactive({
+        # req(req(input$plot_type) == "trend")
         req(selected_data_ready())
 
         opts <- OPTS$baseline_plot_opts
@@ -169,7 +169,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         req(req(input$plot_type) == "trend")
         req(selected_data_ready())
 
-        choices <- trend_value_choices()
+        choices <- parameter_choices()
 
         radioGroupButtons(
           inputId = ns("trend_value"),
@@ -195,32 +195,29 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
       ## plotUI ----
       output$plotUI <- renderUI({
-        switch(
-          req(input$plot_type),
-          "annual" = {
-            tagList(
-              div(
-                id = "baseline-plot-container",
-                uiOutput(ns("stnTitleUI")),
-                plotlyOutput(ns("annualPlot")),
-              ),
-              uiOutput(ns("plotCaptionUI"))
-            )
-          },
-          "trend" = {
-            n_vars <- length(trend_value_choices())
-            tagList(
-              div(
-                id = "baseline-plot-container",
-                uiOutput(ns("stnTitleUI")),
-                plotlyOutput(ns("trendPlot"))
-              ),
-              uiOutput(ns("plotCaptionUI")),
-              h4("Station observation heatmap"),
-              plotlyOutput(ns("ribbonPlot"), height = 20 + 15 * n_vars),
-              div(class = "plot-caption", "The observation heatmap shows which parameters have been measured for this station since 2015. Each column represents one month of data.")
-            )
-          }
+        type <- req(input$plot_type)
+
+        plt <- switch(type,
+          "annual" = plotlyOutput(ns("annualPlot")),
+          "trend" = plotlyOutput(ns("trendPlot"))
+        )
+        caption <- switch(type,
+          "annual" = div(class = "plot-caption", "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters."),
+          "trend" = uiOutput(ns("trendPlotCaptionUI"))
+        )
+
+        tagList(
+          div(
+            id = "baseline-plot-container",
+            uiOutput(ns("stnTitleUI")),
+            plt
+          ),
+          div(
+            style = "width: 100%; display: inline-flex; align-items: center; gap: 10px; justify-content: space-between;",
+            caption,
+            uiOutput(ns("plotExportUI"))
+          ),
+          if (type == "trend") uiOutput(ns("ribbonPlotUI"))
         )
       })
 
@@ -241,6 +238,22 @@ baselineDataServer <- function(cur_stn, has_focus) {
         makeBaselineTrendPlot(df, value_col, type)
       })
 
+      ## trendPlotCaption
+      output$trendPlotCaptionUI <- renderUI({
+        caption <- OPTS$baseline_trend_captions[[req(input$trend_type)]]
+        div(class = "plot-caption", caption)
+      })
+
+      ## ribbonPlotUI ----
+      output$ribbonPlotUI <- renderUI({
+        n_vars <- length(parameter_choices())
+        div(
+          h4("Observation heatmap"),
+          plotlyOutput(ns("ribbonPlot"), height = 20 + 15 * n_vars),
+          div(class = "plot-caption", "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations."),
+        )
+      })
+
       ## ribbonPlot ----
       output$ribbonPlot <- renderPlotly({
         req(rv$ready)
@@ -249,18 +262,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
       })
 
       ## plotCaptionUI ----
-      output$plotCaptionUI <- renderUI({
-        caption <- switch(
-          req(input$plot_type),
-          "annual" = "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters.",
-          "trend" = OPTS$baseline_trend_captions[[req(input$trend_type)]]
-        )
 
-        tagList(
-          div(class = "plot-caption", caption),
-          uiOutput(ns("plotExportUI"))
-        )
-      })
 
       ## plotExportUI ----
       output$plotExportUI <- renderUI({

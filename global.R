@@ -20,7 +20,6 @@ suppressMessages({
   library(shinythemes) # theme
   library(shinyWidgets) # radioGroupButtons
   library(htmltools) # tagList
-  library(shinycssloaders) # withSpinner
 
   # interactive
   library(DT) # data tables
@@ -33,7 +32,213 @@ suppressMessages({
 })
 
 
-# Settings ----
+# Definitions ----
+
+stn_colors <- list(
+  baseline = "green",
+  nutrient = "orange",
+  thermistor = "purple",
+  current = "deepskyblue"
+)
+
+tab_names <- list(
+  baseline = "Baseline data",
+  nutrient = "Nutrient data",
+  thermistor = "Thermistor data",
+  watershed = "Watershed & landscape context",
+  reports = "Downloadable reports",
+  more = "Learn more"
+)
+
+
+# Functions ---------------------------------------------------------------
+
+## Utility ----
+
+# message and print an object to the console for testing
+echo <- function(x) {
+  message(deparse(substitute(x)))
+  print(x)
+}
+
+# swaps names and values in a list or vector
+invert <- function(x) {
+  y <- as(names(x), class(x))
+  names(y) <- x
+  y
+}
+
+# return the first truthy argument
+first_truthy <- function(...) {
+  for (arg in list(...)) if (shiny::isTruthy(arg)) return(arg)
+  NULL
+}
+
+c_to_f <- function(c, d = 1) {
+  round(c * 1.8 + 32, d)
+}
+
+f_to_c <- function(f, d = 1) {
+  round((f - 32) * 5.0 / 9.0, d)
+}
+
+clamp <- function(x, lower = x, upper = x) {
+  if_else(
+    is.na(x) | is.null(x), x,
+    if_else(x < lower, lower,
+      if_else(x > upper, upper, x)))
+}
+
+newDate <- function(y, m, d) {
+  as.Date(paste(y, m, d, sep = "-"))
+}
+
+
+
+## HTML / JS ----
+
+colorize <- function(text, color = tolower(text)) {
+  shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
+}
+
+set_page_url <- function(id) {
+  if (!is.null(id)) {
+    shinyjs::runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
+  } else {
+    shinyjs::runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
+  }
+}
+
+set_page_title <- function(label) {
+  if (!is.null(label)) {
+    title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
+    shinyjs::runjs(sprintf("document.title = '%s'", title))
+  } else {
+    shinyjs::runjs("document.title = 'WAV Data Dashboard'")
+  }
+}
+
+withSpinnerProxy <- function(ui, ...) {
+  ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
+}
+
+buildPlotDlBtn <- function(id, filename, text = "Download plot") {
+  a(
+    class = "btn btn-default btn-sm",
+    style = "cursor: pointer;",
+    onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
+    icon("save"), " ", text
+  )
+}
+
+
+## Plot helpers ----
+
+# plotly horizontal line annotation
+hline <- function(y = 0, color = "black") {
+  list(
+    type = "line",
+    x0 = 0,
+    x1 = 1,
+    xref = "paper",
+    y0 = y,
+    y1 = y,
+    line = list(color = color, dash = "dash")
+  )
+}
+
+# plotly rectanglular annotation
+rect <- function(ymin, ymax, color = "red") {
+  list(
+    type = "rect",
+    fillcolor = color,
+    line = list(color = color),
+    opacity = 0.1,
+    y0 = ymin,
+    y1 = ymax,
+    xref = "paper",
+    x0 = 0,
+    x1 = 1,
+    layer = "below"
+  )
+}
+
+# get the min and max of a vector for plotly axis ranges
+min_max <- function(v) {
+  possibly(
+    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(NA, NA))
+  )
+}
+
+# get the color for the dissolved oxygen bars on the baseline plotly
+do_color <- function(do) {
+  i <- min(max(round(do), 1), 11)
+  RColorBrewer::brewer.pal(11, "RdBu")[i]
+}
+
+find_max <- function(vals, min_val) {
+  vals <- na.omit(vals)
+  if (length(vals) == 0) return(min_val)
+  # ceiling(max(min_val, max(vals)) * 1.1)
+  max(min_val, max(vals)) * 1.1
+}
+
+# used for x axis in plots
+setReportDateRange <- function(dates, pad_right = FALSE) {
+  yr <- format(dates[1], "%Y")
+  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
+  lims <- c(
+    min(dates - 10, default_range[1]),
+    max(dates + 10, default_range[2])
+  )
+  if (pad_right) lims[2] <- lims[2] + 30
+  lims
+}
+
+setAxisLimits <- function(vals, lower, upper) {
+  lims <- c(
+    min(vals, lower, na.rm = T),
+    max(vals, upper, na.rm = T)
+  )
+  lims + abs(lims) * c(-.1, .1)
+}
+
+addRectDate <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.Date(-Inf), xmax = as.Date(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax))
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
+  gg
+}
+
+addRectDatetime <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax))
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+  gg
+}
+
+
+## Server ----
+
+# adds "All" to end of years list
+year_choices <- function(years) {
+  if (length(years) > 1) {
+    c(years, "All")
+  } else {
+    years
+  }
+}
+
+
+
+# Settings ----------------------------------------------------------------
 
 OPTS <- lst(
 
@@ -114,7 +319,7 @@ OPTS <- lst(
   ),
 
   baseline_trend_captions = list(
-    "scatter" = "All observations for the selected parameter are shown above. Interpretive ranges are illustrated to contextualize the observations.",
+    "scatter" = "All observations for the selected parameter are shown above.",
     "month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points.",
     "year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points."
   ) %>% lapply(function(txt) paste(txt, " Interpretive ranges are illustrated to contextualize the observations.")),
