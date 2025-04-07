@@ -43,7 +43,8 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
         automargin = T,
         fixedrange = T,
         range = yrange
-      )
+      ),
+      margin = list(b = 25)
     )
 
   plt <- if (type == "scatter") {

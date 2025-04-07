@@ -91,8 +91,11 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             plotlyOutput(ns("plot")),
             uiOutput(ns("plotCaptionUI"))
           ),
-          uiOutput(ns("plotExportUI")), br(),
-          uiOutput(ns("moreInfoUI")), br(),
+          uiOutput(ns("plotExportUI")),
+          div(
+            style = "margin-top: 1em; margin-bottom: 2em;",
+            includeMarkdown("md/nutrient_info.md")
+          ),
           bsCollapse(
             bsCollapsePanel(
               title = "View or download nutrient data",
@@ -102,22 +105,15 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         )
       })
 
-      ## moreInfoUI ----
-      output$moreInfoUI <- renderUI({
-        includeMarkdown("md/nutrient_info.md")
-      })
-
       ## plotCaptionUI ----
       output$plotCaptionUI <- renderUI({
         tagList(
           div(
             class = "plot-caption",
-            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection."
-          ),
-          div(
-            class = "plot-caption",
+            "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection.",
+            br(),
             strong(getPhosExceedanceText(phos_estimate()))
-          )
+          ),
         )
       })
 
@@ -135,7 +131,10 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       output$plotExportUI <- renderUI({
         req(input$year)
         filename <- sprintf("WAV Nutrient Data - Stn %s - %s.png", cur_stn()$station_id, input$year)
-        buildPlotDlBtn("#nutrient-plot-container", filename)
+        p(
+          align = "center",
+          buildPlotDlBtn("#nutrient-plot-container", filename)
+        )
       })
 
 

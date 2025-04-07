@@ -35,12 +35,22 @@ makeBaselineRibbonPlot <- function(.data) {
       z = ~scaled,
       text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
       colors = "Blues",
-      showscale = F,
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
+    ) %>%
+    colorbar(
+      title = list(text = NA),
+      len = 1,
+      thickness = 20,
+      limits = c(0, 1),
+      dtick = 1,
+      outlinewidth = 0,
+      tickmode = "array",
+      tickvals = c(0, 1),
+      ticktext = c("Low", "High")
     ) %>%
     layout(
       showlegend = F,
-      margin = list(t = 0),
+      margin = list(t = 0, b = 25),
       yaxis = list(
         title = NA,
         automargin = T,
@@ -61,3 +71,8 @@ makeBaselineRibbonPlot <- function(.data) {
     ) %>%
     config(displayModeBar = F)
 }
+
+baseline_data %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  filter(year == sample(year, 1)) %>%
+  makeBaselineRibbonPlot()
