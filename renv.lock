@@ -1,6 +1,6 @@
 {
   "R": {
-    "Version": "4.4.3",
+    "Version": "4.5.1",
     "Repositories": [
       {
         "Name": "CRAN",
@@ -119,8 +119,7 @@
       "NeedsCompilation": "yes",
       "Author": "Matt Wand [aut], Cleve Moler [ctb] (LINPACK routines in src/d*), Brian Ripley [trl, cre, ctb] (R port and updates)",
       "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
+      "Repository": "CRAN"
     },
     "MASS": {
       "Package": "MASS",
@@ -156,8 +155,7 @@
       "NeedsCompilation": "yes",
       "Author": "Brian Ripley [aut, cre, cph], Bill Venables [aut, cph], Douglas M. Bates [ctb], Kurt Hornik [trl] (partial port ca 1998), Albrecht Gebhardt [trl] (partial port ca 1998), David Firth [ctb] (support functions for polr)",
       "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
+      "Repository": "CRAN"
     },
     "Matrix": {
       "Package": "Matrix",
@@ -795,8 +793,7 @@
       "NeedsCompilation": "yes",
       "Author": "Brian Ripley [aut, cre, cph], William Venables [cph]",
       "Maintainer": "Brian Ripley <Brian.Ripley@R-project.org>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
+      "Repository": "CRAN"
     },
     "classInt": {
       "Package": "classInt",
@@ -2577,8 +2574,7 @@
       "NeedsCompilation": "yes",
       "Author": "Deepayan Sarkar [aut, cre] (<https://orcid.org/0000-0003-4107-1553>), Felix Andrews [ctb], Kevin Wright [ctb] (documentation), Neil Klepeis [ctb], Johan Larsson [ctb] (miscellaneous improvements), Zhijian (Jason) Wen [cph] (filled contour code), Paul Murrell [ctb], Stefan Eng [ctb] (violin plot improvements), Achim Zeileis [ctb] (modern colors), Alexandre Courtiol [ctb] (generics for larrows, lpolygon, lrect and lsegments)",
       "Maintainer": "Deepayan Sarkar <deepayan.sarkar@r-project.org>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
+      "Repository": "CRAN"
     },
     "lazyeval": {
       "Package": "lazyeval",
@@ -2972,8 +2968,7 @@
       "NeedsCompilation": "yes",
       "Author": "Simon Wood [aut, cre]",
       "Maintainer": "Simon Wood <simon.wood@r-project.org>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
+      "Repository": "CRAN"
     },
     "mime": {
       "Package": "mime",
@@ -4309,7 +4304,8 @@
       "NeedsCompilation": "no",
       "Author": "Simon Potter [aut, trl, cre], Simon Sapin [aut], Ian Bicking [aut]",
       "Maintainer": "Simon Potter <simon@sjp.co.nz>",
-      "Repository": "CRAN"
+      "Repository": "CRAN",
+      "Encoding": "UTF-8"
     },
     "sf": {
       "Package": "sf",
@@ -4461,27 +4457,6 @@
       "Maintainer": "Winston Chang <winston@posit.co>",
       "Repository": "CRAN"
     },
-    "shinyBS": {
-      "Package": "shinyBS",
-      "Version": "0.61.1",
-      "Source": "Repository",
-      "Type": "Package",
-      "Title": "Twitter Bootstrap Components for Shiny",
-      "Date": "2015-03-30",
-      "Author": "Eric Bailey",
-      "Maintainer": "Eric Bailey <ebailey@idem.in.gov>",
-      "Description": "Adds additional Twitter Bootstrap components to Shiny.",
-      "Imports": [
-        "shiny (>= 0.11)",
-        "htmltools"
-      ],
-      "URL": "https://ebailey78.github.io/shinyBS",
-      "BugReports": "https://github.com/ebailey78/shinyBS/issues",
-      "License": "GPL-3",
-      "NeedsCompilation": "no",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
-    },
     "shinyWidgets": {
       "Package": "shinyWidgets",
       "Version": "0.9.0",
@@ -4586,28 +4561,6 @@
       "Author": "Dean Attali [aut, cre] (<https://orcid.org/0000-0002-5645-3493>)",
       "Maintainer": "Dean Attali <daattali@gmail.com>",
       "Repository": "CRAN"
-    },
-    "shinythemes": {
-      "Package": "shinythemes",
-      "Version": "1.2.0",
-      "Source": "Repository",
-      "Title": "Themes for Shiny",
-      "Authors@R": "c( person(\"Winston\", \"Chang\", role = c(\"aut\", \"cre\"), email = \"winston@rstudio.com\"), person(family = \"RStudio\", role = \"cph\"), person(\"Thomas\", \"Park\", role = c(\"ctb\", \"cph\"), comment = \"Bootswatch themes\"), person(\"Lukasz\", \"Dziedzic\", role = c(\"ctb\", \"cph\"), comment = \"Lato font\"), person(\"Nathan\", \"Willis\", role = c(\"ctb\", \"cph\"), comment = \"News Cycle font\"), person(family = \"Google Corporation\", role = c(\"ctb\", \"cph\"), comment = \"Open Sans and Roboto fonts\"), person(\"Matt\", \"McInerney\", role = c(\"ctb\", \"cph\"), comment = \"Raleway font\"), person(family = \"Adobe Systems Incorporated\", role = c(\"ctb\", \"cph\"), comment = \"Source Sans Pro font\"), person(family = \"Canonical Ltd\", role = c(\"ctb\", \"cph\"), comment = \"Ubuntu font\") )",
-      "Description": "Themes for use with Shiny. Includes several Bootstrap themes from <https://bootswatch.com/>, which are packaged for use with Shiny applications.",
-      "Depends": [
-        "R (>= 3.0.0)"
-      ],
-      "Imports": [
-        "shiny (>= 0.11)"
-      ],
-      "URL": "https://rstudio.github.io/shinythemes/",
-      "License": "GPL-3 | file LICENSE",
-      "RoxygenNote": "7.1.1",
-      "NeedsCompilation": "no",
-      "Author": "Winston Chang [aut, cre], RStudio [cph], Thomas Park [ctb, cph] (Bootswatch themes), Lukasz Dziedzic [ctb, cph] (Lato font), Nathan Willis [ctb, cph] (News Cycle font), Google Corporation [ctb, cph] (Open Sans and Roboto fonts), Matt McInerney [ctb, cph] (Raleway font), Adobe Systems Incorporated [ctb, cph] (Source Sans Pro font), Canonical Ltd [ctb, cph] (Ubuntu font)",
-      "Maintainer": "Winston Chang <winston@rstudio.com>",
-      "Repository": "CRAN",
-      "Encoding": "UTF-8"
     },
     "snakecase": {
       "Package": "snakecase",
