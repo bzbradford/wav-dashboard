@@ -55,29 +55,31 @@ recentStationsServer <- function(cur_stn, stn_list) {
       # Rendered UIs ----
 
       ## table ----
-      output$table <- renderDataTable({
-        ids <- rv$recent_stns
-        cur_id <- cur_stn()$station_id
+      output$table <- renderDataTable(
+        {
+          ids <- rv$recent_stns
+          cur_id <- cur_stn()$station_id
 
-        tibble(station_id = ids) %>%
-          left_join(all_stns, by = "station_id") %>%
-          select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
-          mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
-          mutate(action = lapply(ids, function(id) {
-            paste0("<a style='cursor: pointer;' id=", id, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>")
-          }), .before = 1) %>%
-          mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
-          clean_names("title")
-      },
-      server = F,
-      rownames = T,
-      selection = "none",
-      options = list(
-        paging = F,
-        bFilter = F,
-        bSort = F,
-        bInfo = F,
-        columnDefs = list(list(targets = c(0:1, 3:5), className = "dt-center")))
+          tibble(station_id = ids) %>%
+            left_join(all_stns, by = "station_id") %>%
+            select(id = station_id, name = station_name, baseline = baseline_stn, nutrient = nutrient_stn, thermistor = therm_stn) %>%
+            mutate(across(where(is_logical), ~ ifelse(.x, "\u2705", "\u274c"))) %>%
+            mutate(action = lapply(ids, function(id) {
+              sprintf("<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>", id)
+            }), .before = 1) %>%
+            mutate(current = ifelse(id == cur_id, "\u27a4", ""), .before = everything()) %>%
+            clean_names("title")
+        },
+        server = F,
+        rownames = T,
+        selection = "none",
+        options = list(
+          paging = F,
+          bFilter = F,
+          bSort = F,
+          bInfo = F,
+          columnDefs = list(list(targets = c(0:1, 3:5), className = "dt-center"))
+        )
       )
 
       # end

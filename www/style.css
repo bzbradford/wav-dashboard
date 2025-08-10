@@ -1,22 +1,126 @@
+/*--- Font imports ---*/
+
+@import url("https://fonts.googleapis.com/css2?family=Red+Hat+Display:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Red+Hat+Text:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap");
+
+/*--- Definitions ---*/
+
+:root {
+  --card-bg-color: rgb(236, 240, 241);
+}
+
+/*--- Bootstrap mods ---*/
+
+.table {
+  --bs-table-bg: rgba(0, 0, 0, 0);
+}
+
+.nav {
+  --bs-nav-link-padding-x: 1rem;
+}
+
+.well {
+  margin-bottom: 20px;
+  background-color: var(--card-bg-color);
+}
+
+.accordion {
+  margin: 1rem 0;
+
+  --bs-accordion-active-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth animations for accordion */
+.accordion-collapse {
+  transition: height 0.35s ease-in-out !important;
+}
+
+/* Reduce excessive padding */
+.accordion-body {
+  padding: 0.75rem 1rem !important; /* Default is 1rem 1.25rem */
+}
+
+/* Better button styling with hover effects */
+.accordion-button {
+  font-size: large;
+  transition: all 0.2s ease-in-out;
+  padding: 0.5rem 1rem !important; /* Reduce button padding too */
+  background-color: var(--card-bg-color);
+}
+
+.accordion-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Smoother focus states */
+.accordion-button:focus {
+  box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.1);
+  border-color: var(--card-bg-color);
+}
+
+/* Optional: Add a subtle shadow to panels */
+.accordion-item {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.5rem;
+  border-radius: 0.375rem !important;
+}
+
+/* Make the collapse animation smoother */
+.accordion-collapse.collapsing {
+  transition: height 0.35s ease-in-out;
+}
+
+.btn-outline-primary {
+  --bs-btn-bg: rgba(71, 109, 138, 0.1);
+}
+
+.btn-group > .btn:hover:not(.btn-check:checked + .btn) {
+  background-color: var(--bs-btn-bg);
+}
+
 /*--- Modifications of existing classes ---*/
 
+/* Font families */
 body {
-  font-family: 'Lato', sans-serif;
+  font-family: "Red Hat Text", sans-serif;
+}
+
+/* Headings use Red Hat Display */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Red Hat Display", sans-serif;
+  font-weight: 600;
+}
+
+/* Specific heading adjustments */
+h1 {
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 1.5rem;
 }
 
 .container-fluid {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: auto;
 }
 
+.control-label {
+  font-weight: 600;
+}
+
 .leaflet-control-layers-list::before {
-  content: 'Basemap:';
-  font-weight: bold;
+  content: "Basemap:";
+  font-weight: 600;
 }
 
 .leaflet-control-layers-overlays::before {
-  content: 'Layers:';
-  font-weight: bold;
+  content: "Layers:";
+  font-weight: 600;
 }
 
 .leaflet-control-attribution {
@@ -31,10 +135,11 @@ body {
   margin-top: 1em;
 }
 
-a, a:hover, a:focus {
+a,
+a:hover,
+a:focus {
   color: #48a67b;
 }
-
 
 /* --- Tab appearance --- */
 
@@ -64,7 +169,8 @@ a, a:hover, a:focus {
   background-color: #ecf0f1;
 }
 
-.nav-pills > li.active, .nav-pills > li + li {
+.nav-pills > li.active,
+.nav-pills > li + li {
   margin-left: 0px;
 }
 
@@ -73,7 +179,6 @@ a, a:hover, a:focus {
   font-weight: bold;
 }
 
-
 /*--- Other modifications ---*/
 
 .form-group {
@@ -81,13 +186,12 @@ a, a:hover, a:focus {
 }
 
 .dataTables_wrapper {
-  overflow:  auto;
+  overflow: auto;
 }
 
 .table {
   margin-bottom: 0px;
 }
-
 
 /*--- New classes ---*/
 
@@ -99,13 +203,13 @@ a, a:hover, a:focus {
 
 .notice-ok {
   border: 1px solid green;
-  background: rgba(0, 255, 0, .1);
+  background: rgba(0, 255, 0, 0.1);
   color: green;
 }
 
 .notice-error {
   border: 1px solid red;
-  background: rgba(255, 0, 0, .1);
+  background: rgba(255, 0, 0, 0.1);
   color: red;
 }
 
@@ -222,12 +326,12 @@ a, a:hover, a:focus {
   font-size: smaller;
 }
 
-.report-tbl * > table>thead>tr>th {
+.report-tbl * > table > thead > tr > th {
   vertical-align: middle;
   border-bottom: 2px solid #ecf0f1;
 }
 
-.report-tbl * > table>tbody>tr>td {
+.report-tbl * > table > tbody > tr > td {
   vertical-align: middle;
 }
 

@@ -4,7 +4,7 @@ stationListUI <- function() {
   ns <- NS("station-list")
 
   createStnPanel <- function(title, btn_id, tbl_id) {
-    bsCollapsePanel(
+    accordion_panel(
       title = title,
       style = "primary",
       p(downloadButton(ns(btn_id), "Download this list")),
@@ -28,7 +28,7 @@ stationListUI <- function() {
     div(
       id = "resize_wrapper",
       style = "margin: 1em 0px; padding: 10px; border: 1px solid grey; border-radius: 5px; background: white; min-height: 550px;",
-      dataTableOutput(ns("stn_tbl")) %>% withSpinnerProxy(proxy.height = 530)
+      dataTableOutput(ns("stn_tbl")) %>% with_spinner(proxy.height = 530)
     ),
     p(uiOutput(ns("dl_btns"))),
     em("Use the buttons at the top of this section to select which set of stations to show and download. 'Shown on map' means any stations shown on the map above; use the map options to change which stations to show, such as selecting a specific year or type of station. If a station is not shown on the map, the 'Select' action button will not be available for that station. You can also download the station lists as a CSV, as a KML for viewing in Google Earth, or as a GeoJSON for viewing in a GIS application such as QGIS.")
@@ -59,13 +59,21 @@ stationListServer <- function(stn_list) {
         set <- input$stn_set
 
         if (set == "map") {
-          all_stns %>% filter(station_id %in% stn_list()) %>% fmtStns()
+          all_stns %>%
+            filter(station_id %in% stn_list()) %>%
+            fmtStns()
         } else if (set == "baseline") {
-          all_stns %>% filter(baseline_stn) %>% fmtStns()
+          all_stns %>%
+            filter(baseline_stn) %>%
+            fmtStns()
         } else if (set == "nutrient") {
-          all_stns %>% filter(nutrient_stn) %>% fmtStns()
+          all_stns %>%
+            filter(nutrient_stn) %>%
+            fmtStns()
         } else if (set == "therm") {
-          all_stns %>% filter(therm_stn) %>% fmtStns()
+          all_stns %>%
+            filter(therm_stn) %>%
+            fmtStns()
         } else {
           fmtStns(all_stns)
         }
@@ -76,7 +84,7 @@ stationListServer <- function(stn_list) {
         cur_stns() %>%
           mutate(Action = if_else(
             StationId %in% stn_list(),
-            paste0("<a class='btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=", StationId, " onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>"),
+            sprintf("<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>", StationId),
             ""
           ) %>% lapply(shiny::HTML), .before = 1)
       })
@@ -178,7 +186,6 @@ stationListServer <- function(stn_list) {
             write_sf(file)
         }
       )
-
     }
   )
 }

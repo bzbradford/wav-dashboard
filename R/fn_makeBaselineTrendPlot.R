@@ -1,4 +1,3 @@
-
 #' @param .data data frame derived from `baseline_data`
 #' @param col name of the column to plot
 #' @param type determines plot type
@@ -24,7 +23,7 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
   # set y axis range
   yrange <- c(min(df$value, opts$range_min), max(df$value, opts$range_max))
   yrange <- yrange + abs(yrange[2] - yrange[1]) * c(-.1, .1)
-  if (min(df$value) >= 0 & yrange[1] < 0) yrange[1] <- 0
+  if (min(df$value) >= 0 && yrange[1] < 0) yrange[1] <- 0
 
   plt <- plot_ly(df) %>%
     config(displayModeBar = F) %>%
@@ -54,7 +53,7 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
         type = "scatter", mode = "lines+markers",
         x = ~date,
         y = ~value,
-        text = ~paste(signif(value), opts$unit),
+        text = ~ paste(signif(value), opts$unit),
         hovertemplate = paste("%{x}: %{y:.2f}", opts$unit)
       )
   } else {
@@ -75,7 +74,7 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
         type = "scatter",
         mode = "markers",
         hoverinfo = list(extras = "none"),
-        text = ~paste(month_name, year),
+        text = ~ paste(month_name, year),
         hovertemplate = paste("%{text}: %{y}", opts$unit)
       )
   }
@@ -84,11 +83,11 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
   annot <- OPTS$baseline_trend_annot[[col]]
   if (!is.null(annot)) {
     values <- c(-1e6, annot$values, 1e6)
-    shapes <- lapply(1:length(annot$colors), function(i) {
+    shapes <- lapply(seq_along(annot$colors), function(i) {
       rect(values[i], values[i + 1], annot$colors[i])
     })
     plt <- layout(plt, shapes = shapes)
-    for (i in 1:length(annot$values)) {
+    for (i in seq_along(annot$values)) {
       plt <- plt %>%
         add_trace(
           type = "scatter",
@@ -104,4 +103,3 @@ makeBaselineTrendPlot <- function(.data, col, type = c("scatter", "month", "year
 
   plt
 }
-

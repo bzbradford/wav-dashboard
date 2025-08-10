@@ -3,9 +3,12 @@
 learnMoreUI <- function() {
   tagList(
     includeMarkdown("md/learn_more.md"),
-    br(),
-    bsCollapse(
-      bsCollapsePanel("Changelog", includeMarkdown("CHANGELOG.md"))
+    accordion(
+      accordion_panel(
+        title = "Changelog",
+        includeMarkdown("CHANGELOG.md")
+      ),
+      open = FALSE
     )
   )
 }

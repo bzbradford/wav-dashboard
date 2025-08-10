@@ -19,10 +19,10 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
   # handle units
   temp_col <- paste0("temp_", tolower(units))
   ytitle <- paste0("Temperature (°", units, ")")
-  default_yrange <- { if (units == "F") c(40, 90) else c(5, 30) }
+  default_yrange <- if (units == "F") c(40, 90) else c(5, 30)
   data_yrange <- c(
-    min(df_hourly[[temp_col]], na.rm = T),
-    max(df_hourly[[temp_col]], na.rm = T)
+    min(df_hourly[[temp_col]], na.rm = TRUE),
+    max(df_hourly[[temp_col]], na.rm = TRUE)
   )
   yrange <- c(
     floor(min(default_yrange[1], data_yrange[1])),
@@ -32,39 +32,45 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
   plt <- plot_ly() %>%
     add_ribbons(
       data = df_daily,
-      x = ~ date_time,
-      ymin = ~ min,
-      ymax = ~ max,
+      x = ~date_time,
+      ymin = ~min,
+      ymax = ~max,
       line = list(
         color = "lightblue",
         width = 0.5,
-        opacity = 0),
+        opacity = 0
+      ),
       fillcolor = "lightblue",
       opacity = 0.5,
       name = "Daily Range",
-      connectgaps = F,
+      connectgaps = FALSE,
       fill = "tozeroy",
-      hovertemplate = "Daily Range<extra></extra>") %>%
+      hovertemplate = "Daily Range<extra></extra>"
+    ) %>%
     add_lines(
       data = df_daily,
-      x = ~ date_time,
-      y = ~ min,
+      x = ~date_time,
+      y = ~min,
       line = list(
         color = "lightblue",
         width = 1,
-        opacity = 0.5),
+        opacity = 0.5
+      ),
       name = "Daily Min",
-      showlegend = F) %>%
+      showlegend = FALSE
+    ) %>%
     add_lines(
       data = df_daily,
-      x = ~ date_time,
-      y = ~ max,
+      x = ~date_time,
+      y = ~max,
       line = list(
         color = "lightblue",
         width = 1,
-        opacity = 0.5),
+        opacity = 0.5
+      ),
       name = "Daily Max",
-      showlegend = F) %>%
+      showlegend = FALSE
+    ) %>%
     add_trace(
       x = df_hourly$date_time,
       y = df_hourly[[temp_col]],
@@ -74,35 +80,43 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
       line = list(
         color = "#1f77b4",
         width = 0.5,
-        opacity = 0.8)) %>%
+        opacity = 0.8
+      )
+    ) %>%
     add_trace(
       data = df_daily,
-      x = ~ date_time,
-      y = ~ mean,
+      x = ~date_time,
+      y = ~mean,
       name = "Mean Daily Temp.",
       type = "scatter",
       mode = "lines",
       line = list(
-        color = "orange")) %>%
+        color = "orange"
+      )
+    ) %>%
     layout(
       title = list(
         text = "Stream Temperature",
         y = .99,
-        yanchor = "top"),
+        yanchor = "top"
+      ),
       showlegend = TRUE,
       xaxis = list(title = "Date and Time"),
       yaxis = list(
         title = ytitle,
         range = yrange,
-        zerolinecolor = "lightgrey"),
+        zerolinecolor = "lightgrey"
+      ),
       hovermode = "x unified",
       legend = list(
         orientation = "h",
         yanchor = "bottom",
         x = 0.25,
-        y = 1),
-      margin = list(t = 50)) %>%
-    config(displayModeBar = F)
+        y = 1
+      ),
+      margin = list(t = 50)
+    ) %>%
+    config(displayModeBar = FALSE)
 
   # add annotation color bands
   if (annotations != "none") {
@@ -118,7 +132,7 @@ makeThermistorPlot <- function(df_hourly, df_daily, units, annotations) {
 
     plt <- plt %>%
       layout(
-        shapes = lapply(1:length(colors), function(i) {
+        shapes = lapply(seq_along(colors), function(i) {
           rect(temps[i], temps[i + 1], colors[i])
         })
       )

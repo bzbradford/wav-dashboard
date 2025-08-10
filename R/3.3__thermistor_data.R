@@ -66,7 +66,7 @@ thermistorDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("content")) %>% withSpinnerProxy(),
+    uiOutput(ns("content")) %>% with_spinner(),
   )
 }
 
@@ -107,7 +107,9 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       selected_data <- reactive({
         req(input$year)
 
-        if (input$year == "All") return(cur_data())
+        if (input$year == "All") {
+          return(cur_data())
+        }
         cur_data() %>% filter(year == input$year)
       })
 
@@ -180,7 +182,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           div(
             id = "therm-plot-container",
             h3(cur_stn()$label, align = "center"),
-            plotlyOutput(ns("plot")) %>% withSpinnerProxy(hide.ui = FALSE),
+            plotlyOutput(ns("plot")) %>% with_spinner(hide.ui = FALSE),
             uiOutput(ns("plotCaptionUI")),
             uiOutput(ns("naturalCommunityUI"))
           ),
@@ -189,11 +191,12 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/thermistor_info.md")
           ),
-          bsCollapse(
-            bsCollapsePanel(
+          accordion(
+            accordion_panel(
               title = "View or download monthly, daily, and hourly temperature data",
               uiOutput(ns("viewDataUI"))
-            )
+            ),
+            open = FALSE
           )
         )
       })
@@ -203,7 +206,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
       ## plotOptionsUI ----
       output$plotOptionsUI <- renderUI({
-        list(
+        tagList(
           p(
             div(
               style = "float: left; margin-right: 1em;",
@@ -214,7 +217,9 @@ thermistorDataServer <- function(cur_stn, has_focus) {
               label = NULL,
               inline = T,
               choices = list("Fahrenheit" = "F", "Celsius" = "C")
-            ),
+            )
+          ),
+          p(
             div(
               style = "float: left; margin-right: 1em;",
               strong("Optional plot annotations:")
@@ -282,8 +287,8 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             "Optimal brook trout temperatures are shown shaded ", colorize("dark green", "darkgreen"),
             " (", temps[1], "-", temps[2], unit_text, "), acceptable temperatures in ", colorize("light green", "darkseagreen"),
             " (", temps[2], "-", temps[3], unit_text, "), too hot in ", colorize("orange", "orange"),
-            " and too cold in ", colorize("blue", "blue"), "."))
-
+            " and too cold in ", colorize("blue", "blue"), "."
+          ))
         } else if (annotation == "wtemp") {
           temps <- c(69.3, 72.5, 76.3)
           if (units == "C") temps <- f_to_c(temps)
@@ -329,7 +334,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
 
         p(
           align = "center",
-          buildPlotDlBtn("#therm-plot-container", filename)
+          build_plot_download_btn("#therm-plot-container", filename)
         )
       })
 
@@ -344,7 +349,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         dates <- unique(selected_data()$date)
         date_span <- as.numeric(max(dates) - min(dates)) + 1
         monthly_dt <- summary_data() %>%
-          mutate(across(c(Min, Mean, Max), ~sprintf("%.1f %s", .x, input$units))) %>%
+          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
           renderDataTable(
             rownames = F,
             extensions = "Buttons",
@@ -414,13 +419,17 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       ## downloadDaily ----
       output$downloadDaily <- downloadHandler(
         sprintf("WAV Stn %s Daily Temperature Data (%s).csv", cur_stn()$station_id, input$year),
-        function(file) { write_csv(daily_data(), file, na = "") }
+        function(file) {
+          write_csv(daily_data(), file, na = "")
+        }
       )
 
       ## downloadDaily ----
       output$downloadHourly <- downloadHandler(
         sprintf("WAV Stn %s Hourly Temperature Data (%s).csv", cur_stn()$station_id, input$year),
-        function(file) { write_csv(selected_data(), file, na = "")}
+        function(file) {
+          write_csv(selected_data(), file, na = "")
+        }
       )
 
 

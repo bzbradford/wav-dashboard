@@ -8,7 +8,7 @@ baselineDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("uiWrapper")) %>% withSpinnerProxy(),
+    uiOutput(ns("uiWrapper")) %>% with_spinner(),
   )
 }
 
@@ -50,8 +50,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
 
       ## selected_data ----
       selected_data <- reactive({
-        switch(
-          req(input$plot_type),
+        switch(req(input$plot_type),
           "annual" = cur_data() %>% filter(year == req(input$year)),
           "trend" = cur_data()
         )
@@ -97,6 +96,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         tagList(
           div(
             class = "well flex-row",
+            style = "margin-bottom: 1rem;",
             uiOutput(ns("plotTypeUI")),
             uiOutput(ns("plotYearUI")),
             uiOutput(ns("trendTypeUI")),
@@ -105,12 +105,13 @@ baselineDataServer <- function(cur_stn, has_focus) {
           uiOutput(ns("plotUI")),
           uiOutput(ns("stnSummaryUI")),
           uiOutput(ns("infoUI")),
-          br(),
-          bsCollapse(
-            bsCollapsePanel(
+          accordion(
+            accordion_panel(
               title = "View/download baseline data",
+              class = "btn-primary",
               uiOutput(ns("viewDataUI"))
-            )
+            ),
+            open = FALSE
           )
         )
       })
@@ -268,7 +269,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
       output$plotExportUI <- renderUI({
         req(input$year)
         filename <- sprintf("WAV baseline data - Stn %s - %s.png", cur_stn()$station_id, input$year)
-        buildPlotDlBtn("#baseline-plot-container", filename)
+        build_plot_download_btn("#baseline-plot-container", filename)
       })
 
 
@@ -278,10 +279,15 @@ baselineDataServer <- function(cur_stn, has_focus) {
       output$stnSummaryUI <- renderUI({
         req(stnSummaryData())
 
-        div(
-          class = "well", style = "margin-top: 25px; overflow: auto",
-          h4("Station data summary", style = "margin-top: 0px; border-bottom: 2px solid #d0d7d9;"),
-          tableOutput(ns("stnSummaryTable"))
+        accordion(
+          accordion_panel(
+            title = "Station data summary",
+            style = "background-color: rgba(0, 0, 0, 0.025);",
+            div(
+              style = "overflow: auto;",
+              tableOutput(ns("stnSummaryTable"))
+            )
+          )
         )
       })
 
@@ -296,7 +302,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
       ## stnSummaryData ----
       makeMinMax <- function(df, var) {
         v <- df[[var]]
-        if (length(v) == 0) return(tibble())
+        if (length(v) == 0) {
+          return(tibble())
+        }
         tibble(
           observations = length(na.omit(v)),
           min = df[which.min(v), ][[var]],
@@ -312,8 +320,8 @@ baselineDataServer <- function(cur_stn, has_focus) {
         date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
         OPTS$baseline_summary_vars %>%
           reframe(pick(everything()), makeMinMax(df, var)) %>%
-          mutate(across(c(min, max), ~paste(.x, units))) %>%
-          mutate(across(c(date_of_min, date_of_max), ~format(.x, date_fmt))) %>%
+          mutate(across(c(min, max), ~ paste(.x, units))) %>%
+          mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) %>%
           select(-c(var, units)) %>%
           clean_names("title")
       })
@@ -332,8 +340,9 @@ baselineDataServer <- function(cur_stn, has_focus) {
             strong("Waterbody:"), cur_stn()$waterbody
           ),
           p(
-            if (type == "annual")
-              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year)),
+            if (type == "annual") {
+              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year))
+            },
             downloadButton(ns("downloadStn"), "Download station data (all years)"),
             downloadButton(ns("downloadBaseline"), "Download entire baseline dataset")
           ),
@@ -342,50 +351,59 @@ baselineDataServer <- function(cur_stn, has_focus) {
       })
 
       ## dataTable ----
-      output$dataTable <- renderDataTable({
-        req(selected_data_ready())
+      output$dataTable <- renderDataTable(
+        {
+          req(selected_data_ready())
 
-        df <- selected_data()
-        date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %d, %Y", "%b %d")
-        df <- df %>%
-          arrange(date) %>%
-          distinct(date, .keep_all = T) %>%
-          clean_names(case = "title") %>%
-          mutate(label = format(Date, date_fmt)) %>%
-          mutate(across(everything(), as.character)) %>%
-          pivot_longer(cols = -label, names_to = "Parameter") %>%
-          pivot_wider(names_from = label) %>%
-          mutate(Parameter = gsub("D o", "DO", Parameter)) %>%
-          mutate(Parameter = gsub("P h", "pH", Parameter))
+          df <- selected_data()
+          date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %d, %Y", "%b %d")
+          df <- df %>%
+            arrange(date) %>%
+            distinct(date, .keep_all = T) %>%
+            clean_names(case = "title") %>%
+            mutate(label = format(Date, date_fmt)) %>%
+            mutate(across(everything(), as.character)) %>%
+            pivot_longer(cols = -label, names_to = "Parameter") %>%
+            pivot_wider(names_from = label) %>%
+            mutate(Parameter = gsub("D o", "DO", Parameter)) %>%
+            mutate(Parameter = gsub("P h", "pH", Parameter))
 
-        datatable(
-          df,
-          selection = "none",
-          rownames = F,
-          options = list(
-            paging = F,
-            scrollX = T,
-            scrollCollapse = T
+          datatable(
+            df,
+            selection = "none",
+            rownames = F,
+            options = list(
+              paging = F,
+              scrollX = T,
+              scrollCollapse = T
+            )
           )
-        )
-      }, server = F)
+        },
+        server = F
+      )
 
       ## downloadStnYear ----
       output$downloadStnYear <- downloadHandler(
         sprintf("WAV Stn %s Baseline Data (%s).csv", cur_stn()$station_id, input$year),
-        function(file) { write_csv(selected_data(), file, na = "") }
+        function(file) {
+          write_csv(selected_data(), file, na = "")
+        }
       )
 
       ## downloadStn ----
       output$downloadStn <- downloadHandler(
         sprintf("WAV Stn %s Baseline Data.csv", cur_stn()$station_id),
-        function(file) { write_csv(cur_data(), file, na = "") }
+        function(file) {
+          write_csv(cur_data(), file, na = "")
+        }
       )
 
       ## downloadBaseline ----
       output$downloadBaseline <- downloadHandler(
         "WAV Baseline Data.csv",
-        function(file) { write_csv(baseline_data, file, na = "") }
+        function(file) {
+          write_csv(baseline_data, file, na = "")
+        }
       )
 
 

@@ -44,10 +44,11 @@ watershedInfoUI <- function() {
     h3("Watersheds"),
     p(strong("What is a watershed?"), "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."),
     p(HTML("In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale); see the entry in the table below for links to the DNR's information pages for each watershed. Use the layers menu (upper right) in the map above or"), strong(a(href = "#map", onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
-    uiOutput(ns("watershedInfoUI")) %>% withSpinnerProxy(proxy.height = 200),
+    uiOutput(ns("watershedInfoUI")) %>% with_spinner(proxy.height = 200),
     h4(strong("Landscape composition")),
     p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", links$nlcd, ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ", links$nlcd_classes, " for more information and specific definitions of each land cover class."),
-    div(class = "well flex-row year-btns",
+    div(
+      class = "well flex-row year-btns",
       div(class = "year-btn-text", em("Landscape scale:")),
       radioGroupButtons(
         inputId = ns("scale"),
@@ -60,7 +61,7 @@ watershedInfoUI <- function() {
         selected = 12
       )
     ),
-    uiOutput(ns("landscapePlotsUI")) %>% withSpinnerProxy(),
+    uiOutput(ns("landscapePlotsUI")) %>% with_spinner(),
   )
 }
 
@@ -142,7 +143,8 @@ watershedInfoServer <- function(cur_stn, has_focus) {
       ## landscapePlotsUI ----
       output$landscapePlotsUI <- renderUI({
         tagList(
-          div(id = "landscape-plot-container",
+          div(
+            id = "landscape-plot-container",
             uiOutput(ns("pieChartUI")),
             uiOutput(ns("diffPlotUI")),
           ),
@@ -198,7 +200,7 @@ watershedInfoServer <- function(cur_stn, has_focus) {
       ## plotExportUI ----
       output$plotExportUI <- renderUI({
         filename <- sprintf("Landscape composition - %s.png", selected_name())
-        buildPlotDlBtn("#landscape-plot-container", filename)
+        build_plot_download_btn("#landscape-plot-container", filename)
       })
 
 
@@ -206,12 +208,12 @@ watershedInfoServer <- function(cur_stn, has_focus) {
 
       ## curPlot ----
       output$curPlot <- renderPlotly({
-         makeLandscapePieChart(selected_data())
+        makeLandscapePieChart(selected_data())
       })
 
       ## allPlot ----
       output$allPlot <- renderPlotly({
-         makeLandscapePieChart(mean_data())
+        makeLandscapePieChart(mean_data())
       })
 
       ## diffPlot ----

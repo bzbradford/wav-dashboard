@@ -3,7 +3,6 @@
 # Server ----
 
 server <- function(input, output, session) {
-
   # Reactives values ----
 
   ## first_run ----
@@ -39,7 +38,9 @@ server <- function(input, output, session) {
   ## stn_list ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
-    if (!stns_avail()) return(list())
+    if (!stns_avail()) {
+      return(list())
+    }
     all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
 
@@ -63,11 +64,11 @@ server <- function(input, output, session) {
   # Checks for URL query string, set initial station to random or requested
   observeEvent(TRUE, once = TRUE, {
     # check for a url query
-    query <- parseQueryString(session$clientData$url_search)[['stn']]
+    query <- parseQueryString(session$clientData$url_search)[["stn"]]
     if (!is.null(query)) {
       if (query %in% all_stns$station_id) {
         selected <- query
-        stn_name <- all_stns[all_stns$station_id == selected,]$station_name
+        stn_name <- all_stns[all_stns$station_id == selected, ]$station_name
         bookmarking(TRUE)
         initial_stn(selected)
         output$notice <- renderUI({
@@ -86,7 +87,9 @@ server <- function(input, output, session) {
           )
         })
       }
-      delay(10000, { output$notice <- NULL })
+      delay(10000, {
+        output$notice <- NULL
+      })
     }
   })
 
@@ -102,19 +105,19 @@ server <- function(input, output, session) {
       selected <- initial_stn()
       first_run(FALSE)
 
-    # if current station is still in the list, keep it selected
+      # if current station is still in the list, keep it selected
     } else if (input$station %in% stations) {
       selected <- input$station
 
-    # pick the geographically nearest station
+      # pick the geographically nearest station
     } else if (length(stations) > 0) {
       last_pt <- last_valid_stn()
       if (!is.null(last_pt)) {
         # find geographically nearest station
         avail_pts <- all_pts %>% filter(station_id %in% stations)
-        selected <- avail_pts[st_nearest_feature(last_pt, avail_pts),]$station_id
+        selected <- avail_pts[st_nearest_feature(last_pt, avail_pts), ]$station_id
       } else {
-        selected <- stations[sample(1:length(stations), 1)]
+        selected <- stations[sample(seq_along(stations), 1)]
       }
     } else {
       # keep the current station selected in a one-item list
@@ -189,7 +192,7 @@ server <- function(input, output, session) {
   # select a random station
   observeEvent(input$rnd_stn, {
     req(length(stn_list()) > 0)
-    stn_id <- stn_list()[sample(1:length(stn_list()), 1)]
+    stn_id <- stn_list()[sample(seq_along(stn_list()), 1)]
     updateSelectInput(inputId = "station", selected = stn_id)
   })
 
@@ -342,5 +345,4 @@ server <- function(input, output, session) {
     cur_stn = reactive(last_valid_stn()),
     has_focus = reactive(input$data_tabs == tab_names$reports)
   )
-
 }

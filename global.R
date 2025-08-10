@@ -4,7 +4,7 @@
 
 library(sf) # spatial
 
-suppressMessages({
+suppressPackageStartupMessages({
   # core
   library(rlang) # walrus operator
   library(markdown) # includeMarkdown
@@ -15,9 +15,8 @@ suppressMessages({
 
   # shiny
   library(shiny)
-  library(shinyBS) # bscollapse
+  library(bslib) # accordion panels
   library(shinyjs) # javascript
-  library(shinythemes) # theme
   library(shinyWidgets) # radioGroupButtons
   library(htmltools) # tagList
 
@@ -30,6 +29,28 @@ suppressMessages({
   # reports
   library(knitr)
 })
+
+
+# Development ----
+
+# renv::init()         # initiate renv if not already
+# renv::dependencies() # show project dependencies
+# renv::clean()        # remove unused packages
+# renv::update()       # update project libraries
+# renv::snapshot()     # save updated lock file to project
+# renv::restore()      # restore versions from lockfile
+
+# shiny::devmode(TRUE)
+# shiny::devmode(FALSE)
+
+# reproject spatial data?
+# print(sf::sf_extSoftVersion())
+# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") %>%
+#   lapply(function(var) {
+#     shape <- eval(parse(text = var))
+#     message("TEST >> ", var, " crs: ", st_crs(shape)$proj4string)
+#     # assign(var, st_transform(shape, "+proj=longlat +datum=WGS84 +ellps=WGS84 +no_defs"))
+#   })
 
 
 # Definitions ----
@@ -70,7 +91,9 @@ invert <- function(x) {
 
 # return the first truthy argument
 first_truthy <- function(...) {
-  for (arg in list(...)) if (shiny::isTruthy(arg)) return(arg)
+  for (arg in list(...)) if (shiny::isTruthy(arg)) {
+    return(arg)
+  }
   NULL
 }
 
@@ -83,13 +106,10 @@ f_to_c <- function(f, d = 1) {
 }
 
 clamp <- function(x, lower = x, upper = x) {
-  if_else(
-    is.na(x) | is.null(x), x,
-    if_else(x < lower, lower,
-      if_else(x > upper, upper, x)))
+  pmax(lower, pmin(upper, x))
 }
 
-newDate <- function(y, m, d) {
+new_date <- function(y, m, d) {
   as.Date(paste(y, m, d, sep = "-"))
 }
 
@@ -103,7 +123,8 @@ colorize <- function(text, color = tolower(text)) {
 
 set_page_url <- function(id) {
   if (!is.null(id)) {
-    shinyjs::runjs(sprintf("window.history.replaceState(null, null, window.location.origin + window.location.pathname + '?stn=%s')", id))
+    url <- sprintf("window.location.origin + window.location.pathname + '?stn=%s'", id)
+    shinyjs::runjs(sprintf("window.history.replaceState(null, null, %s)", url))
   } else {
     shinyjs::runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
   }
@@ -118,11 +139,11 @@ set_page_title <- function(label) {
   }
 }
 
-withSpinnerProxy <- function(ui, ...) {
+with_spinner <- function(ui, ...) {
   ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
 }
 
-buildPlotDlBtn <- function(id, filename, text = "Download plot") {
+build_plot_download_btn <- function(id, filename, text = "Download plot") {
   a(
     class = "btn btn-default btn-sm",
     style = "cursor: pointer;",
@@ -166,7 +187,7 @@ rect <- function(ymin, ymax, color = "red") {
 # get the min and max of a vector for plotly axis ranges
 min_max <- function(v) {
   possibly(
-    return(c(floor(min(v, na.rm = T)), ceiling(max(v, na.rm = T)))),
+    return(c(floor(min(v, na.rm = TRUE)), ceiling(max(v, na.rm = TRUE)))),
     return(c(NA, NA))
   )
 }
@@ -179,13 +200,15 @@ do_color <- function(do) {
 
 find_max <- function(vals, min_val) {
   vals <- na.omit(vals)
-  if (length(vals) == 0) return(min_val)
+  if (length(vals) == 0) {
+    return(min_val)
+  }
   # ceiling(max(min_val, max(vals)) * 1.1)
   max(min_val, max(vals)) * 1.1
 }
 
 # used for x axis in plots
-setReportDateRange <- function(dates, pad_right = FALSE) {
+set_report_date_range <- function(dates, pad_right = FALSE) {
   yr <- format(dates[1], "%Y")
   default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
   lims <- c(
@@ -196,31 +219,33 @@ setReportDateRange <- function(dates, pad_right = FALSE) {
   lims
 }
 
-setAxisLimits <- function(vals, lower, upper) {
+set_axis_limits <- function(vals, lower, upper) {
   lims <- c(
-    min(vals, lower, na.rm = T),
-    max(vals, upper, na.rm = T)
+    min(vals, lower, na.rm = TRUE),
+    max(vals, upper, na.rm = TRUE)
   )
   lims + abs(lims) * c(-.1, .1)
 }
 
-addRectDate <- function(ymin, ymax, color) {
+add_rect_date <- function(ymin, ymax, color) {
   gg <- annotate("rect",
     xmin = as.Date(-Inf), xmax = as.Date(Inf),
     ymin = ymin, ymax = ymax, fill = alpha(color, .05)
   )
-  if (!is.infinite(ymax))
+  if (!is.infinite(ymax)) {
     gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
+  }
   gg
 }
 
-addRectDatetime <- function(ymin, ymax, color) {
+add_rect_datetime <- function(ymin, ymax, color) {
   gg <- annotate("rect",
     xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
     ymin = ymin, ymax = ymax, fill = alpha(color, .05)
   )
-  if (!is.infinite(ymax))
+  if (!is.infinite(ymax)) {
     gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+  }
   gg
 }
 
@@ -243,18 +268,15 @@ year_choices <- function(years) {
 OPTS <- lst(
 
   ## Baseline tab ----
-
   baseline_plot_type_choices = list(
     "Annual" = "annual",
     "Long-term" = "trend"
   ),
-
   baseline_trend_type_choices = list(
     "None" = "scatter",
     "Month" = "month",
     "Year" = "year"
   ),
-
   baseline_plot_opts = tribble(
     ~col, ~name, ~unit, ~range_min, ~range_max, ~color,
     "water_temp", "Water temperature", "°C", 5, 25, "steelblue",
@@ -286,7 +308,8 @@ OPTS <- lst(
         "Limited forage fish\n(>3 mg/L) ",
         "Warmwater fish\n(>5 mg/L) ",
         "Coldwater fish\n(>6 mg/L) ",
-        "Coldwater spawning\n(>7 mg/L) "),
+        "Coldwater spawning\n(>7 mg/L) "
+      ),
       colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
     ),
     transparency = list(
@@ -299,7 +322,8 @@ OPTS <- lst(
       labels = c(
         "Headwater stream (0.03-3 cfs)\nEphemeral stream (< 0.03 cfs)",
         "Mainstem stream (3-150 cfs)\nHeadwater stream (0.03-3 cfs)",
-        "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)"),
+        "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)"
+      ),
       colors = c("#915119", "#e3c283", "#73cdc1", "#09968e")
     ),
     ph = list(
@@ -317,13 +341,11 @@ OPTS <- lst(
       colors = c("steelblue", "lightblue", "pink", "orchid")
     )
   ),
-
   baseline_trend_captions = list(
     "scatter" = "All observations for the selected parameter are shown above.",
     "month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points.",
     "year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points."
   ) %>% lapply(function(txt) paste(txt, " Interpretive ranges are illustrated to contextualize the observations.")),
-
   baseline_summary_vars = tribble(
     ~var, ~parameter, ~units,
     "d_o", "Dissolved oxygen", "mg/L",
@@ -336,13 +358,35 @@ OPTS <- lst(
 )
 
 
-# Dev ----
+# Source remaining files in /R ----
 
-# reproject spatial data?
-# print(sf::sf_extSoftVersion())
-# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") %>%
-#   lapply(function(var) {
-#     shape <- eval(parse(text = var))
-#     message("TEST >> ", var, " crs: ", st_crs(shape)$proj4string)
-#     # assign(var, st_transform(shape, "+proj=longlat +datum=WGS84 +ellps=WGS84 +no_defs"))
-#   })
+source_dir <- function(path) {
+  files <- list.files(path, pattern = "\\.[Rr]$", full.names = TRUE)
+  for (file in files) {
+    source(file)
+  }
+}
+
+source_dir("R/components")
+source_dir("R/modules")
+
+# source("R/components/fn_makeBaselinePlot.R")
+# source("R/components/fn_makeBaselineRibbonPlot.R")
+# source("R/components/fn_makeBaselineTrendPlot.R")
+# source("R/components/fn_makeLandscapeDiffPlot.R")
+# source("R/components/fn_makeLandscapePieChart.R")
+# source("R/components/fn_makeNutrientPlot.R")
+# source("R/components/fn_makeReportMap.R")
+# source("R/components/fn_makeReportPlots.R")
+# source("R/components/fn_makeThermistorPlot.R")
+
+# source("R/modules/1.1__map.R")
+# source("R/modules/2.1__recent_stations.R")
+# source("R/modules/2.2__station_info.R")
+# source("R/modules/2.3__station_list.R")
+# source("R/modules/3.1__baseline_data.R")
+# source("R/modules/3.2__nutrient_data.R")
+# source("R/modules/3.3__thermistor_data.R")
+# source("R/modules/3.4__watershed_info.R")
+# source("R/modules/3.5__stn_report.R")
+# source("R/modules/3.6__learn_more.R")

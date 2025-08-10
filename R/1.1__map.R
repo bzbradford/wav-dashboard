@@ -18,7 +18,6 @@ mapUI <- function() {
       style = "margin: 0.5em 1em;", align = "center",
       p(em(HTML(paste0("Baseline stations are shown in ", colorize(stn_colors$baseline), ", total phosphorus monitoring stations in ", colorize(stn_colors$nutrient), ", and temperature logging stations in ", colorize(stn_colors$thermistor), " (stations may have more than one type of data). Currently selected station is shown in ", colorize("blue", stn_colors$current), ". Click on any station to select it, or choose from the list below the map."))))
     ),
-
     sidebarLayout(
       sidebarPanel(
         checkboxGroupInput(
@@ -27,7 +26,7 @@ mapUI <- function() {
           choices = station_types,
           selected = station_types
         ),
-        p(strong("Stations with data from:")),
+        div("Stations with data from:", class = "control-label", style = "margin: .5rem 0;"),
         fluidRow(
           column(
             width = 5,
@@ -45,16 +44,19 @@ mapUI <- function() {
               inputId = ns("year_exact_match"),
               label = NULL,
               choices = list(
-                "ANY selected year" = F,
-                "ALL selected years" = T
+                "ANY selected year" = FALSE,
+                "ALL selected years" = TRUE
               )
             )
           )
         ),
-        radioButtons(
-          inputId = ns("stn_color_by"),
-          label = "Color station markers by:",
-          choices = stn_color_choices
+        div(
+          style = "margin-top: .5rem;",
+          radioButtons(
+            inputId = ns("stn_color_by"),
+            label = "Color station markers by:",
+            choices = stn_color_choices
+          )
         ),
         div(
           class = "total-stns-text",
@@ -71,7 +73,7 @@ mapUI <- function() {
         div(
           class = "map-container",
           id = "map",
-          leafletOutput(ns("map"), width = "100%", height = "720px") %>% withSpinnerProxy(hide.ui = T)
+          leafletOutput(ns("map"), width = "100%", height = "720px") %>% with_spinner(hide.ui = TRUE)
         )
       ),
       position = "right"
@@ -165,15 +167,23 @@ mapServer <- function(cur_stn, main_session) {
       pt_size <- reactiveVal(4)
 
       getPtSize <- function(z) {
-        if (is.null(z)) return(4)
-        if (z >= 14) return(8)
-        if (z >= 10) return(6)
+        if (is.null(z)) {
+          return(4)
+        }
+        if (z >= 14) {
+          return(8)
+        }
+        if (z >= 10) {
+          return(6)
+        }
         4
       }
 
       observe({
         z <- input$map_zoom
-        if (is.null(z)) return()
+        if (is.null(z)) {
+          return()
+        }
         new_size <- getPtSize(z)
         if (pt_size() != new_size) pt_size(new_size)
       })
@@ -222,7 +232,7 @@ mapServer <- function(cur_stn, main_session) {
       )
 
       addBasemaps <- function(map) {
-        for (r in 1:nrow(basemaps)) {
+        for (r in seq_along(basemaps)) {
           df <- slice(basemaps, r)
           map <- addProviderTiles(map, df$provider, group = df$label)
         }
@@ -283,15 +293,15 @@ mapServer <- function(cur_stn, main_session) {
           hideGroup(hidden_layers) %>%
           addLayersControl(
             baseGroups = basemaps$label,
-            overlayGroups = unlist(layers, use.names = F),
-            options = layersControlOptions(collapsed = F)
+            overlayGroups = unlist(layers, use.names = FALSE),
+            options = layersControlOptions(collapsed = FALSE)
           ) %>%
           addEasyButtonBar(btn1, btn2, btn3) %>%
           suspendScroll(
             sleepTime = 0,
             wakeTime = 1000,
-            hoverToWake = T,
-            sleepNote = F,
+            hoverToWake = TRUE,
+            sleepNote = FALSE,
             sleepOpacity = 1
           ) %>%
           addPolygons(
@@ -376,7 +386,7 @@ mapServer <- function(cur_stn, main_session) {
             mutate(color = case_when(
               nutrient_stn & ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
               therm_stn & ("thermistor" %in% stn_types) ~ stn_colors$thermistor,
-              T ~ stn_colors$baseline
+              TRUE ~ stn_colors$baseline
             )) %>%
             arrange(max_fw_date)
 
@@ -422,7 +432,7 @@ mapServer <- function(cur_stn, main_session) {
             weight = 0.5,
             fillColor = ~color,
             fillOpacity = 1,
-            options = markerOptions(pane = "stations", sticky = F)
+            options = markerOptions(pane = "stations", sticky = FALSE)
           )
       })
 
@@ -451,7 +461,9 @@ mapServer <- function(cur_stn, main_session) {
       ## Show current station ----
       observe({
         # don't remove/redraw the last selected stn if all the stations are hidden
-        if (!any_stns()) return()
+        if (!any_stns()) {
+          return()
+        }
 
         map <- leafletProxy(ns("map"))
         map %>% clearGroup("cur_point")
@@ -508,7 +520,9 @@ mapServer <- function(cur_stn, main_session) {
 
       ## Current station's watersheds ----
       ### HUC8 ----
-      cur_huc8 <- reactive({ filter(huc8, Huc8Code == cur_stn()$huc8) })
+      cur_huc8 <- reactive({
+        filter(huc8, Huc8Code == cur_stn()$huc8)
+      })
       observe({
         leafletProxy(ns("map")) %>%
           removeShape("curHuc8") %>%
@@ -523,7 +537,9 @@ mapServer <- function(cur_stn, main_session) {
       })
 
       ### HUC10 ----
-      cur_huc10 <- reactive({ filter(huc10, Huc10Code == cur_stn()$huc10) })
+      cur_huc10 <- reactive({
+        filter(huc10, Huc10Code == cur_stn()$huc10)
+      })
       observe({
         leafletProxy(ns("map")) %>%
           removeShape("curHuc10") %>%
@@ -538,7 +554,9 @@ mapServer <- function(cur_stn, main_session) {
       })
 
       ### HUC12 ----
-      cur_huc12 <- reactive({ filter(huc12, Huc12Code == cur_stn()$huc12) })
+      cur_huc12 <- reactive({
+        filter(huc12, Huc12Code == cur_stn()$huc12)
+      })
       observe({
         leafletProxy(ns("map")) %>%
           removeShape("curHuc12") %>%
@@ -557,8 +575,7 @@ mapServer <- function(cur_stn, main_session) {
 
       ## Handle map button clicks ----
       observe({
-        switch(
-          req(input$map_btn),
+        switch(req(input$map_btn),
           user_loc = getUserLoc(),
           zoom_site = zoomToSite(12),
           zoom_extent = zoomAllSites()
@@ -663,12 +680,14 @@ mapServer <- function(cur_stn, main_session) {
 
       # shows a house icon and displays watershed info for the user's location
       observeEvent(input$user_loc, {
-        if (rv$user_loc_shown) return()
+        if (rv$user_loc_shown) {
+          return()
+        }
 
         map <- leafletProxy("map")
         loc <- input$user_loc %>% lapply(\(x) round(x, 4))
         pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
-          st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = F)
+          st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = FALSE)
 
         # TEST
         # message("==> huc12 crs: ", st_crs(huc12)$proj4string)

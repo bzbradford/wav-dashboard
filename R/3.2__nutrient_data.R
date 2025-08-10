@@ -5,7 +5,7 @@ nutrientDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("mainUI")) %>% withSpinnerProxy(),
+    uiOutput(ns("mainUI")) %>% with_spinner(),
   )
 }
 
@@ -74,6 +74,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         tagList(
           div(
             class = "well flex-row year-btns",
+            style = "margin-bottom: 1rem;",
             div(class = "year-btn-text", em("Choose year:")),
             radioGroupButtons(
               inputId = ns("year"),
@@ -96,11 +97,12 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/nutrient_info.md")
           ),
-          bsCollapse(
-            bsCollapsePanel(
+          accordion(
+            accordion_panel(
               title = "View or download nutrient data",
-              uiOutput(ns("viewDataUI"))
-            )
+              uiOutput(ns("viewDataUI")),
+            ),
+            open = FALSE
           )
         )
       })
@@ -133,7 +135,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
         filename <- sprintf("WAV Nutrient Data - Stn %s - %s.png", cur_stn()$station_id, input$year)
         p(
           align = "center",
-          buildPlotDlBtn("#nutrient-plot-container", filename)
+          build_plot_download_btn("#nutrient-plot-container", filename)
         )
       })
 
@@ -142,9 +144,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
 
       ## viewDataUI ----
       output$viewDataUI <- renderUI({
-        btn_year <-  downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
-        btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
-        dl_btns <- if (input$year == "All") list(btn_all) else list(btn_year, btn_all)
+        # btn_year <-  downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
+        # btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
+        # dl_btns <- if (input$year == "All") list(btn_all) else list(btn_year, btn_all)
 
         tagList(
           p(
@@ -153,8 +155,9 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             strong("Waterbody:"), cur_stn()$waterbody
           ),
           p(
-            if (input$year != "All")
-              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year)),
+            if (input$year != "All") {
+              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year))
+            },
             downloadButton(ns("downloadStn"), "Download station data (all years)"),
             downloadButton(ns("downloadBaseline"), "Download entire nutrient dataset")
           ),
@@ -164,47 +167,55 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       })
 
       ## dataTable ----
-      output$dataTable <- renderDataTable({
-        req(selected_data_ready())
+      output$dataTable <- renderDataTable(
+        {
+          req(selected_data_ready())
 
-        df <- selected_data() %>%
-          drop_na(tp) %>%
-          clean_names(case = "big_camel")
+          df <- selected_data() %>%
+            drop_na(tp) %>%
+            clean_names(case = "big_camel")
 
-        datatable(
-          df,
-          selection = "none",
-          rownames = F,
-          options = list(
-            paging = F,
-            scrollX = T,
-            scrollCollapse = T
+          datatable(
+            df,
+            selection = "none",
+            rownames = F,
+            options = list(
+              paging = F,
+              scrollX = T,
+              scrollCollapse = T
+            )
           )
-        )
-      }, server = F)
+        },
+        server = F
+      )
 
       ## downloadStnYear ----
       output$downloadStnYear <- downloadHandler(
         sprintf("WAV Stn %s Nutrient Data (%s).csv", cur_stn()$station_id, input$year),
-        function(file) { write_csv(selected_data(), file, na = "") }
+        function(file) {
+          write_csv(selected_data(), file, na = "")
+        }
       )
 
       ## downloadStn ----
       output$downloadStn <- downloadHandler(
         sprintf("WAV Stn %s Nutrient Data.csv", cur_stn()$station_id),
-        function(file) { write_csv(cur_data(), file, na = "") }
+        function(file) {
+          write_csv(cur_data(), file, na = "")
+        }
       )
 
       ## downloadBaseline ----
       output$downloadBaseline <- downloadHandler(
         "WAV Nutrient Data.csv",
-        function(file) { write_csv(nutrient_data, file, na = "") }
+        function(file) {
+          write_csv(nutrient_data, file, na = "")
+        }
       )
 
 
       # Return values ----
       return(reactive(list(year = input$year)))
-
     }
   )
 }

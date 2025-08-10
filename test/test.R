@@ -40,7 +40,7 @@ station_pts %>%
   addTiles() %>%
   addCircleMarkers(
     label = ~label,
-    radius = 1, opacity = 1, fill = F) %>%
+    radius = 1, opacity = 1, fill = FALSE) %>%
   addMarkers(
     label = ~label,
     clusterOptions = markerClusterOptions())
@@ -76,7 +76,7 @@ do_color <- function(do) {
     do <= 5 ~ "darksalmon",
     do <= 7 ~ "lightblue",
     do <= 10 ~ "blue",
-    T ~ "darkblue"
+    TRUE ~ "darkblue"
   )
 }
 
@@ -1122,7 +1122,7 @@ years <- as.numeric(max(dates) - min(dates)) / 365
 date_tick <- "M1"
 marker_opacity <- 1
 if (years < 1) {
-  date_range <- setReportDateRange(dates)
+  date_range <- set_report_date_range(dates)
 } else {
   date_range <- c(min(dates) - 15, max(dates) + 15)
 }

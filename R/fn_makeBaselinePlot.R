@@ -36,7 +36,7 @@ makeBaselinePlot <- function(df) {
   date_tick <- "M1"
   marker_opacity <- 1
   if (years < 1) {
-    date_range <- setReportDateRange(dates)
+    date_range <- set_report_date_range(dates)
   } else {
     date_range <- c(min(dates) - 15, max(dates) + 15)
   }

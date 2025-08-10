@@ -33,8 +33,8 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
   max_year <- max(df$year)
   data_dates <- unique(df$date)
   date_range <- c(
-    min(min(data_dates) - 15, newDate(min_year, 5, 1)),
-    max(max(data_dates) + 15, newDate(max_year, 11, 1))
+    min(min(data_dates) - 15, new_date(min_year, 5, 1)),
+    max(max(data_dates) + 15, new_date(max_year, 11, 1))
   )
   outer_months <- date_range + c(-15, 15)
   all_dates <- sort(unique(c(outer_months, data_dates)))

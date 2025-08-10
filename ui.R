@@ -42,9 +42,11 @@ stnSelectorUI <- function() {
 ui <- fluidPage(
 
   ## Setup ----
-
   title = "WAV Data Dashboard",
-  theme = shinytheme("flatly"),
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "flatly"
+  ),
   tags$head(
     tags$meta(charset = "UTF-8"),
     tags$meta(name = "description", content = "An online data dashboard for viewing stream monitoring data collected by volunteers across Wisconsin"),
@@ -56,7 +58,6 @@ ui <- fluidPage(
     tags$script(src = "saveAs.js")
   ),
   useShinyjs(),
-
   div(
     id = "main-content",
 
@@ -65,7 +66,7 @@ ui <- fluidPage(
       div(
         align = "center",
         style = "margin-top: 1em;",
-        a(img(src = "wav-logo-color.png", height = "100px"), href = "https://wateractionvolunteers.org", target = "_blank")
+        a(img(src = "wav-logo-color.png", height = "100px", title = "Visit the Water Action Volunteers website"), href = "https://wateractionvolunteers.org", target = "_blank")
       ),
       br(),
       h2("Stream Monitoring Data Dashboard", align = "center"),
@@ -100,11 +101,12 @@ ui <- fluidPage(
         tabPanel(tab_names$thermistor, thermistorDataUI()),
         tabPanel(tab_names$watershed, watershedInfoUI()),
         # temporarily disable the reports tab on the wisc server
-        {if (Sys.getenv("REPORT_DISABLED") == "") tabPanel(tab_names$reports, stnReportUI())},
+        {
+          if (Sys.getenv("REPORT_DISABLED") == "") tabPanel(tab_names$reports, stnReportUI())
+        },
         tabPanel(tab_names$more, learnMoreUI())
       ),
     ),
-
   ),
 
 

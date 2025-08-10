@@ -4,22 +4,6 @@
 # Source this file to prepare .RData for deployment
 
 
-#- Renv for pkg management -#
-
-# renv::init()         # initiate renv if not already
-# renv::dependencies() # show project dependencies
-# renv::clean()        # remove unused packages
-# renv::update()       # update project libraries
-# renv::snapshot()     # save updated lock file to project
-# renv::restore()      # restore versions from lockfile
-
-
-#- Testing -#
-
-# shiny::devmode(TRUE)
-# shiny::devmode(FALSE)
-
-
 # Load packages ----
 
 library(tidyverse)
@@ -39,21 +23,20 @@ gc() # garbage collect
 
 ## Used here only ----
 
-create_popups <- function(data) {
+create_popups <- function(.data) {
   title <- "<div class=popup-title>Monitoring Station Details</div>"
-  data %>% {
-    cols <- names(.)
-    lapply(1:nrow(.), function(r) {
-      row <- .[r,]
-      details <-
-        lapply(1:length(cols), function(c) {
-          paste0("<b>", cols[c], ":</b> ", row[c])
-        }) %>%
-        paste0(collapse = "<br>")
-      paste0(title, details)
-    }) %>% paste0()
-  }
+  cols <- names(.data)
+  lapply(seq_len(nrow(.data)), function(r) {
+    row <- .data[r, ]
+    details <-
+      lapply(seq_along(cols), function(c) {
+        paste0("<b>", cols[c], ":</b> ", row[c])
+      }) %>%
+      paste0(collapse = "<br>")
+    paste0(title, details)
+  }) %>% paste0()
 }
+
 
 get_coverage <- function(df) {
   years <- df %>%
@@ -61,7 +44,8 @@ get_coverage <- function(df) {
     group_by(station_id) %>%
     summarise(
       data_years = paste(year, collapse = ", "),
-      max_fw_year = max(year, na.rm = T)) %>%
+      max_fw_year = max(year, na.rm = T)
+    ) %>%
     rowwise() %>%
     mutate(data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))))
   dates <- df %>%
@@ -102,7 +86,9 @@ getPhosEstimate <- function(vals) {
     median = median(log_vals),
     lower = log_mean - tval * se,
     upper = log_mean + tval * se
-  ) %>% lapply(exp) %>% lapply(signif, 3)
+  ) %>%
+    lapply(exp) %>%
+    lapply(signif, 3)
   params$n <- n
   params$limit <- phoslimit
   params
@@ -120,7 +106,9 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
   upper <- vals$upper
 
   msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
-  if (anyNA(c(median, lower, upper))) return(msg)
+  if (anyNA(c(median, lower, upper))) {
+    return(msg)
+  }
 
   msg <- case_when(
     lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
@@ -179,10 +167,12 @@ buildReportSummary <- function(params) {
   )
 
   for (var in names(baseline_count_cols)) {
-    counts[[var]] = sum(!is.na(data$baseline[[var]]))
+    counts[[var]] <- sum(!is.na(data$baseline[[var]]))
   }
 
-  has <- sapply(counts, function(n) { n > 0 }, simplify = F)
+  has <- sapply(counts, function(n) {
+    n > 0
+  }, simplify = F)
 
   # generate summary paragraph
   base_counts <- tribble(
@@ -226,16 +216,17 @@ summarizeReportCols <- function(df, cols) {
     drop_na(value) %>%
     summarize(
       across(value, list(
-          N = ~n(),
-          Min = min,
-          Max = max,
-          Median = median,
-          Mean = mean,
-          SD = sd
-        ), .names = "{.fn}"),
-      .by = Parameter) %>%
+        N = ~ n(),
+        Min = min,
+        Max = max,
+        Median = median,
+        Mean = mean,
+        SD = sd
+      ), .names = "{.fn}"),
+      .by = Parameter
+    ) %>%
     mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    mutate(across(Min:SD, ~if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
+    mutate(across(Min:SD, ~ if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
 }
 
 # summary table
@@ -252,7 +243,7 @@ makeReportBaselineTable <- function(baseline) {
 # summary table
 makeReportStreamflowTable <- function(baseline) {
   baseline %>%
-    mutate(across(flow_method_used, ~gsub(" Method", "", .x))) %>%
+    mutate(across(flow_method_used, ~ gsub(" Method", "", .x))) %>%
     select(
       `Date` = formatted_date,
       all_of(report_streamflow_cols),
@@ -271,7 +262,8 @@ buildReportFieldworkComments <- function(baseline) {
       wx = weather_conditions,
       rec_wx = weather_last_2_days,
       com1 = fieldwork_comments,
-      com2 = additional_comments) %>%
+      com2 = additional_comments
+    ) %>%
     mutate(across(where(is.character), xtable::sanitize)) %>%
     rowwise() %>%
     mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
@@ -325,7 +317,9 @@ huc10 <- readRDS("data/shp/huc10.rds") %>%
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
   ))
-suppressWarnings({ huc10_centroids <- st_centroid(huc10) })
+suppressWarnings({
+  huc10_centroids <- st_centroid(huc10)
+})
 huc12 <- readRDS("data/shp/huc12.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",
@@ -402,29 +396,36 @@ check_missing_stns(therm_data, therm_pts, "thermistor")
 all_coverage <- bind_rows(
   mutate(baseline_coverage, source = "Baseline"),
   mutate(nutrient_coverage, source = "Nutrient"),
-  mutate(therm_coverage, source = "Thermistor")) %>%
+  mutate(therm_coverage, source = "Thermistor")
+) %>%
   group_by(station_id) %>%
   summarise(
     data_sources = paste(source, collapse = "/"),
     data_years = paste(data_years, collapse = ", "),
     max_fw_year = max(max_fw_year),
-    max_fw_date = as.character(max(max_fw_date))) %>%
+    max_fw_date = as.character(max(max_fw_date))
+  ) %>%
   rowwise() %>%
   mutate(
     data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))),
-    data_years = paste(data_year_list, collapse = ", ")) %>%
+    data_years = paste(data_year_list, collapse = ", ")
+  ) %>%
   ungroup() %>%
   left_join(count(baseline_data, station_id, name = "baseline_data_obs"), by = "station_id") %>%
   left_join(count(nutrient_data, station_id, name = "nutrient_data_obs"), by = "station_id") %>%
-  left_join({
-    therm_data %>%
-      count(station_id, date) %>%
-      count(station_id, name = "thermistor_days_recorded")
-  }, by = "station_id") %>%
+  left_join(
+    {
+      therm_data %>%
+        count(station_id, date) %>%
+        count(station_id, name = "thermistor_days_recorded")
+    },
+    by = "station_id"
+  ) %>%
   replace_na(list(
     baseline_data_obs = 0,
     nutrient_data_obs = 0,
-    thermistor_days_recorded = 0))
+    thermistor_days_recorded = 0
+  ))
 
 # all_coverage %>%
 #   select(-"data_year_list") %>%
@@ -433,7 +434,8 @@ all_coverage <- bind_rows(
 all_stn_years <- bind_rows(
   baseline_stn_years,
   therm_stn_years,
-  nutrient_stn_years) %>%
+  nutrient_stn_years
+) %>%
   distinct(station_id, year) %>%
   arrange(station_id, year) %>%
   left_join(station_list, by = "station_id") %>%
@@ -441,7 +443,8 @@ all_stn_years <- bind_rows(
   mutate(
     baseline_stn = station_id %in% baseline_pts$station_id,
     therm_stn = station_id %in% therm_pts$station_id,
-    nutrient_stn = station_id %in% nutrient_pts$station_id)
+    nutrient_stn = station_id %in% nutrient_pts$station_id
+  )
 
 data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 stn_year_choices <- append(
@@ -484,7 +487,8 @@ all_pts <- station_pts %>%
   mutate(
     baseline_stn = station_id %in% baseline_pts$station_id,
     therm_stn = station_id %in% therm_pts$station_id,
-    nutrient_stn = station_id %in% nutrient_pts$station_id) %>%
+    nutrient_stn = station_id %in% nutrient_pts$station_id
+  ) %>%
   filter(baseline_stn | therm_stn | nutrient_stn) %>%
   left_join(all_coverage, by = "station_id") %>%
   mutate(
@@ -551,13 +555,14 @@ baseline_means <- baseline_data %>%
     transparency = mean(transparency, na.rm = T),
     streamflow = mean(streamflow, na.rm = T),
     .by = station_id
-  ) %>% {
+  ) %>%
+  {
     df <- .
     df[sapply(df, is.infinite)] <- NA
     df[sapply(df, is.nan)] <- NA
     df
   } %>%
-  mutate(across(water_temp:streamflow, ~signif(.x, 3)))
+  mutate(across(water_temp:streamflow, ~ signif(.x, 3)))
 
 # from 12 most recent months
 nutrient_means <- nutrient_data %>%
@@ -585,7 +590,7 @@ stn_color_opts <- tribble(
 
 stn_color_choices <- append(
   list("Station type" = "stn_type"),
-  deframe(stn_color_opts[,1:2])
+  deframe(stn_color_opts[, 1:2])
 )
 
 
