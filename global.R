@@ -33,6 +33,7 @@ suppressPackageStartupMessages({
 
 # Development ----
 
+# renv::status()
 # renv::init()         # initiate renv if not already
 # renv::dependencies() # show project dependencies
 # renv::clean()        # remove unused packages
