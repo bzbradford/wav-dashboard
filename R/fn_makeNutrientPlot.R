@@ -9,7 +9,9 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
   require(dplyr)
   require(plotly)
 
-  if (nrow(df) == 0) return()
+  if (nrow(df) == 0) {
+    return()
+  }
 
   df <- df %>%
     summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) %>%
@@ -24,7 +26,8 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
     arrange(date) %>%
     mutate(
       days_since_last = as.integer(date - lag(date)),
-      days_to_next = as.integer(lead(date) - date)) %>%
+      days_to_next = as.integer(lead(date) - date)
+    ) %>%
     rowwise() %>%
     mutate(bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))) %>%
     replace_na(list(bar_width = 28))
@@ -57,25 +60,29 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         y = ~phoslimit,
         name = "TP criteria",
         opacity = 0.75,
-        line = list(color = "red", width = 2)) %>%
+        line = list(color = "red", width = 2)
+      ) %>%
       add_lines(
         x = ~date,
         y = ~lower,
         name = "Lower 90% CI",
         opacity = 0.5,
-        line = list(color = ci_color, width = 0.5)) %>%
+        line = list(color = ci_color, width = 0.5)
+      ) %>%
       add_lines(
         x = ~date,
         y = ~median,
         name = "Median",
         opacity = 0.5,
-        line = list(color = "black", dash = "dash", width = 1.5)) %>%
+        line = list(color = "black", dash = "dash", width = 1.5)
+      ) %>%
       add_lines(
         x = ~date,
         y = ~upper,
         name = "Upper 90% CI",
         opacity = 0.5,
-        line = list(color = ci_color, width = 0.5))
+        line = list(color = ci_color, width = 0.5)
+      )
 
     shapes <- list(
       rect(phos_estimate$lower, phos_estimate$upper, ci_color)
@@ -95,13 +102,16 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
       textposition = "auto",
       color = ~exceedance,
       colors = "Set2",
-      width = ~0.75 * 1000 * 60 * 60 * 24 * bar_width, # time in milliseconds
+      width = ~ 0.75 * 1000 * 60 * 60 * 24 * bar_width, # time in milliseconds
       marker = list(
         line = list(
           color = "rgb(8,48,107)",
-          width = 1)),
+          width = 1
+        )
+      ),
       textfont = list(color = "black"),
-      hovertemplate = "Measured TP: %{y:.3f} mg/L<extra></extra>") %>%
+      hovertemplate = "Measured TP: %{y:.3f} mg/L<extra></extra>"
+    ) %>%
     layout(
       title = "Total Phosphorus",
       xaxis = list(
@@ -110,20 +120,24 @@ makeNutrientPlot <- function(df, phoslimit, phos_estimate) {
         hoverformat = "%B %d, %Y",
         tickformat = "%B<br>%Y",
         dtick = "M1",
-        range = date_range),
+        range = date_range
+      ),
       yaxis = list(
         title = "Total phosphorus",
         ticksuffix = " mg/L",
         zerolinecolor = "lightgrey",
         range = yrange,
-        fixedrange = T),
+        fixedrange = T
+      ),
       legend = list(
         traceorder = "reversed",
         orientation = "h",
-        x = 0.25, y = 1),
+        x = 0.25, y = 1
+      ),
       hovermode = "x unified",
       margin = list(t = 50),
-      shapes = shapes) %>%
+      shapes = shapes
+    ) %>%
     config(displayModeBar = F)
 
   plt

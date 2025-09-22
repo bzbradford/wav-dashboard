@@ -91,8 +91,10 @@ invert <- function(x) {
 
 # return the first truthy argument
 first_truthy <- function(...) {
-  for (arg in list(...)) if (shiny::isTruthy(arg)) {
-    return(arg)
+  for (arg in list(...)) {
+    if (shiny::isTruthy(arg)) {
+      return(arg)
+    }
   }
   NULL
 }

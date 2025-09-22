@@ -138,7 +138,8 @@ makeReportPlots(test_baseline, "cond")
 
 baseline_data %>%
   filter(specific_cond < 3000) %>%
-  ggplot(aes(specific_cond)) + geom_histogram()
+  ggplot(aes(specific_cond)) +
+  geom_histogram()
 
 
 
@@ -215,7 +216,8 @@ daily_range <- bind_rows(daily_min, daily_max) %>%
   arrange(date_time) %>%
   mutate(
     min = zoo::na.approx(min, na.rm = F),
-    max = zoo::na.approx(max, na.rm = F)) %>%
+    max = zoo::na.approx(max, na.rm = F)
+  ) %>%
   mutate(mean = (min + max) / 2)
 
 zoo::na.approx(daily_range$max)

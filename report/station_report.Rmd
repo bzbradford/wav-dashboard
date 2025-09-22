@@ -33,7 +33,7 @@ safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
 # convert temperatures from C to F
 baseline <- params$data$baseline %>%
   mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
-  mutate(across(where(is.character), ~gsub("\\\\r\\\\n", " ", .x)))
+  mutate(across(where(is.character), ~ gsub("\\\\r\\\\n", " ", .x)))
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
 
@@ -243,7 +243,6 @@ Here are a few important points to keep in mind as you explore this stream’s d
 \newpage
 
 ```{r results, fig.width=7}
-
 ## Baseline summary ##
 
 if (has$baseline) {
@@ -264,7 +263,9 @@ if (has$baseline) {
     print()
 
   p("## Additional fieldwork details")
-  buildReportFieldworkComments(baseline) %>% paste(collapse = "\n\n") %>% cat()
+  buildReportFieldworkComments(baseline) %>%
+    paste(collapse = "\n\n") %>%
+    cat()
 }
 
 
@@ -273,15 +274,17 @@ if (has$baseline) {
 if (has$air_temp || has$water_temp) {
   pg()
   p("# Baseline Temperature Measurements")
-  baseline %>% makeReportPlots(type = "temp") %>% print()
+  baseline %>%
+    makeReportPlots(type = "temp") %>%
+    print()
   baseline %>%
     mutate(across(c(air_temp, water_temp), c_to_f)) %>%
     summarizeReportCols(c(
       `Air temp (°F)` = "air_temp",
       `Water temp (°F)` = "water_temp"
     )) %>%
-      kable() %>%
-      print()
+    kable() %>%
+    print()
   p("## Why measure water temperature?")
   p("Water temperature, along with streamflow, has a strong impact on the biological community in a stream. Aquatic plant and animal species are adapted to different temperature ranges, so measuring baseline water temperature throughout the year can help characterize a stream’s Natural Community. Salmonids such as Wisconsin’s native brook trout require cold water temperatures to live and reproduce, while other fish species such as bass, darter and sucker species are adapted to live in warmwater streams. Coldwater streams generally have higher levels of dissolved oxygen which is beneficial to aquatic life. Many coldwater streams in Wisconsin receive most of their flow from groundwater, while other streams and rivers are fed by warmer surface waters. Warmer water temperatures can indicate a stream is a natural warmwater stream or river, or they can indicate shallow, pooled or stagnant water, or a once colder stream that has been impacted by human activity. This is why it is important to look at water temperature and streamflow together when characterizing a stream's Natural Community. On the chart above, stream temperature zones corresponding to each Natural Community classification are shown as shaded bands.")
   if (has$water_temp) p(interp$baseline_temp)
@@ -293,7 +296,9 @@ if (has$air_temp || has$water_temp) {
 if (has$thermistor) {
   pg()
   p("# Hourly Temperature Logger Measurements")
-  thermistor %>% makeReportPlots(type = "thermistor") %>% print()
+  thermistor %>%
+    makeReportPlots(type = "thermistor") %>%
+    print()
   p("_On the chart above, Natural Community temperature classifications are shown as shaded bands._")
   p("## Why measure hourly water temperature?")
   p("Temperature is often referred to as a 'master variable' in aquatic ecosystems because temperature determines the speed of important processes, from basic chemical reactions to the growth and metabolism of fishes and other organisms. In addition, temperature determines the type of fish community that the stream can support. It is especially important to gather stream temperature information over many years in order to track how quickly our streams are warming due to climate change. The continuous data loggers you have deployed and maintained are a 21st-century approach to monitoring stream temperature, providing accurate, high-resolution temperature data as we monitor the health of streams across the state.")
@@ -307,11 +312,14 @@ if (has$thermistor) {
 if (has$d_o) {
   pg()
   p("# Baseline Dissolved Oxygen Measurements")
-  baseline %>% makeReportPlots(type = "do") %>% print()
-  baseline %>% summarizeReportCols(c(
-    `DO (mg/L)` = "d_o",
-    `DO (% sat.)` = "d_o_percent_saturation"
-  )) %>%
+  baseline %>%
+    makeReportPlots(type = "do") %>%
+    print()
+  baseline %>%
+    summarizeReportCols(c(
+      `DO (mg/L)` = "d_o",
+      `DO (% sat.)` = "d_o_percent_saturation"
+    )) %>%
     kable() %>%
     print()
   p("## Why measure dissolved oxygen?")
@@ -325,10 +333,13 @@ if (has$d_o) {
 if (has$ph) {
   pg()
   p("# Baseline pH Measurements")
-  baseline %>% makeReportPlots(type = "ph") %>% print()
-  baseline %>% summarizeReportCols(c(
-    `pH` = "ph"
-  )) %>%
+  baseline %>%
+    makeReportPlots(type = "ph") %>%
+    print()
+  baseline %>%
+    summarizeReportCols(c(
+      `pH` = "ph"
+    )) %>%
     kable() %>%
     print()
   p("## Why measure pH?")
@@ -344,10 +355,13 @@ if (has$ph) {
 if (has$specific_cond) {
   pg()
   p("# Baseline Conductivity Measurements")
-  baseline %>% makeReportPlots(type = "cond") %>% print()
-  baseline %>% summarizeReportCols(c(
-    `Specific conductance (μS/cm)` = "specific_cond"
-  )) %>%
+  baseline %>%
+    makeReportPlots(type = "cond") %>%
+    print()
+  baseline %>%
+    summarizeReportCols(c(
+      `Specific conductance (μS/cm)` = "specific_cond"
+    )) %>%
     kable() %>%
     print()
   p("## Why measure conductivity?")
@@ -361,10 +375,13 @@ if (has$specific_cond) {
 if (has$transparency) {
   pg()
   p("# Baseline Transparency / Water Clarity Measurements")
-  baseline %>% makeReportPlots(type = "trans") %>% print()
-  baseline %>% summarizeReportCols(c(
-    `Transparency (cm)` = "transparency"
-  )) %>%
+  baseline %>%
+    makeReportPlots(type = "trans") %>%
+    print()
+  baseline %>%
+    summarizeReportCols(c(
+      `Transparency (cm)` = "transparency"
+    )) %>%
     kable() %>%
     print()
   p("## Why measure water transparency?")
@@ -378,10 +395,13 @@ if (has$transparency) {
 if (has$streamflow) {
   pg()
   p("# Baseline Streamflow Measurements")
-  baseline %>% makeReportPlots(type = "flow") %>% print()
-  baseline %>% summarizeReportCols(c(
-    `Streamflow (cfs)` = "streamflow"
-  )) %>%
+  baseline %>%
+    makeReportPlots(type = "flow") %>%
+    print()
+  baseline %>%
+    summarizeReportCols(c(
+      `Streamflow (cfs)` = "streamflow"
+    )) %>%
     kable() %>%
     print()
   p("## Why measure streamflow?")
@@ -399,7 +419,9 @@ if (has$nutrient) {
 
   pg()
   p("# Total Phosphorus Measurements")
-  nutrient %>% makeReportPlots(type = "nutrient") %>% print()
+  nutrient %>%
+    makeReportPlots(type = "nutrient") %>%
+    print()
   nutrient %>%
     summarizeReportCols(c(
       `Total phosphorus (mg/L)` = "tp"

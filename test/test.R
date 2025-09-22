@@ -13,7 +13,7 @@ all_coverage %>%
   filter(!(station_id %in% all_pts$station_id)) %>%
   write_csv("stations missing locations.csv")
 
-test = c("2019", "2021")
+test <- c("2019", "2021")
 all_coverage %>%
   rowwise() %>%
   filter(setequal(intersect(test, data_year_list), test)) %>%
@@ -40,10 +40,12 @@ station_pts %>%
   addTiles() %>%
   addCircleMarkers(
     label = ~label,
-    radius = 1, opacity = 1, fill = FALSE) %>%
+    radius = 1, opacity = 1, fill = FALSE
+  ) %>%
   addMarkers(
     label = ~label,
-    clusterOptions = markerClusterOptions())
+    clusterOptions = markerClusterOptions()
+  )
 
 baseline_data %>%
   slice_sample(n = 4) %>%
@@ -114,13 +116,14 @@ cur_baseline_data %>%
   add_trace(
     x = ~date,
     y = ~d_o,
-    text = ~paste(d_o, "mg/L"),
+    text = ~ paste(d_o, "mg/L"),
     marker = list(
       color = ~do_color,
       line = list(
         color = "black",
         width = 1
-      )),
+      )
+    ),
     type = "bar",
     hovertemplate = "%{y} mg/L<extra></extra>",
     showlegend = F
@@ -139,7 +142,7 @@ cur_baseline_data %>%
     xaxis = list(
       title = "",
       type = "date",
-      range = ~c(min(date) - 15, max(date) + 15),
+      range = ~ c(min(date) - 15, max(date) + 15),
       fixedrange = T,
       dtick = "M1",
       ticklabelmode = "period",
@@ -147,15 +150,17 @@ cur_baseline_data %>%
     ),
     yaxis = list(
       title = "Dissolved oxygen (mg/L)",
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis2 = list(
       title = "D.O. saturation",
       overlaying = "y",
       side = "right",
-      range = ~c(0, max(100, d_o_percent_saturation) + 10),
+      range = ~ c(0, max(100, d_o_percent_saturation) + 10),
       ticksuffix = "%",
       showgrid = F,
-      fixedrange = T),
+      fixedrange = T
+    ),
     hovermode = "x unified",
     margin = list(
       t = 50,
@@ -193,7 +198,7 @@ cur_baseline_data %>%
     xaxis = list(
       title = "",
       type = "date",
-      range = ~c(min(date) - 15, max(date) + 15),
+      range = ~ c(min(date) - 15, max(date) + 15),
       fixedrange = T,
       dtick = "M1",
       ticklabelmode = "period",
@@ -201,7 +206,8 @@ cur_baseline_data %>%
     ),
     yaxis = list(
       title = "Temperature &deg;C",
-      fixedrange = T),
+      fixedrange = T
+    ),
     margin = list(
       t = 50,
       r = 50
@@ -230,10 +236,11 @@ df %>%
     name = "D.O.",
     x = ~date,
     y = ~d_o,
-    text = ~paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
+    text = ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
     marker = list(
       color = ~do_color,
-      line = list(color = "black", width = 0.5)),
+      line = list(color = "black", width = 0.5)
+    ),
     type = "bar",
     width = 1000 * 60 * 60 * 24 * 15,
     hovertemplate = "%{y}"
@@ -318,7 +325,8 @@ df %>%
     yaxis = list(
       title = "Dissolved oxygen",
       ticksuffix = " mg/L",
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis2 = list(
       title = "Temperature",
       overlaying = "y",
@@ -327,7 +335,8 @@ df %>%
       position = 0,
       showgrid = F,
       zeroline = F,
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis3 = list(
       title = "Transparency",
       overlaying = "y",
@@ -335,7 +344,8 @@ df %>%
       ticksuffix = " cm",
       showgrid = F,
       zeroline = F,
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis4 = list(
       title = "Stream flow",
       overlaying = "y",
@@ -344,7 +354,8 @@ df %>%
       position = 1,
       showgrid = F,
       zeroline = F,
-      fixedrange = T),
+      fixedrange = T
+    ),
     hovermode = "x unified",
     margin = list(t = 50, r = 50),
     legend = list(orientation = "h")
@@ -414,8 +425,8 @@ summary_vars <- tribble(
 
 summary_vars %>%
   summarize(cur_data(), make_min_max(df, var)) %>%
-  mutate(across(c(min_val, max_val), ~paste(.x, units))) %>%
-  mutate(across(c(min_date, max_date), ~format(.x, "%b %d, %Y")))
+  mutate(across(c(min_val, max_val), ~ paste(.x, units))) %>%
+  mutate(across(c(min_date, max_date), ~ format(.x, "%b %d, %Y")))
 
 
 
@@ -477,7 +488,8 @@ baseline_means <- baseline_data %>%
     avg_transparency = mean(transparency, na.rm = T),
     avg_streamflow = mean(streamflow, na.rm = T),
     .by = station_id
-  ) %>% {
+  ) %>%
+  {
     df <- .
     df[sapply(df, is.infinite)] <- NA
     df[sapply(df, is.nan)] <- NA
@@ -490,7 +502,8 @@ nutrient_means <- nutrient_data %>%
   summarize(
     mean_tp = mean(tp),
     log_mean_tp = mean(log10(tp)),
-    .by = station_id)
+    .by = station_id
+  )
 
 stn_attr_totals <- stn_fieldwork_counts %>%
   left_join(baseline_means, join_by(station_id)) %>%
@@ -499,18 +512,18 @@ stn_attr_totals <- stn_fieldwork_counts %>%
 summary(stn_attr_totals)
 
 stn_color_opts <- tribble(
-  ~label,            ~value,              ~domain,   ~reverse, ~pal,
-  "Years of data",    "n_years",          c(0, 10),  F,        "viridis",
-  "Fieldwork events", "n_fieldwork",      c(0, 100), F,        "viridis",
-  "Max water temp",   "max_water_temp",   c(15, 30), T,        "RdYlBu",
-  "Dissolved oxygen", "mean_d_o",         c(3, 12),  F,        "RdYlBu",
-  "Transparency",     "avg_transparency", c(0, 120), F,        "BrBG",
-  "Streamflow",       "avg_streamflow",   c(0, 50),  T,        "RdBu",
-  "Total phosphorus", "mean_tp",          c(0, .25), T,        "Spectral",
+  ~label, ~value, ~domain, ~reverse, ~pal,
+  "Years of data", "n_years", c(0, 10), F, "viridis",
+  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
+  "Max water temp", "max_water_temp", c(15, 30), T, "RdYlBu",
+  "Dissolved oxygen", "mean_d_o", c(3, 12), F, "RdYlBu",
+  "Transparency", "avg_transparency", c(0, 120), F, "BrBG",
+  "Streamflow", "avg_streamflow", c(0, 50), T, "RdBu",
+  "Total phosphorus", "mean_tp", c(0, .25), T, "Spectral",
 )
 stn_color_choices <- append(
   list("Station type" = "stn_type"),
-  deframe(stn_color_opts[,1:2])
+  deframe(stn_color_opts[, 1:2])
 )
 
 
@@ -568,22 +581,27 @@ df %>%
   ggplot(aes(x = date)) +
   geom_line(
     aes(y = water_temp, color = water_label),
-    linewidth = 2) +
+    linewidth = 2
+  ) +
   geom_point(
     aes(y = water_temp, color = water_label),
-    size = 3) +
+    size = 3
+  ) +
   geom_line(
     aes(y = air_temp, color = air_label),
-    linewidth = 2) +
+    linewidth = 2
+  ) +
   geom_point(
     aes(y = air_temp, color = air_label),
-    size = 3) +
+    size = 3
+  ) +
   geom_text_repel(aes(y = water_temp, label = paste0(water_temp, "°C"))) +
   geom_text_repel(aes(y = air_temp, label = paste0(air_temp, "°C"))) +
   scale_x_date(
     name = "Date of observation",
     breaks = df$date,
-    date_labels = "%b %d") +
+    date_labels = "%b %d"
+  ) +
   scale_y_continuous(expand = expansion(c(0, .1))) +
   scale_color_manual(
     breaks = c(air_label, water_label),
@@ -601,25 +619,29 @@ df %>%
   ggplot(aes(x = date)) +
   geom_col(
     aes(y = d_o, fill = d_o),
-    color = "black") +
+    color = "black"
+  ) +
   geom_text(aes(y = d_o, label = paste(d_o, "mg/L")), vjust = -.5) +
   geom_line(
     aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
-    linewidth = 2) +
+    linewidth = 2
+  ) +
   geom_point(
     aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
-    size = 3) +
+    size = 3
+  ) +
   geom_text_repel(aes(y = d_o_percent_saturation / 10, label = paste0(d_o_percent_saturation, "%"))) +
   scale_x_date(
     breaks = df$date,
-    date_labels = "%b %d\n%Y") +
+    date_labels = "%b %d\n%Y"
+  ) +
   scale_y_continuous(
     name = "Measurement value",
     limits = c(0, max(df$d_o, 12, na.rm = T)),
     expand = expansion(c(0, .1)),
     sec.axis = sec_axis(
       name = "DO Saturation",
-      trans = ~.*10
+      trans = ~ . * 10
     )
   ) +
   scale_color_manual(
@@ -702,7 +724,7 @@ df %>%
     x = ~date,
     y = ~name,
     z = ~scaled,
-    text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+    text = ~ if_else(is.na(value), "Not measured", paste(signif(value), unit)),
     showscale = F,
     hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
   ) %>%
@@ -752,7 +774,7 @@ makeBaselineRibbonPlot <- function(.data) {
       x = ~date,
       y = ~name,
       z = ~scaled,
-      text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), unit)),
       showscale = F,
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
     ) %>%
@@ -824,7 +846,7 @@ makeBaselineMonthlyPlot <- function(.data, col) {
       data = filter(df, month == m),
       name = month.abb[m],
       y = ~value,
-      color = ~median(value)
+      color = ~ median(value)
     )
   }
   plt
@@ -889,7 +911,7 @@ makeBaselineBoxplot <- function(.data, opts) {
       mode = "markers",
       hoverinfo = list(extras = "none"),
       marker = list(color = opts$color),
-      text = ~paste(month_name, year),
+      text = ~ paste(month_name, year),
       hovertemplate = paste("%{text}: %{y}", opts$unit)
     ) %>%
     layout(
@@ -1058,7 +1080,7 @@ df %>%
   select(year, month, all_of(baseline_plot_opts$col)) %>%
   mutate(date = as_date(paste(year, month, 15, sep = "-"))) %>%
   summarize(
-    across(all_of(baseline_plot_opts$col), ~mean(.x, na.rm = T)),
+    across(all_of(baseline_plot_opts$col), ~ mean(.x, na.rm = T)),
     .by = date
   ) %>%
   # mutate(scaled = scales::rescale(value), .by = measure) %>%
@@ -1100,7 +1122,8 @@ do_data <- df %>%
   filter(!is.na(d_o)) %>%
   mutate(label = case_when(
     is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
-    T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
+    T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")
+  )) %>%
   rowwise() %>%
   mutate(do_color = do_color(d_o))
 temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
@@ -1114,7 +1137,8 @@ yranges <- list(
   d_o = c(0, find_max(df$d_o, 12)),
   temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
   trans = c(0, 125),
-  cfs = c(0, find_max(df$streamflow, 10)))
+  cfs = c(0, find_max(df$streamflow, 10))
+)
 
 # date settings
 dates <- unique(df$date)
@@ -1142,10 +1166,12 @@ plot_ly() %>%
     text = ~label,
     marker = list(
       color = ~do_color,
-      line = list(color = "black", width = 0.5)),
+      line = list(color = "black", width = 0.5)
+    ),
     type = "bar",
     width = 15 * (1000 * 60 * 60 * 24), # milliseconds per day
-    hovertemplate = "%{y}") %>%
+    hovertemplate = "%{y}"
+  ) %>%
   add_trace(
     data = temp_data,
     name = "Water temp",
@@ -1158,10 +1184,13 @@ plot_ly() %>%
       color = "lightblue",
       size = 10,
       line = list(color = "white", width = 1),
-      opacity = marker_opacity),
+      opacity = marker_opacity
+    ),
     line = list(
       color = "lightblue",
-      width = 3)) %>%
+      width = 3
+    )
+  ) %>%
   add_trace(
     data = temp_data,
     name = "Air temp",
@@ -1174,8 +1203,10 @@ plot_ly() %>%
       color = "orange",
       size = 10,
       line = list(color = "white", width = 1),
-      opacity = marker_opacity),
-    line = list(color = "orange", width = 3)) %>%
+      opacity = marker_opacity
+    ),
+    line = list(color = "orange", width = 3)
+  ) %>%
   add_trace(
     data = trans_data,
     name = "Transparency",
@@ -1189,8 +1220,10 @@ plot_ly() %>%
       size = 10,
       symbol = "square",
       line = list(color = "white", width = 1),
-      opacity = marker_opacity),
-    line = list(color = "brown", width = 3)) %>%
+      opacity = marker_opacity
+    ),
+    line = list(color = "brown", width = 3)
+  ) %>%
   add_trace(
     data = flow_data,
     name = "Stream flow",
@@ -1204,8 +1237,10 @@ plot_ly() %>%
       size = 10,
       symbol = "triangle-right",
       line = list(color = "white", width = 1),
-      opacity = marker_opacity),
-    line = list(color = "#48a67b", width = 3)) %>%
+      opacity = marker_opacity
+    ),
+    line = list(color = "#48a67b", width = 3)
+  ) %>%
   layout(
     title = "Baseline Measurements",
     hovermode = "x unified",
@@ -1219,12 +1254,14 @@ plot_ly() %>%
       dtick = date_tick,
       ticklabelmode = "period",
       hoverformat = "%b %d, %Y",
-      domain = c(.1, .9)),
+      domain = c(.1, .9)
+    ),
     yaxis = list(
       title = "Dissolved oxygen",
       ticksuffix = " mg/L",
       range = yranges$d_o,
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis2 = list(
       title = "Temperature",
       overlaying = "y",
@@ -1234,7 +1271,8 @@ plot_ly() %>%
       showgrid = F,
       zeroline = F,
       range = yranges$temp,
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis3 = list(
       title = "Transparency",
       overlaying = "y",
@@ -1243,7 +1281,8 @@ plot_ly() %>%
       showgrid = F,
       zeroline = F,
       range = yranges$trans,
-      fixedrange = T),
+      fixedrange = T
+    ),
     yaxis4 = list(
       title = "Stream flow",
       overlaying = "y",
@@ -1253,7 +1292,9 @@ plot_ly() %>%
       showgrid = F,
       zeroline = F,
       range = yranges$cfs,
-      fixedrange = T)) %>%
+      fixedrange = T
+    )
+  ) %>%
   config(displayModeBar = F)
 
 
@@ -1264,11 +1305,16 @@ plot_ly(
   x = c("giraffes", "orangutans", "monkeys"),
   y = c(20, 14, 23),
   name = "SF Zoo",
-  type = "bar") %>%
-  layout(xaxis = list(categoryorder = "array",
-    categoryarray = c("giraffes",
+  type = "bar"
+) %>%
+  layout(xaxis = list(
+    categoryorder = "array",
+    categoryarray = c(
+      "giraffes",
       "orangutans",
-      "monkeys")))
+      "monkeys"
+    )
+  ))
 
 OPTS$baseline_plot_opts$name
 
@@ -1276,7 +1322,8 @@ plot_ly(
   x = c("giraffes", "orangutans", "monkeys"),
   y = c(20, 14, 23),
   name = "SF Zoo",
-  type = "bar") %>%
+  type = "bar"
+) %>%
   layout(
     xaxis = list(
       categoryorder = "array",

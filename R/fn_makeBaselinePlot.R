@@ -16,7 +16,8 @@ makeBaselinePlot <- function(df) {
     filter(!is.na(d_o)) %>%
     mutate(label = case_when(
       is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
-      T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"))) %>%
+      T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")
+    )) %>%
     rowwise() %>%
     mutate(do_color = do_color(d_o))
   temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
@@ -28,7 +29,8 @@ makeBaselinePlot <- function(df) {
     d_o = c(0, find_max(df$d_o, 12)),
     temp = c(0, find_max(c(df$water_temp, df$air_temp), 30)),
     trans = c(0, 125),
-    cfs = c(0, find_max(df$streamflow, 10)))
+    cfs = c(0, find_max(df$streamflow, 10))
+  )
 
   # date settings
   dates <- unique(df$date)
@@ -56,10 +58,12 @@ makeBaselinePlot <- function(df) {
       text = ~label,
       marker = list(
         color = ~do_color,
-        line = list(color = "black", width = 0.5)),
+        line = list(color = "black", width = 0.5)
+      ),
       type = "bar",
       width = 15 * (1000 * 60 * 60 * 24), # milliseconds per day
-      hovertemplate = "%{y}") %>%
+      hovertemplate = "%{y}"
+    ) %>%
     add_trace(
       data = temp_data,
       name = "Water temp",
@@ -72,10 +76,13 @@ makeBaselinePlot <- function(df) {
         color = "lightblue",
         size = 10,
         line = list(color = "white", width = 1),
-        opacity = marker_opacity),
+        opacity = marker_opacity
+      ),
       line = list(
         color = "lightblue",
-        width = 3)) %>%
+        width = 3
+      )
+    ) %>%
     add_trace(
       data = temp_data,
       name = "Air temp",
@@ -88,8 +95,10 @@ makeBaselinePlot <- function(df) {
         color = "orange",
         size = 10,
         line = list(color = "white", width = 1),
-        opacity = marker_opacity),
-      line = list(color = "orange", width = 3)) %>%
+        opacity = marker_opacity
+      ),
+      line = list(color = "orange", width = 3)
+    ) %>%
     add_trace(
       data = trans_data,
       name = "Transparency",
@@ -103,8 +112,10 @@ makeBaselinePlot <- function(df) {
         size = 10,
         symbol = "square",
         line = list(color = "white", width = 1),
-        opacity = marker_opacity),
-      line = list(color = "brown", width = 3)) %>%
+        opacity = marker_opacity
+      ),
+      line = list(color = "brown", width = 3)
+    ) %>%
     add_trace(
       data = flow_data,
       name = "Stream flow",
@@ -118,8 +129,10 @@ makeBaselinePlot <- function(df) {
         size = 10,
         symbol = "triangle-right",
         line = list(color = "white", width = 1),
-        opacity = marker_opacity),
-      line = list(color = "#48a67b", width = 3)) %>%
+        opacity = marker_opacity
+      ),
+      line = list(color = "#48a67b", width = 3)
+    ) %>%
     layout(
       title = "Baseline Measurements",
       hovermode = "x unified",

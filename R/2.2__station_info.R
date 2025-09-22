@@ -25,7 +25,6 @@ stationInfoServer <- function(cur_stn) {
   moduleServer(
     id = "station-info",
     function(input, output, session) {
-
       # Station details table
       output$details <- renderUI({
         df <- cur_stn() %>%
@@ -36,7 +35,8 @@ stationInfoServer <- function(cur_stn) {
           pivot_longer(
             cols = everything(),
             names_to = "Property",
-            values_to = "Value") %>%
+            values_to = "Value"
+          ) %>%
           na.omit()
 
         tagList(

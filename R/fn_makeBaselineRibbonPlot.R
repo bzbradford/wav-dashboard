@@ -1,4 +1,3 @@
-
 #' @requires
 #' - OPTS$baseline_plot_opts
 #' @param .data data frame derived from `baseline_data`
@@ -33,7 +32,7 @@ makeBaselineRibbonPlot <- function(.data) {
       x = ~date,
       y = ~name,
       z = ~scaled,
-      text = ~if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), unit)),
       colors = "Blues",
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
     ) %>%

@@ -23,11 +23,13 @@ makeReportMap <- function(stn) {
         size = 1.5,
         alpha = .5,
         angle = 15,
-        hjust = .5) +
+        hjust = .5
+      ) +
       geom_sf(
         data = st_as_sfc(st_bbox(bbox, crs = 4326)),
         fill = NA,
-        color = "#c5050c") +
+        color = "#c5050c"
+      ) +
       geom_sf(data = stn, fill = "red", size = 4, shape = 24) +
       theme_void() +
       theme(legend.position = "none")
@@ -42,7 +44,8 @@ makeReportMap <- function(stn) {
         aes(label = label),
         alpha = .5,
         size = 2,
-        check_overlap = T) +
+        check_overlap = T
+      ) +
       geom_sf(data = stn, fill = "red", size = 4, shape = 24) +
       theme_void()
 
