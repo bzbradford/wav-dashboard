@@ -294,21 +294,25 @@ fmt_area <- function(area) {
   )
 }
 
-counties <- readRDS("data/shp/counties.rds")
-waterbodies <- readRDS("data/shp/waterbodies.rds")
+counties <- readRDS("data/shp/counties.rds") %>%
+  st_make_valid()
+waterbodies <- readRDS("data/shp/waterbodies.rds") %>%
+  st_make_valid()
 nkes <- readRDS("data/shp/nkes.rds") %>%
   mutate(Label = paste0(
     "<b>", PlanName, "</b>",
     "<br>Ends: ", EndDate,
     "<br>Objective: ", Objective
-  ))
+  )) %>%
+  st_make_valid()
 huc8 <- readRDS("data/shp/huc8.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc8Name, " Subbasin</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC8 Code: ", Huc8Code,
     "<br>HUC6 basin: ", MajorBasin
-  ))
+  )) %>%
+  st_make_valid()
 huc10 <- readRDS("data/shp/huc10.rds") %>%
   mutate(Label = paste0(
     "<b>", Huc10Name, " Watershed</b>",
@@ -316,7 +320,8 @@ huc10 <- readRDS("data/shp/huc10.rds") %>%
     "<br>HUC10 Code: ", Huc10Code,
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
-  ))
+  )) %>%
+  st_make_valid()
 suppressWarnings({
   huc10_centroids <- st_centroid(huc10)
 })
@@ -328,7 +333,8 @@ huc12 <- readRDS("data/shp/huc12.rds") %>%
     "<br>HUC10 watershed: ", Huc10Name,
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
-  ))
+  )) %>%
+  st_make_valid()
 
 
 # Station lists ----

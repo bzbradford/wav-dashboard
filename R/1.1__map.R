@@ -95,6 +95,8 @@ mapServer <- function(cur_stn, main_session) {
 
       # Static vars ----
 
+      proxy_map <- leafletProxy(ns("map"))
+
       ## stn_coverages ----
       stn_coverages <- list(
         "baseline" = baseline_coverage,
@@ -440,14 +442,13 @@ mapServer <- function(cur_stn, main_session) {
       ## Map markers/clusters ----
       # update map pins/clusters on available stations change
       observe({
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup(layers$pins)
+        proxy_map %>% clearGroup(layers$pins)
 
         pts <- avail_pts()
         req(nrow(pts) > 0)
 
         popups <- all_popups[names(all_popups) %in% pts$station_id] %>% setNames(NULL)
-        map %>%
+        proxy_map %>%
           addMarkers(
             data = pts,
             group = layers$pins,
@@ -465,12 +466,11 @@ mapServer <- function(cur_stn, main_session) {
           return()
         }
 
-        map <- leafletProxy(ns("map"))
-        map %>% clearGroup("cur_point")
-        stn <- cur_stn()
+        proxy_map %>% clearGroup("cur_point")
+        stn <- req(rv$selected_stn)
         popup <- all_popups[names(all_popups) == stn$station_id] %>% setNames(NULL)
 
-        map %>%
+        proxy_map %>%
           addMarkers(
             data = stn,
             lat = ~latitude,
@@ -482,7 +482,7 @@ mapServer <- function(cur_stn, main_session) {
           )
 
         if (input$stn_color_by == "stn_type") {
-          map %>%
+          proxy_map %>%
             addCircleMarkers(
               data = stn,
               lat = ~latitude,
@@ -500,7 +500,7 @@ mapServer <- function(cur_stn, main_session) {
             )
         } else {
           # create hollow station icon if coloring by variable
-          map %>%
+          proxy_map %>%
             addCircleMarkers(
               data = stn,
               lat = ~latitude,
@@ -520,14 +520,14 @@ mapServer <- function(cur_stn, main_session) {
 
       ## Current station's watersheds ----
       ### HUC8 ----
-      cur_huc8 <- reactive({
-        filter(huc8, Huc8Code == cur_stn()$huc8)
-      })
       observe({
-        leafletProxy(ns("map")) %>%
+        stn <- req(rv$selected_stn)
+        shp <- huc8 %>%
+          filter(Huc8Code == stn$huc8)
+        proxy_map %>%
           removeShape("curHuc8") %>%
           addPolygons(
-            data = cur_huc8(),
+            data = shp,
             group = layers$huc8,
             layerId = "curHuc8",
             weight = 4,
@@ -537,14 +537,14 @@ mapServer <- function(cur_stn, main_session) {
       })
 
       ### HUC10 ----
-      cur_huc10 <- reactive({
-        filter(huc10, Huc10Code == cur_stn()$huc10)
-      })
       observe({
-        leafletProxy(ns("map")) %>%
+        stn <- req(rv$selected_stn)
+        shp <- huc10 %>%
+          filter(Huc10Code == stn$huc10)
+        proxy_map %>%
           removeShape("curHuc10") %>%
           addPolygons(
-            data = cur_huc10(),
+            data = shp,
             group = layers$huc10,
             layerId = "curHuc10",
             weight = 3,
@@ -554,14 +554,13 @@ mapServer <- function(cur_stn, main_session) {
       })
 
       ### HUC12 ----
-      cur_huc12 <- reactive({
-        filter(huc12, Huc12Code == cur_stn()$huc12)
-      })
       observe({
-        leafletProxy(ns("map")) %>%
+        stn <- req(rv$selected_stn)
+        shp <- huc12 %>% filter(Huc12Code == stn$huc12)
+        proxy_map %>%
           removeShape("curHuc12") %>%
           addPolygons(
-            data = cur_huc12(),
+            data = shp,
             group = layers$huc12,
             layerId = "curHuc12",
             weight = 2,
@@ -585,7 +584,7 @@ mapServer <- function(cur_stn, main_session) {
       ## Zoom events ----
       zoomToSite <- function(z = input$map_zoom) {
         stn <- rv$selected_stn
-        leafletProxy(ns("map")) %>%
+        proxy_map %>%
           setView(
             lat = stn$latitude,
             lng = stn$longitude,
@@ -616,8 +615,8 @@ mapServer <- function(cur_stn, main_session) {
 
       ### cur_stn ----
       # center map when station changes but only if out of view
-      observeEvent(cur_stn(), {
-        stn <- cur_stn()
+      observeEvent(rv$selected_stn, {
+        stn <- req(rv$selected_stn)
         bounds <- input$map_bounds
         in_lat <- between(stn$latitude, bounds$south, bounds$north)
         in_long <- between(stn$longitude, bounds$west, bounds$east)
@@ -638,7 +637,7 @@ mapServer <- function(cur_stn, main_session) {
       ## show_watersheds ----
       # Toggle watershed visibility
       observeEvent(input$show_watersheds, {
-        leafletProxy(ns("map")) %>%
+        proxy_map %>%
           showGroup(layers$huc8) %>%
           showGroup(layers$huc10) %>%
           showGroup(layers$huc12)
@@ -647,7 +646,6 @@ mapServer <- function(cur_stn, main_session) {
 
       ## toggle_watersheds ----
       observeEvent(input$toggle_watersheds, {
-        map <- leafletProxy(ns("map"))
         groups <- input$map_groups
         all_shown <- all(
           layers$huc8 %in% groups,
@@ -655,12 +653,12 @@ mapServer <- function(cur_stn, main_session) {
           layers$huc12 %in% groups
         )
         if (all_shown) {
-          map %>%
+          proxy_map %>%
             hideGroup(layers$huc8) %>%
             hideGroup(layers$huc10) %>%
             hideGroup(layers$huc12)
         } else {
-          map %>%
+          proxy_map %>%
             showGroup(layers$huc8) %>%
             showGroup(layers$huc10) %>%
             showGroup(layers$huc12)
@@ -684,7 +682,7 @@ mapServer <- function(cur_stn, main_session) {
           return()
         }
 
-        map <- leafletProxy("map")
+        # map <- leafletProxy("map")
         loc <- input$user_loc %>% lapply(\(x) round(x, 4))
         pt <- tibble(lat = loc$lat, lng = loc$lng) %>%
           st_as_sf(coords = c("lng", "lat"), crs = 4326, remove = FALSE)
@@ -725,7 +723,7 @@ mapServer <- function(cur_stn, main_session) {
         user_huc8 <- filter(huc8, Huc8Name == watershed$Huc8Name)
 
         # add to map
-        map %>%
+        proxy_map %>%
           addAwesomeMarkers(
             data = pt,
             label = HTML(label),
@@ -765,7 +763,7 @@ mapServer <- function(cur_stn, main_session) {
 
       ## remove_user_loc ----
       observeEvent(input$remove_user_loc, {
-        leafletProxy("map") %>%
+        proxy_map %>%
           clearGroup("user_loc") %>%
           removeShape("user_watershed8") %>%
           removeShape("user_watershed10") %>%
