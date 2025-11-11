@@ -574,7 +574,7 @@ baseline_means <- baseline_data %>%
 nutrient_means <- nutrient_data %>%
   drop_na(tp) %>%
   slice_max(date, n = 12, by = station_id) %>%
-  summarize(tp = signif(mean(tp), 3), .by = station_id)
+  summarize(tp = signif(mean(tp, na.rm = T), 3), .by = station_id)
 
 stn_attr_totals <- stn_fieldwork_counts %>%
   left_join(baseline_means, join_by(station_id)) %>%

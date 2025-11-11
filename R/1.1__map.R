@@ -405,7 +405,7 @@ mapServer <- function(cur_stn, main_session) {
           stns <- stns %>%
             left_join(stn_attr_totals, join_by(station_id)) %>%
             rename(attr = all_of(color_by)) %>%
-            mutate(attr_clamped = pmax(pmin(attr, domain[2]), domain[1])) %>%
+            mutate(attr_clamped = pmax(pmin(attr, domain[2], na.rm = T), domain[1], na.rm = T)) %>%
             mutate(color = pal(attr_clamped)) %>%
             arrange(!is.na(attr), attr) %>%
             mutate(map_label = lapply(paste0(map_label, "<br>", opts$label, ": ", attr), shiny::HTML))
