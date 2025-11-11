@@ -1,0 +1,17 @@
+﻿class,class_name,class_name_2,color
+31,Barren Land,Barren Land,brown
+12,Perennial Ice/Snow,Perennial Ice/Snow,white
+21,"Developed, Open Land",Developed,grey60
+22,"Developed, Low Intensity",Developed,grey50
+23,"Developed, Medium Intensity",Developed,grey40
+24,"Developed, High Intensity",Developed,grey30
+82,Cultivated Crops,Cultivated Crops,wheat
+81,Pasture/Hay,Pasture/Hay,yellowgreen
+71,Grassland/Herbaceous,Grassland/Herbaceous,khaki
+52,Shrub/Scrub,Shrub,olivedrab
+41,Deciduous Forest,Forest,chartreuse4
+42,Evergreen Forest,Forest,darkgreen
+43,Mixed Forest,Forest,aquamarine4
+90,Woody Wetlands,Wetlands,darkseagreen4
+95,Emergent Herbaceous Wetlands,Wetlands,cadetblue
+11,Open Water,Open Water,steelblue
