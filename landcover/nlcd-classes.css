@@ -1,0 +1,138 @@
+.planted {
+  background-color:#CC9900;
+}
+
+.developed {
+  background-color:#ff0000;
+}
+
+.water {
+  background-color:#5475A8;
+}
+
+.white {
+  background-color:#ffffff;
+}
+
+.barren {
+  background-color:#cccccc;
+}
+
+.agriculture {
+  background-color:#996633;
+}
+
+.ice {
+  background-color:#ffffff;
+}
+
+.nodata {
+  background-color:#ffffff;
+}
+
+.lowintensity {
+  background-color:#E8D1D1;
+}
+
+.highintensity {
+  background-color:#E29E8C;
+}
+
+.transportation {
+  background-color:#E5564E;
+}
+
+.barerock {
+  background-color:#D2CDC0;
+}
+
+.transitional {
+  background-color:#533E76;
+}
+
+.devhighintensity {
+  background-color:#B50000;
+}
+
+.shrubland {
+  background-color:#DCCA8F;
+}
+
+.sedge {
+  background-color:#D1D182;
+}
+
+.lichens {
+  background-color:#A3CC51;
+}
+
+.moss {
+  background-color:#82BA9E;
+}
+
+.orchards {
+  background-color:#BBAE76;
+}
+
+.grasslands {
+  background-color:#FDE9AA;
+}
+
+.dwarf {
+  background-color:#AF963C;
+}
+
+.pasture {
+  background-color:#FBF65D;
+}
+
+.rowcrops {
+  background-color:#CA9146;
+}
+
+.smallgrain {
+  background-color:#796C4A;
+}
+
+.urbangrass {
+  background-color:#F09C36;
+}
+
+.woodywetlands {
+  background-color:#C8E6F8;
+}
+
+.emergentwetlands {
+  background-color:#64B3D5;
+}
+
+.rlc_purple {
+  background-color:#FF00FF;
+}
+
+.forest {
+  background-color:#339966;
+}
+
+.deciduous {
+  background-color:#85C77E;
+}
+.evergreen {
+  background-color:#38814E;
+}
+
+.mixed {
+  background-color:#D4E7B0;
+}
+
+.herbaceous {
+  background-color:#666633;
+}
+
+.nonwood {
+  background-color:#808000;
+}
+
+.wetlands {
+  background-color: #95BFBF;
+}
