@@ -1,65 +1,4 @@
-### Thermistor Data Tab ###
-
-
-# Functions ---------------------------------------------------------------
-
-createDailyThermData <- function(df, units, stn) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  df %>%
-    group_by(date) %>%
-    summarise(
-      hours = n(),
-      min = min(!!sym(temp_col)),
-      max = max(!!sym(temp_col)),
-      mean = round(mean(!!sym(temp_col)), 2),
-      units = units,
-      lat = latitude[1],
-      long = longitude[1]
-    ) %>%
-    mutate(
-      station_id = stn$station_id,
-      station_name = stn$station_name,
-      .before = lat
-    )
-}
-
-createThermSummary <- function(df, units) {
-  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
-
-  daily <- df %>%
-    mutate(temp = !!sym(temp_col)) %>%
-    drop_na(temp) %>%
-    arrange(date) %>%
-    summarize(temp = mean(temp), .by = c(date, month))
-
-  monthly <- daily %>%
-    mutate(name = fct_inorder(format(date, "%B"))) %>%
-    summarize(
-      days = n_distinct(date),
-      min = round(min(temp), 1),
-      mean = round(mean(temp), 1),
-      max = round(max(temp), 1),
-      .by = c(month, name)
-    ) %>%
-    clean_names("title")
-
-  total <- daily %>%
-    summarize(
-      name = "Total",
-      days = n_distinct(date),
-      min = round(min(temp), 1),
-      mean = round(mean(temp), 1),
-      max = round(max(temp), 1)
-    ) %>%
-    clean_names("title")
-
-  bind_rows(monthly, total)
-}
-
-
-
-# Static UI ---------------------------------------------------------------
+# Thermistor tab
 
 thermistorDataUI <- function() {
   ns <- NS("thermistor")
@@ -71,10 +10,7 @@ thermistorDataUI <- function() {
 }
 
 
-
-# Server ------------------------------------------------------------------
-
-#' requires global data frame 'therm_data'
+#' @requires `therm_data`
 #' @param cur_stn a `reactive()` expression containing the current station
 
 thermistorDataServer <- function(cur_stn, has_focus) {
@@ -143,7 +79,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(cur_stn())
         req(input$units)
 
-        createDailyThermData(selected_data(), input$units, cur_stn())
+        buildDailyThermData(selected_data(), input$units, cur_stn())
       })
 
       ## summary_data ----
@@ -151,7 +87,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(selected_data_ready())
         req(input$units)
 
-        createThermSummary(selected_data(), input$units)
+        buildThermSummary(selected_data(), input$units)
       })
 
 

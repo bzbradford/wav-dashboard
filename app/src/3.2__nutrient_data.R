@@ -1,4 +1,4 @@
-## NUTRIENT TAB ##
+# Nutrient tab
 
 nutrientDataUI <- function() {
   ns <- NS("nutrient")
@@ -10,7 +10,7 @@ nutrientDataUI <- function() {
 }
 
 
-#' requires global data frame 'nutrient_data'
+#' @requires `nutrient_data`
 #' @param cur_stn a `reactive()` expression containing the current station
 
 nutrientDataServer <- function(cur_stn, has_focus) {
@@ -126,7 +126,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       output$plot <- renderPlotly({
         req(selected_data_ready())
 
-        makeNutrientPlot(selected_data(), phoslimit, phos_estimate())
+        buildPlotlyNutrient(selected_data(), phoslimit, phos_estimate())
       })
 
       ## plotExportUI ----

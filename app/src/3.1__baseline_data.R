@@ -227,7 +227,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         req(selected_data_ready())
         df <- selected_data()
         req(length(unique(df$year)) == 1)
-        makeBaselinePlot(df)
+        buildPlotlyBaseline(df)
       })
 
       ## trendPlot ----
@@ -236,7 +236,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
         type <- req(input$trend_type)
         value_col <- req(input$trend_value)
         df <- cur_data()
-        makeBaselineTrendPlot(df, value_col, type)
+        buildPlotlyBaselineTrend(df, value_col, type)
       })
 
       ## trendPlotCaption
@@ -259,7 +259,7 @@ baselineDataServer <- function(cur_stn, has_focus) {
       output$ribbonPlot <- renderPlotly({
         req(rv$ready)
         df <- cur_data()
-        makeBaselineRibbonPlot(df)
+        buildPlotlyBaselineRibbon(df)
       })
 
       ## plotCaptionUI ----

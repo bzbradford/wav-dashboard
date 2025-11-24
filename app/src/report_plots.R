@@ -1,4 +1,174 @@
-makeReportPlots <- function(df, type) {
+
+# Helpers  ---------------------------------------------------------------------
+
+# used for x axis in plots
+set_report_date_range <- function(dates, pad_right = FALSE) {
+  yr <- format(dates[1], "%Y")
+  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
+  lims <- c(
+    min(dates - 10, default_range[1]),
+    max(dates + 10, default_range[2])
+  )
+  if (pad_right) lims[2] <- lims[2] + 30
+  lims
+}
+
+set_axis_limits <- function(vals, lower, upper) {
+  lims <- c(
+    min(vals, lower, na.rm = TRUE),
+    max(vals, upper, na.rm = TRUE)
+  )
+  lims + abs(lims) * c(-.1, .1)
+}
+
+# adds a filled rectangle shape from min to max date axis and ymin to ymax y axis
+add_rect_date <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.Date(-Inf), xmax = as.Date(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax)) {
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
+  }
+  gg
+}
+
+# adds a filled rectangle shape from min to max datetime axis and ymin to ymax y axis
+add_rect_dttm <- function(ymin, ymax, color) {
+  gg <- annotate("rect",
+    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
+    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  )
+  if (!is.infinite(ymax)) {
+    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
+  }
+  gg
+}
+
+
+# Map --------------------------------------------------------------------------
+
+#' @param stn single row from `all_pts` sf data
+buildReportMap <- function(stn) {
+  suppressWarnings({
+
+    bbox <- with(
+      stn,
+      c(
+        xmin = longitude - .3,
+        xmax = longitude + .3,
+        ymin = latitude - .2,
+        ymax = latitude + .2
+      )
+    )
+
+    county_lines <- wi_counties %>%
+      st_cast("MULTILINESTRING")
+    crop_counties <- county_lines %>%
+      st_crop(bbox)
+    crop_state <- st_crop(wi_state, bbox)
+    crop_wsheds <- st_crop(huc10, bbox)
+    crop_wshed_labels <- crop_wsheds %>%
+      st_centroid(of_largest_polygon = T) %>%
+      mutate(label = str_wrap(paste(Huc10Name, "Watershed"), 20))
+    crop_water <- st_crop(waterbodies, bbox)
+    crop_flow <- st_crop(flowlines, bbox)
+
+    big_plt <- ggplot() +
+      geom_sf(data = wi_state, fill = "grey90", color = "black", lwd = .25) +
+      geom_sf(data = county_lines, color = "grey", lwd = .1) +
+      geom_sf(data = wi_state, fill = NA, color = "black", lwd = .25) +
+      geom_sf_text(
+        data = wi_counties,
+        aes(label = CountyName),
+        size = 1.5,
+        alpha = .5,
+        angle = 15,
+        hjust = .5
+      ) +
+      geom_sf(
+        data = st_as_sfc(st_bbox(bbox, crs = 4326)),
+        fill = NA,
+        color = "#c5050c"
+      ) +
+      geom_sf(data = stn, fill = "red", size = 3, shape = 24) +
+      coord_sf(expand = F) +
+      theme_void() +
+      theme(
+        legend.position = "none",
+        plot.margin = margin_auto(5)
+      )
+
+    inset_plt <- ggplot() +
+      geom_sf(
+        data = crop_state,
+        fill = "grey90",
+        color = "grey",
+        lwd = 1
+      ) +
+      geom_sf(
+        data = crop_flow,
+        aes(linewidth = .25 + .1 * (5 - level)),
+        color = "lightsteelblue",
+        lineend = "round",
+        linejoin = "round"
+      ) +
+      geom_sf(
+        data = crop_water,
+        fill = "lightsteelblue",
+        # color = "steelblue",
+        color = NA,
+        lwd = .1
+      ) +
+      geom_sf(
+        data = crop_wsheds,
+        fill = NA,
+        color = "grey35",
+        lwd = .1,
+        alpha = .5
+      ) +
+      geom_sf(
+        data = crop_counties,
+        fill = NA,
+        color = "grey50",
+        lwd = .05,
+        alpha = .5
+      ) +
+      geom_sf_text(
+        data = crop_wshed_labels,
+        aes(label = label),
+        size = 1.5,
+        alpha = .5,
+        check_overlap = T
+      ) +
+      geom_sf(data = stn, fill = "red", size = 3, shape = 24) +
+      coord_sf(expand = F) +
+      scale_linewidth_identity() +
+      theme_void() +
+      theme(
+        legend.position = "none",
+        panel.border = element_rect(color = "black", linewidth = .5),
+        plot.margin = margin_auto(0)
+      )
+
+    gridExtra::grid.arrange(big_plt, inset_plt, nrow = 1)
+  })
+
+  # message(as.numeric(now() - t))
+}
+
+
+# all_pts %>%
+#   filter(station_id == sample(station_id, 1)) %>%
+#   buildReportMap()
+# ggsave("test.png", h = 4, w = 7)
+
+
+
+
+# Plots -------------------------------------------------------------------
+
+buildReportPlot <- function(df, type) {
   try({
     # Shared ----
     common_theme <- theme_classic() +
@@ -23,15 +193,17 @@ makeReportPlots <- function(df, type) {
       )
     )
 
-
     # Temperature ----
-
 
     if (type == "temp") {
       df <- df %>%
         select(date, Air = air_temp, Water = water_temp, ) %>%
         filter(!is.na(Air) | !is.na(Water)) %>%
-        pivot_longer(c(Air, Water), names_to = "measure", values_to = "temp") %>%
+        pivot_longer(
+          c(Air, Water),
+          names_to = "measure",
+          values_to = "temp"
+        ) %>%
         mutate(temp = c_to_f(temp)) %>%
         mutate(label = paste0(temp, "°F")) %>%
         mutate(measure = paste(measure, "temperature"))
@@ -63,10 +235,14 @@ makeReportPlots <- function(df, type) {
           alpha = .8
         ) +
         {
-          if (nrow(air) > 1) geom_line(data = air, aes(color = measure), linewidth = 1.5)
+          if (nrow(air) > 1) {
+            geom_line(data = air, aes(color = measure), linewidth = 1.5)
+          }
         } +
         {
-          if (nrow(water) > 1) geom_line(data = water, aes(color = measure), linewidth = 1.5)
+          if (nrow(water) > 1) {
+            geom_line(data = water, aes(color = measure), linewidth = 1.5)
+          }
         } +
         geom_point(aes(fill = measure), size = 4, shape = 21) +
         ggrepel::geom_text_repel(
@@ -87,13 +263,17 @@ makeReportPlots <- function(df, type) {
         coord_cartesian(xlim = x_lims, ylim = y_lims) +
         scale_color_manual(values = c("orange", "lightsteelblue")) +
         scale_fill_manual(values = c("orange", "lightsteelblue")) +
-        labs(x = NULL, y = "Temperature", fill = "Measurement", color = "Measurement") +
+        labs(
+          x = NULL,
+          y = "Temperature",
+          fill = "Measurement",
+          color = "Measurement"
+        ) +
         common_theme +
         theme(legend.position = "top")
 
       return(plt)
     }
-
 
     # Thermistor ----
 
@@ -118,10 +298,10 @@ makeReportPlots <- function(df, type) {
 
       plt <- daily_range %>%
         ggplot(aes(x = date_time)) +
-        addRectDatetime(-Inf, 69.3, "blue") +
-        addRectDatetime(69.3, 72.5, "cornflowerblue") +
-        addRectDatetime(72.5, 76.3, "lightsteelblue") +
-        addRectDatetime(76.3, Inf, "darkorange") +
+        add_rect_dttm(-Inf, 69.3, "blue") +
+        add_rect_dttm(69.3, 72.5, "cornflowerblue") +
+        add_rect_dttm(72.5, 76.3, "lightsteelblue") +
+        add_rect_dttm(76.3, Inf, "darkorange") +
         geom_text(
           data = temp_labels,
           aes(y = y, label = label),
@@ -132,7 +312,8 @@ makeReportPlots <- function(df, type) {
         ) +
         geom_ribbon(
           aes(ymin = min, ymax = max),
-          color = NA, fill = alpha("lightblue", .1)
+          color = NA,
+          fill = alpha("lightblue", .1)
         ) +
         geom_line(
           data = df,
@@ -142,7 +323,8 @@ makeReportPlots <- function(df, type) {
         ) +
         geom_ribbon(
           aes(ymin = min, ymax = max),
-          color = alpha("#2590da", .25), fill = NA
+          color = alpha("#2590da", .25),
+          fill = NA
         ) +
         geom_line(
           data = daily_means,
@@ -165,19 +347,23 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
-
     # Dissolved oxygen ----
 
-    if (type == "do") {
+    if (type == "d_o") {
       df <- df %>%
         select(date, d_o, do_sat = d_o_percent_saturation) %>%
         drop_na(d_o) %>%
         mutate(do_color = map_chr(d_o, do_color))
       n_dates <- n_distinct(df$date)
-      df <- df %>% mutate(
-        sat_label = if_else(is.na(do_sat), "", paste0("\n(", do_sat, ifelse(n_dates < 8, "% sat)", "%)"))),
-        label = paste0(d_o, ifelse(n_dates < 8, " mg/L", ""), sat_label)
-      )
+      df <- df %>%
+        mutate(
+          sat_label = if_else(
+            is.na(do_sat),
+            "",
+            paste0("\n(", do_sat, ifelse(n_dates < 8, "% sat)", "%)"))
+          ),
+          label = paste0(d_o, ifelse(n_dates < 8, " mg/L", ""), sat_label)
+        )
       x_lims <- set_report_date_range(df$date, pad_right = T)
       y_lims <- set_axis_limits(df$d_o, 0, 8)
       col_width <- ifelse(n_dates > 6, 10, 15)
@@ -236,7 +422,6 @@ makeReportPlots <- function(df, type) {
 
       return(plt)
     }
-
 
     # pH ----
 
@@ -306,7 +491,6 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
-
     # Conductivity ----
 
     if (type == "cond") {
@@ -318,9 +502,10 @@ makeReportPlots <- function(df, type) {
         return("No data")
       }
       n_dates <- n_distinct(df$date)
-      df <- df %>% mutate(
-        label = paste0(round(cond, 1), if_else(n_dates < 8, " uS/cm", ""))
-      )
+      df <- df %>%
+        mutate(
+          label = paste0(round(cond, 1), if_else(n_dates < 8, " uS/cm", ""))
+        )
       x_lims <- set_report_date_range(df$date, pad_right = T)
       y_lims <- set_axis_limits(df$cond, 400, 700)
       cond_labels <- tibble(
@@ -378,7 +563,6 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
-
     # Transparency ----
 
     if (type == "trans") {
@@ -390,9 +574,14 @@ makeReportPlots <- function(df, type) {
         return("No data")
       }
       n_dates <- n_distinct(df$date)
-      df <- df %>% mutate(
-        label = paste0(trans, if_else(trans == tube, "+", ""), if_else(n_dates < 8, " cm", ""))
-      )
+      df <- df %>%
+        mutate(
+          label = paste0(
+            trans,
+            if_else(trans == tube, "+", ""),
+            if_else(n_dates < 8, " cm", "")
+          )
+        )
       x_lims <- set_report_date_range(df$date)
       y_lims <- set_axis_limits(df$trans, 0, 120)
       col_width <- ifelse(n_dates > 6, 10, 15)
@@ -438,13 +627,17 @@ makeReportPlots <- function(df, type) {
             ticks = F
           )
         ) +
-        labs(x = NULL, y = "Transparency (cm)", color = "Tube\nlength", fill = "Water\nclarity") +
+        labs(
+          x = NULL,
+          y = "Transparency (cm)",
+          color = "Tube\nlength",
+          fill = "Water\nclarity"
+        ) +
         common_theme +
         theme(legend.position = "right", legend.title = element_text(size = 10))
 
       return(plt)
     }
-
 
     # Streamflow ----
 
@@ -456,9 +649,10 @@ makeReportPlots <- function(df, type) {
         return("No data")
       }
       n_dates <- n_distinct(df$date)
-      df <- df %>% mutate(
-        label = paste0(round(flow, 1), if_else(n_dates < 8, " cfs", ""))
-      )
+      df <- df %>%
+        mutate(
+          label = paste0(round(flow, 1), if_else(n_dates < 8, " cfs", ""))
+        )
       x_lims <- set_report_date_range(df$date, pad_right = T)
       y_lims <- set_axis_limits(df$flow, 0, 1)
       flow_labels <- tibble(
@@ -518,7 +712,6 @@ makeReportPlots <- function(df, type) {
       return(plt)
     }
 
-
     # Total phosphorus ----
 
     if (type == "nutrient") {
@@ -534,12 +727,13 @@ makeReportPlots <- function(df, type) {
       y_lims <- set_axis_limits(df$tp, 0, .1)
       est <- getPhosEstimate(df$tp)
       est_labels <- tribble(
-        ~value, ~label,
-        est$lower, "Lower 80% CI",
-        est$median, "Median value",
-        est$upper, "Upper 80% CI",
-        est$limit, "State criteria",
-      ) %>% mutate(date = eoy_date)
+        ~value     , ~label           ,
+        est$lower  , "Lower 80% CI"   ,
+        est$median , "Median value"   ,
+        est$upper  , "Upper 80% CI"   ,
+        est$limit  , "State criteria" ,
+      ) %>%
+        mutate(date = eoy_date)
       ci <- est$n > 1 # conf int if more than 1 observation
 
       plt <- df %>%
@@ -549,10 +743,13 @@ makeReportPlots <- function(df, type) {
           if (ci) {
             c(
               geom_rect(
-                data = tibble(), inherit.aes = F,
+                data = tibble(),
+                inherit.aes = F,
                 aes(fill = est$lower > phoslimit),
-                xmin = -Inf, xmax = Inf,
-                ymin = est$lower, ymax = est$upper,
+                xmin = -Inf,
+                xmax = Inf,
+                ymin = est$lower,
+                ymax = est$upper,
                 alpha = .2
               ),
               geom_hline(yintercept = est$lower),
@@ -569,7 +766,8 @@ makeReportPlots <- function(df, type) {
             ggrepel::geom_text_repel(
               data = est_labels,
               aes(y = value, label = label),
-              size = 3, nudge_x = 1,
+              size = 3,
+              nudge_x = 1,
               box.padding = .5,
               min.segment.length = 0
             )
@@ -595,7 +793,11 @@ makeReportPlots <- function(df, type) {
           values = c("#ffb568", "#40b0a6"),
           labels = c("Yes", "No")
         ) +
-        labs(x = NULL, y = "Total phosphorus (mg/L)", fill = "Exceeds 0.075 mg/L criteria?") +
+        labs(
+          x = NULL,
+          y = "Total phosphorus (mg/L)",
+          fill = "Exceeds 0.075 mg/L criteria?"
+        ) +
         common_theme +
         theme(legend.position = "bottom")
 
