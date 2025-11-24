@@ -21,10 +21,11 @@ data_dir <- function(f) {
 # point to latest data
 SWIMS_DIR <- "swims/2025-11-07"
 
-load_xl <- function(fname) {
+load_xl <- function(fname, clean = TRUE) {
   f <- file.path(SWIMS_DIR, fname)
   cat("Loading", f, "...\n")
-  df <- read_excel(f, na = c("", "NA")) %>% clean_names()
+  df <- read_excel(f, na = c("", "NA"))
+  if (clean) df <- clean_names(df)
   show(str(df))
   df
 }
@@ -34,9 +35,10 @@ load_xl <- function(fname) {
 
 quickmap <- function(shape) {
   message("Shape has ", nrow(shape), " objects and ", format(mapview::npts(shape), big.mark = ","), " vertices")
-  leaflet(shape) %>%
+  leaflet() %>%
     addTiles() %>%
     addPolygons(
+      data = shape,
       color = "black",
       weight = 2,
       opacity = .5,
@@ -180,6 +182,33 @@ quickmap(dnr_watersheds.simp)
 
 waterbodies <- read_sf("shp/wi-major-lakes.geojson")
 
+quickmap(waterbodies)
+
+
+## Flowlines ----
+
+flowlines <- read_sf("D:/GIS/shapefiles/wi-hydro-nhd-flowlines.gpkg")
+head(flowlines)
+str(flowlines)
+sort(unique(flowlines$visibilityfilter))
+flow2d <- flowlines %>%
+  rename(geometry = geom) %>%
+  st_zm() %>%
+  st_make_valid() %>%
+  st_transform(4326) %>%
+  arrange(desc(visibilityfilter)) %>%
+  mutate(level = consecutive_id(visibilityfilter))
+
+flow2d.simp <- flow2d %>%
+  select(level, geometry) %>%
+  filter(level <= 5) %>%
+  rmapshaper::ms_simplify(.25)
+
+flow2d.simp %>%
+  ggplot() +
+  geom_sf(aes(color = factor(level))) +
+  scale_color_brewer(palette = "Spectral", direction = -1)
+
 
 ## Export shapes ----
 
@@ -191,15 +220,17 @@ local({
     huc10 = huc10.simp,
     huc12 = huc12.simp,
     dnr_watersheds = dnr_watersheds.simp,
-    waterbodies = waterbodies
+    waterbodies = waterbodies,
+    flowlines = flow2d.simp
   )
   for (shape in names(shapes)) {
     fname <- paste0(shape, ".rds")
-    fpath <- file.path(EXPORT_DIR, "shp", fname)
+    fpath <- data_dir(file.path("shp", fname))
     saveRDS(shapes[[shape]], fpath)
     message("Save shape => ", fpath)
   }
 })
+
 
 
 # 2 => Load SWIMS Stations =====================================================
@@ -484,6 +515,275 @@ local({
   write_csv(df, f$csv)
   saveRDS(df, f$rds)
 })
+
+
+# 3b => Macroinvertebrate data =================================================
+
+macro_index <- read_csv("macro/macros.csv")
+macro_species <- macro_index %>%
+  drop_na(group) %>%
+  pull(dnr_parameter_description)
+
+macro_xl <- load_xl("8_wav_ibi_fw.xlsx", clean = F)
+
+macro_fieldwork <- macro_xl %>%
+  select(-all_of(macro_species)) %>%
+  janitor::clean_names() %>%
+  select(
+    fsn = fieldwork_seq_no,
+    station_id,
+    group_seq_no,
+    plan_name,
+    datetime = start_date_time,
+    group_1_animals = no_of_group_1_animals,
+    group_2_animals = no_of_group_2_animals,
+    group_3_animals = no_of_group_3_animals,
+    group_4_animals = no_of_group_4_animals_present,
+    total_animals,
+    ends_with("total_value"),
+    index_score,
+    fieldwork_comment
+  ) %>%
+  mutate(datetime = force_tz(datetime, "America/Chicago")) %>%
+  mutate(
+    date = as_date(datetime),
+    year = year(date),
+    .after = datetime
+  ) %>%
+  arrange(datetime) %>%
+  drop_na(total_value, index_score) %>%
+  mutate(across(c(fsn, station_id, starts_with("group"), starts_with("total")), as.integer)) %>%
+  mutate(across(index_score, as.numeric))
+
+str(macro_fieldwork)
+
+macro_species_counts <- macro_xl %>%
+  mutate(across(all_of(macro_species), ~ .x %in% c("Present", "YES"))) %>%
+  select(fsn = FIELDWORK_SEQ_NO, all_of(macro_species)) %>%
+  pivot_longer(
+    all_of(macro_species),
+    names_to = "species_name",
+    values_to = "present"
+  ) %>%
+  left_join(macro_index, join_by(species_name == dnr_parameter_description)) %>%
+  right_join({
+    macro_fieldwork %>%
+      select(fsn, station_id, datetime, date, year)
+  }) %>%
+  relocate(station_id, datetime, date, year, .after = fsn)
+
+macro_species_counts %>%
+  filter(fsn %in% sample(fsn, 100)) %>%
+  write_csv("macro_sampling.csv")
+
+
+## data exploration ----
+
+macro_fieldwork %>%
+  ggplot(aes(x = index_score)) +
+  geom_histogram() +
+  facet_grid(year(datetime)~.)
+
+macro_fieldwork %>%
+  ggplot(aes(x = year(datetime), y = total_value)) +
+  geom_boxplot(aes(group = year(datetime))) +
+  stat_summary() +
+  geom_smooth()
+
+macro_fieldwork %>%
+  ggplot(aes(x = total_value / total_animals)) +
+  geom_histogram()
+
+macro_fieldwork %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  ggplot(aes(x = datetime, y = index_score)) +
+  geom_boxplot(aes(group = year)) +
+  geom_line() +
+  geom_point() +
+  geom_smooth(method = "loess", color = "blue", fill = "blue", alpha = .1) +
+  geom_smooth(method = "gam", color = "red", fill = "red", alpha = .1) +
+  scale_y_continuous(limits = c(0, 4)) +
+  scale_x_date(date_breaks = "year", date_labels = "%Y")
+
+# number of samplings per year
+macro_fieldwork %>%
+  filter(year == 2024) %>%
+  summarize(n = n(), .by = c(year, station_id)) %>%
+  summarize(stations = n(), .by = c(year, n)) %>%
+  mutate(pct = stations / sum(stations), .by = year) %>%
+  ggplot(aes(x = factor(n), y = pct)) +
+  geom_col() +
+  geom_text(aes(label = scales::label_percent(1)(pct)), vjust = -.5)
+
+
+
+## Validation ----
+
+# Duplicate FSN 351071051 == 357587224
+# how should we handle duplicate data? Manually delete the fieldwork in swims?
+
+
+## plotly prototype ----
+
+library(plotly)
+
+hex_to_rgba <- function(hex, alpha = 1) {
+  rgb <- col2rgb(hex)
+  paste0("rgba(", rgb[1], ",", rgb[2], ",", rgb[3], ",", alpha, ")")
+}
+
+# Logic: 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
+macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
+# macro_colors <- c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0")
+# macro_desc   <- c("Sensitive", "Moderately sensitive", "Moderately tolerant", "Tolerant", "Tolerant")
+macro_colortable <- tibble(
+  group = macro_groups,
+  base_color = c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0"),
+  description = c(
+    "Group 1 (Sensitive)",
+    "Group 2 (Moderately sensitive)",
+    "Group 3 (Moderately tolerant)",
+    "Group 4 (Tolerant)",
+    "Invasive"
+  )
+) %>%
+  expand_grid(present = c(T, F)) %>%
+  mutate(
+    z = (1:10 - .5) / 10,
+    alpha = if_else(present, 1, .1),
+    color = mapply(hex_to_rgba, base_color, alpha, USE.NAMES = F)
+  )
+
+# build plotly heatmap colorscale
+colorscale <- list()
+for (i in 1:10) {
+  row <- slice(macro_colortable, i)
+  colorscale[[length(colorscale) + 1]] <- list((i - 1) / 10, row$color)
+  colorscale[[length(colorscale) + 1]] <- list(i / 10, row$color)
+}
+
+
+add_missing_years <- function(df) {
+  bind_rows(df, tibble(
+    year = setdiff(2015:2025, unique(df$year)),
+    date = as_date(paste(year, "-1-1")),
+    date_label = paste("(", year, ")")
+  )) %>%
+    arrange(date) %>%
+    mutate(date_label = fct_inorder(date_label))
+}
+
+# select a station
+selected_data <- macro_species_counts %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  mutate(
+    species_name = factor(species_name, macro_species),
+    group = factor(group, macro_groups),
+    status = if_else(present, "Present", "Absent")
+  ) %>%
+  left_join(macro_colortable, join_by(group, present))
+
+
+# all observations
+plot_data <- selected_data %>%
+  mutate(
+    date_label = format(date, "%b %d, %Y"),
+    tooltip_text = str_glue("
+      <b>{species_name}</b>
+      {description}
+      {date_label}
+      {status}
+    ")
+  ) %>%
+  add_missing_years()
+
+# or summarize by year
+plot_data <- selected_data %>%
+  summarize(
+    present = any(present),
+    .by = c(year, group, species_name)
+  ) %>%
+  left_join(macro_colortable, join_by(group, present)) %>%
+  mutate(
+    date = as_date(paste0(year, "-1-2")),
+    date_label = as.character(year),
+    species_name = factor(species_name, macro_species),
+    group = factor(group, macro_groups),
+    status = if_else(present, "Present", "Absent"),
+    tooltip_text = paste0(
+      "Species: ", species_name,
+      "<br>Year: ", year,
+      "<br>Group: ", group,
+      "<br>Status: ", status
+    )
+  ) %>%
+  add_missing_years()
+
+# plot it
+plot_ly() %>%
+  add_trace(
+    data = plot_data,
+    type = "heatmap",
+    x = ~date_label,
+    y = ~species_name,
+    z = ~z,
+    text = ~tooltip_text,
+    hoverinfo = "text",
+    colorscale = colorscale,
+    showscale = F, # Hide the rainbow bar
+    xgap = 1, ygap = 1
+  ) %>%
+  layout(
+    title = "Macroinvertebrate Sampling: Presence/Absence Heatmap",
+    xaxis = list(
+      title = "",
+      type = "category",
+      categoryarray = levels(plot_data$date_label),
+      categoryorder = "array",
+      tickangle = -45,
+      showgrid = F
+    ),
+    yaxis = list(
+      title = "",
+      type = 'category',
+      categoryarray = rev(levels(plot_data$species_name)),
+      categoryorder = "array",
+      showgrid = F
+    ),
+    plot_bgcolor = "white",
+    margin = list(t = 50, r = 10, b = 10, l = 10),
+    legend = list(title = list(text = "Species Group"))
+  ) %>%
+  config(displayModeBar = F)
+
+
+## ggplot prototype ----
+
+p <- plot_data %>%
+  ggplot(aes(x = date_label, y = species_name, text = tooltip_text)) +
+  geom_tile(
+    aes(fill = base_color, alpha = alpha, color = base_color),
+    lwd = 0.25, width = 0.9, height = 0.9
+  ) +
+  scale_y_discrete(limits = rev, na.translate = F) +
+  scale_fill_identity(aes(color = base_color), na.value = "transparent") +
+  scale_color_identity(aes(color = base_color), na.value = "transparent") +
+  labs(
+    title = "Macroinvertebrate Sampling: Presence/Absence Heatmap",
+    x = NULL, y = NULL,
+    fill = "Species group", color = "Species group"
+  ) +
+  guides(alpha = guide_none()) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    panel.grid = element_blank(),
+    plot.background = element_rect(fill = "white"),
+    panel.border = element_rect(color = "black", linewidth = .25)
+  )
+
+# Convert to Interactive Plotly Figure
+ggplotly(p, tooltip = "text")
 
 
 # 4 => Nutrient data ===========================================================
