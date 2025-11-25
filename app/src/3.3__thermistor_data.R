@@ -79,7 +79,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(cur_stn())
         req(input$units)
 
-        buildDailyThermData(selected_data(), input$units, cur_stn())
+        build_therm_daily(selected_data(), input$units, cur_stn())
       })
 
       ## summary_data ----
@@ -87,7 +87,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         req(selected_data_ready())
         req(input$units)
 
-        buildThermSummary(selected_data(), input$units)
+        build_therm_summary(selected_data(), input$units)
       })
 
 
@@ -205,7 +205,7 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             arrange(date)
         }
 
-        makeThermistorPlot(df_hourly, df_daily, input$units, input$annotations)
+        plotly_thermistor(df_hourly, df_daily, input$units, input$annotations)
       })
 
       ## plotCaptionUI ----

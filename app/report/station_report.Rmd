@@ -37,7 +37,7 @@ baseline <- params$data$baseline %>%
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
 
-report_summary <- buildReportSummary(params)
+report_summary <- build_report_summary(params)
 has <- report_summary$has
 ```
 
@@ -143,7 +143,7 @@ knitr::include_graphics("header.png", error = FALSE, dpi = 300)
 \end{center}
 
 ```{r stn-map, fig.width=7, fig.height=3.5}
-buildReportMap(stn)
+build_report_map(stn)
 ```
 
 ## Station information
@@ -248,23 +248,23 @@ Here are a few important points to keep in mind as you explore this stream’s d
 
 if (has$baseline) {
   p("# Baseline Monitoring Summary")
-  buildReportBaselineTable(baseline) %>%
+  build_report_baseline_table(baseline) %>%
     kable(caption = "Baseline stream monitoring measurements") %>%
     print()
 
   if (has$streamflow) {
-    buildReportStreamflowTable(baseline) %>%
+    build_report_streamflow_table(baseline) %>%
       kable(caption = "Streamflow details") %>%
       print()
   }
 
   baseline %>%
-    summarizeReportCols(c(report_baseline_cols, report_streamflow_cols)) %>%
+    summarize_report_cols(c(report_baseline_cols, report_streamflow_cols)) %>%
     kable(caption = "Baseline stream monitoring summary statistics") %>%
     print()
 
   p("## Additional fieldwork details")
-  buildReportFieldworkComments(baseline) %>%
+  build_report_fieldwork_comments(baseline) %>%
     paste(collapse = "\n\n") %>%
     cat()
 }
@@ -276,11 +276,11 @@ if (has$air_temp || has$water_temp) {
   pg()
   p("# Baseline Temperature Measurements")
   baseline %>%
-    buildReportPlot(type = "temp") %>%
+    build_report_plot(type = "temp") %>%
     print()
   baseline %>%
     mutate(across(c(air_temp, water_temp), c_to_f)) %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `Air temp (°F)` = "air_temp",
       `Water temp (°F)` = "water_temp"
     )) %>%
@@ -297,7 +297,7 @@ if (has$thermistor) {
   pg()
   p("# Hourly Temperature Logger Measurements")
   thermistor %>%
-    buildReportPlot(type = "thermistor") %>%
+    build_report_plot(type = "thermistor") %>%
     print()
   p("_On the chart above, Natural Community temperature classifications are shown as shaded bands._")
   p("## Why measure hourly water temperature?")
@@ -312,10 +312,10 @@ if (has$d_o) {
   pg()
   p("# Baseline Dissolved Oxygen Measurements")
   baseline %>%
-    buildReportPlot(type = "d_o") %>%
+    build_report_plot(type = "d_o") %>%
     print()
   baseline %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `DO (mg/L)` = "d_o",
       `DO (% sat.)` = "d_o_percent_saturation"
     )) %>%
@@ -333,10 +333,10 @@ if (has$ph) {
   pg()
   p("# Baseline pH Measurements")
   baseline %>%
-    buildReportPlot(type = "ph") %>%
+    build_report_plot(type = "ph") %>%
     print()
   baseline %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `pH` = "ph"
     )) %>%
     kable() %>%
@@ -355,10 +355,10 @@ if (has$specific_cond) {
   pg()
   p("# Baseline Conductivity Measurements")
   baseline %>%
-    buildReportPlot(type = "cond") %>%
+    build_report_plot(type = "cond") %>%
     print()
   baseline %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `Specific conductance (μS/cm)` = "specific_cond"
     )) %>%
     kable() %>%
@@ -375,10 +375,10 @@ if (has$transparency) {
   pg()
   p("# Baseline Transparency / Water Clarity Measurements")
   baseline %>%
-    buildReportPlot(type = "trans") %>%
+    build_report_plot(type = "trans") %>%
     print()
   baseline %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `Transparency (cm)` = "transparency"
     )) %>%
     kable() %>%
@@ -395,10 +395,10 @@ if (has$streamflow) {
   pg()
   p("# Baseline Streamflow Measurements")
   baseline %>%
-    buildReportPlot(type = "flow") %>%
+    build_report_plot(type = "flow") %>%
     print()
   baseline %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `Streamflow (cfs)` = "streamflow"
     )) %>%
     kable() %>%
@@ -413,16 +413,16 @@ if (has$streamflow) {
 # Total Phosphorus
 
 if (has$nutrient) {
-  phos_estimate <- getPhosEstimate(nutrient$tp)
-  phos_exceedance_text <- getPhosExceedanceText(phos_estimate)
+  phos_estimate <- get_phos_estimate(nutrient$tp)
+  phos_exceedance_text <- get_phos_exceedance_text(phos_estimate)
 
   pg()
   p("# Total Phosphorus Measurements")
   nutrient %>%
-    buildReportPlot(type = "nutrient") %>%
+    build_report_plot(type = "nutrient") %>%
     print()
   nutrient %>%
-    summarizeReportCols(c(
+    summarize_report_cols(c(
       `Total phosphorus (mg/L)` = "tp"
     )) %>%
     bind_cols(tibble(

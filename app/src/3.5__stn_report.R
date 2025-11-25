@@ -176,9 +176,9 @@ stnReportServer <- function(cur_stn, has_focus) {
             file.copy(temp_out, file)
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
           },
-          error = function(cond) {
+          error = function(e) {
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
-            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff with this information and we will get it fixed.';", yr, report$stn$label))
+            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s';", yr, report$stn$label, e$message))
             runjs("document.querySelector('#report-msg-container').style.display = null;")
           }
         )

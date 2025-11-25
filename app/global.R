@@ -283,7 +283,7 @@ do_color <- function(do) {
 phoslimit <- 0.075 # mg/L or ppm
 
 #' @param vals vector of phosphorus readings
-getPhosEstimate <- function(vals) {
+get_phos_estimate <- function(vals) {
   suppressWarnings({
     vals <- na.omit(vals)
     n <- length(vals)
@@ -311,7 +311,7 @@ getPhosEstimate <- function(vals) {
 #'   `lower` lower confidence limit
 #'   `upper` upper confidence limit
 #' @param limit state phosphorus exceedance limit
-getPhosExceedanceText <- function(vals, limit = phoslimit) {
+get_phos_exceedance_text <- function(vals, limit = phoslimit) {
   median <- vals$median
   lower <- vals$lower
   upper <- vals$upper
@@ -335,7 +335,7 @@ getPhosExceedanceText <- function(vals, limit = phoslimit) {
 
 # Thermistor tab ----------------------------------------------------------
 
-buildDailyThermData <- function(df, units, stn) {
+build_therm_daily <- function(df, units, stn) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
   df %>%
@@ -356,7 +356,7 @@ buildDailyThermData <- function(df, units, stn) {
     )
 }
 
-buildThermSummary <- function(df, units) {
+build_therm_summary <- function(df, units) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
   daily <- df %>%
@@ -388,170 +388,6 @@ buildThermSummary <- function(df, units) {
 
   bind_rows(monthly, total)
 }
-
-
-
-# Reports ----------------------------------------------------------------------
-
-# baseline temperature data normally stored in C, must be converted to F
-report_baseline_cols <- c(
-  `Air temp (°C)` = "air_temp",
-  `Water temp (°C)` = "water_temp",
-  `DO (mg/L)` = "d_o",
-  `DO (% sat.)` = "d_o_percent_saturation",
-  `pH` = "ph",
-  `Specific conductance (μS/cm)` = "specific_cond",
-  `Transparency (cm)` = "transparency",
-  `Streamflow (cfs)` = "streamflow"
-)
-
-# will be excluded if all NA
-report_baseline_optional_cols <- c("ph", "specific_cond")
-
-# will be included if any streamflow cfs data
-report_streamflow_cols <- c(
-  `Stream width (ft)` = "stream_width",
-  `Average depth (ft)` = "average_stream_depth",
-  `Surface velocity (ft/s)` = "average_surface_velocity"
-)
-
-# creates a paragraph of text describing the data
-buildReportSummary <- function(params) {
-  yr <- params$year
-  data <- params$data
-
-  counts <- list(
-    baseline = nrow(data$baseline),
-    nutrient = sum(!is.na(data$nutrient$tp)),
-    thermistor = n_distinct(data$thermistor$date)
-  )
-
-  baseline_count_cols <- c(
-    air_temp = "air temperature",
-    water_temp = "water temperature",
-    d_o = "dissolved oxygen",
-    ph = "ph",
-    specific_cond = "specific conductivity",
-    transparency = "water transparency",
-    streamflow = "streamflow"
-  )
-
-  for (var in names(baseline_count_cols)) {
-    counts[[var]] <- sum(!is.na(data$baseline[[var]]))
-  }
-
-  has <- sapply(counts, function(n) {
-    n > 0
-  }, simplify = F)
-
-  # generate summary paragraph
-  base_counts <- tribble(
-    ~count, ~text,
-    counts$baseline, "baseline water quality measurements",
-    counts$nutrient, "total phosphorus samples",
-    counts$thermistor, "days of continuous water temperature logging"
-  ) %>%
-    filter(count > 0) %>%
-    mutate(text = paste(count, text)) %>%
-    pull(text) %>%
-    combine_words()
-
-  msg <- str_glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
-
-  if (has$baseline) {
-    baseline_counts <- data$baseline %>%
-      select(all_of(names(baseline_count_cols))) %>%
-      pivot_longer(everything()) %>%
-      summarize(count = sum(!is.na(value)), .by = name) %>%
-      filter(count != 0) %>%
-      left_join(enframe(baseline_count_cols), join_by(name)) %>%
-      summarize(text = combine_words(value), .by = count) %>%
-      arrange(desc(count)) %>%
-      mutate(text = paste(count, text, if_else(count == 1, "measurement", "measurements"))) %>%
-      pull(text) %>%
-      combine_words()
-    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report downloaded on ", format(Sys.Date(), "%b %d, %Y"), ".")
-  }
-
-  list(counts = counts, has = has, message = msg)
-}
-
-# min/max etc for data cols
-summarizeReportCols <- function(df, cols) {
-  df %>%
-    rename(all_of(cols)) %>%
-    pivot_longer(all_of(names(cols)), names_to = "Parameter") %>%
-    mutate(Parameter = factor(Parameter, levels = names(cols))) %>%
-    drop_na(value) %>%
-    summarize(
-      across(value, list(
-        N = ~ n(),
-        Min = min,
-        Max = max,
-        Median = median,
-        Mean = mean,
-        SD = sd
-      ), .names = "{.fn}"),
-      .by = Parameter
-    ) %>%
-    mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    mutate(across(Min:SD, ~ if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
-}
-
-# summary table
-buildReportBaselineTable <- function(baseline) {
-  df <- baseline
-  for (col in report_baseline_optional_cols) {
-    if (all(is.na(df[[col]]))) df[[col]] <- NULL
-  }
-  df <- df %>% select(`Date` = formatted_date, any_of(report_baseline_cols))
-  names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
-  df
-}
-
-# summary table
-buildReportStreamflowTable <- function(baseline) {
-  baseline %>%
-    mutate(across(flow_method_used, ~ gsub(" Method", "", .x))) %>%
-    select(
-      `Date` = formatted_date,
-      all_of(report_streamflow_cols),
-      `Streamflow (cfs)` = streamflow,
-      `Flow method` = flow_method_used
-    )
-}
-
-# creates some paragraphs with fieldwork details for the report
-buildReportFieldworkComments <- function(baseline) {
-  baseline %>%
-    select(
-      date,
-      fsn = fieldwork_seq_no,
-      names = group_desc,
-      wx = weather_conditions,
-      rec_wx = weather_last_2_days,
-      com1 = fieldwork_comments,
-      com2 = additional_comments
-    ) %>%
-    mutate(across(where(is.character), xtable::sanitize)) %>%
-    rowwise() %>%
-    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
-    mutate(fieldwork_desc = str_glue(
-      "* **{format(date, '%b %d, %Y')}** - ",
-      "SWIMS fieldwork number: {fsn}. ",
-      if_else(is.na(wx), "", " Weather: {wx}."),
-      if_else(is.na(rec_wx), "", " Weather past 2 days: {rec_wx}."),
-      if_else(nchar(comments) == 0, "", " Fieldwork comments: {comments}."),
-      if_else(is.na(names), "", " Submitted by: {names}.")
-    )) %>%
-    pull(fieldwork_desc) %>%
-    gsub("..", ".", ., fixed = T)
-}
-
-
-
-
 
 
 # Source files in /R ----

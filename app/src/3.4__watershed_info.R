@@ -3,7 +3,7 @@
 
 # Functions ---------------------------------------------------------------
 
-buildWatershedInfo <- function(stn) {
+build_watershed_info <- function(stn) {
   require(glue)
 
   maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
@@ -135,7 +135,7 @@ watershedInfoServer <- function(cur_stn, has_focus) {
           h4("Location and watershed details for selected station:", style = "margin-top: 0px;"),
           div(
             style = "padding-left: 1em;",
-            buildWatershedInfo(cur_stn())
+            build_watershed_info(cur_stn())
           )
         )
       })
@@ -208,18 +208,18 @@ watershedInfoServer <- function(cur_stn, has_focus) {
 
       ## curPlot ----
       output$curPlot <- renderPlotly({
-        makeLandscapePieChart(selected_data())
+        plotly_landscape_pie(selected_data())
       })
 
       ## allPlot ----
       output$allPlot <- renderPlotly({
-        makeLandscapePieChart(mean_data())
+        plotly_landscape_pie(mean_data())
       })
 
       ## diffPlot ----
       # shows a barplot of the difference between the current watershed and the state average
       output$diffPlot <- renderPlotly({
-        makeLandscapeDiffPlot(mean_data(), selected_data())
+        plotly_landscape_diff(mean_data(), selected_data())
       })
 
 

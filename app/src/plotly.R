@@ -45,14 +45,14 @@ plotly_find_max <- function(vals, min_val) {
 
 
 
-# Baseline data plot -----------------------------------------------------------
+# Baseline tab -----------------------------------------------------------------
 
 #' Create plotly for baseline data tab
 #' @requires
 #'  `do_color()` creates the color palette for DO
 #' @param df baseline data for a single station
 
-buildPlotlyBaseline <- function(df) {
+plotly_baseline <- function(df) {
 
   df <- distinct(df, date, .keep_all = T)
 
@@ -240,9 +240,6 @@ buildPlotlyBaseline <- function(df) {
 }
 
 
-
-# Baseline trend plot ----------------------------------------------------------
-
 #' Shows long term trends as scatterplot or boxplots grouped by month or year
 #' @requires
 #'   `OPTS$baseline_plot_opts`
@@ -250,7 +247,7 @@ buildPlotlyBaseline <- function(df) {
 #' @param col name of the column to plot
 #' @param type determines plot type
 
-buildPlotlyBaselineTrend <- function(df, col, type = c("scatter", "month", "year")) {
+plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year")) {
   type <- match.arg(type)
 
   opts <- OPTS$baseline_plot_opts %>% filter(col == !!col)
@@ -354,14 +351,12 @@ buildPlotlyBaselineTrend <- function(df, col, type = c("scatter", "month", "year
 
 
 
-# Baseline ribbon plot ---------------------------------------------------------
-
 #' Shows heatmap of observations and measured values over time
 #' @requires
 #'   `OPTS$baseline_plot_opts`
 #' @param df data frame derived from `baseline_data`
 
-buildPlotlyBaselineRibbon <- function(df) {
+plotly_baseline_ribbon <- function(df) {
   opts <- OPTS$baseline_plot_opts
 
   df <- df %>%
@@ -437,8 +432,7 @@ buildPlotlyBaselineRibbon <- function(df) {
 
 
 
-
-# Nutrient/TP plot --------------------------------------------------------
+# Nutrient tab -----------------------------------------------------------------
 
 #' @requires
 #'  `rect()` creates a plotly rectangle annotation
@@ -446,7 +440,7 @@ buildPlotlyBaselineRibbon <- function(df) {
 #' @param phoslimit number representing the state phosphorus threshold, eg 0.075 mg/L
 #' @param phos_estimate list with `n` observations and `lower` `upper` and `median` confidence interval values
 
-buildPlotlyNutrient <- function(df, phoslimit, phos_estimate) {
+plotly_nutrient <- function(df, phoslimit, phos_estimate) {
 
   if (nrow(df) == 0) {
     return()
@@ -584,7 +578,7 @@ buildPlotlyNutrient <- function(df, phoslimit, phos_estimate) {
 
 
 
-# Thermistor plot --------------------------------------------------------------
+# Thermistor tab ---------------------------------------------------------------
 
 #' @requires
 #'  `f_to_c()` converts temperature
@@ -594,7 +588,7 @@ buildPlotlyNutrient <- function(df, phoslimit, phos_estimate) {
 #' @param units units 'f' or 'c'
 #' @param annotations may be 'None', 'btrout', or 'wtemp' to add behind plot
 
-buildPlotlyThermistor <- function(df_hourly, df_daily, units, annotations) {
+plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
 
   # make sure daily values time is aligned to noon
   df_daily <- df_daily %>%
@@ -727,11 +721,11 @@ buildPlotlyThermistor <- function(df_hourly, df_daily, units, annotations) {
 
 
 
-# Landscape pie chart -----------------------------------------------------
+# Watershed tab ----------------------------------------------------------------
 
 #' @param landscape landscape data for current watershed
 
-buildPlotlyLandscapePie <- function(landscape) {
+plotly_landscape_pie <- function(landscape) {
   landscape %>%
     plot_ly() %>%
     add_trace(
@@ -757,12 +751,10 @@ buildPlotlyLandscapePie <- function(landscape) {
 
 
 
-# Landscape diff plot -----------------------------------------------------
-
 #' @param landscape1 first landscape, against which to compare
 #' @param landscape2 gets compared against first by percent of each class
 
-buildPlotlyLandscapeDiff <- function(landscape1, landscape2) {
+plotly_landscape_diff <- function(landscape1, landscape2) {
 
   df <- landscape1 %>%
     left_join(select(landscape2, class_name, pct_area2 = pct_area), by = "class_name") %>%

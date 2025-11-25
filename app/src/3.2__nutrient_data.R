@@ -58,7 +58,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       phos_estimate <- reactive({
         req(selected_data_ready())
 
-        getPhosEstimate(selected_data()$tp)
+        get_phos_estimate(selected_data()$tp)
       })
 
 
@@ -114,7 +114,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
             class = "plot-caption",
             "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection.",
             br(),
-            strong(getPhosExceedanceText(phos_estimate()))
+            strong(get_phos_exceedance_text(phos_estimate()))
           ),
         )
       })
@@ -126,7 +126,7 @@ nutrientDataServer <- function(cur_stn, has_focus) {
       output$plot <- renderPlotly({
         req(selected_data_ready())
 
-        buildPlotlyNutrient(selected_data(), phoslimit, phos_estimate())
+        plotly_nutrient(selected_data(), phoslimit, phos_estimate())
       })
 
       ## plotExportUI ----
