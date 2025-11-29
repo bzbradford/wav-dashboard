@@ -451,13 +451,7 @@ mapServer <- function(cur_stn, main_session) {
           stns <- stns %>%
             left_join(stn_attr_totals, join_by(station_id)) %>%
             rename(attr = all_of(color_by)) %>%
-            mutate(
-              attr_clamped = pmax(
-                pmin(attr, domain[2], na.rm = T),
-                domain[1],
-                na.rm = T
-              )
-            ) %>%
+            mutate(attr_clamped = clamp(attr, domain[1], domain[2])) %>%
             mutate(color = pal(attr_clamped)) %>%
             arrange(!is.na(attr), attr) %>%
             mutate(

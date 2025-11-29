@@ -1,7 +1,6 @@
-## WAV DASHBOARD ##
-# Ben Bradford, UW-Madison
-# Requires data prep in separate RProj
-# Source this file to prepare .RData for deployment
+# setup.R
+
+# resets Rdata and generates variables for the app that take a little time to compute
 
 
 # Load packages ----
@@ -135,7 +134,7 @@ huc12 <- data_dir("shp/huc12.rds") %>%
 
 ## Station lists ----
 
-station_list <- readRDS(data_dir("station-list.rds"))
+station_list <- read_csv(data_dir("stn_list.csv"))
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 station_types <- list(
@@ -147,9 +146,23 @@ station_types <- list(
 
 ## Baseline data ----
 
-baseline_data <- readRDS(data_dir("baseline-data.rds")) %>%
+# adds a column right after `col` with the units in it
+add_units <- function(.data, col, units) {
+  mutate(.data, "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units), .after = {{ col }})
+}
+
+baseline_data <- read_csv(data_dir("baseline_data.csv")) %>%
   arrange(station_id, date) %>%
-  rename(fieldwork_seq_no = fsn)
+  rename(fieldwork_seq_no = fsn) %>%
+  add_units("water_temp", "C") %>%
+  add_units("air_temp", "C") %>%
+  add_units("d_o", "mg/L") %>%
+  add_units("transparency", "cm") %>%
+  add_units("stream_width", "ft") %>%
+  add_units("average_stream_depth", "ft") %>%
+  add_units("average_surface_velocity", "ft/s") %>%
+  add_units("streamflow", "cfs")
+
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -164,7 +177,7 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 ## Nutrient data ----
 
-nutrient_data <- readRDS(data_dir("tp-data.rds")) %>%
+nutrient_data <- read_csv(data_dir("tp_data.csv")) %>%
   rename(fieldwork_seq_no = fsn) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
@@ -180,8 +193,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 ## Thermistor data ----
 
-therm_data <- readRDS(data_dir("therm-data.rds"))
-therm_info <- readRDS(data_dir("therm-inventory.rds"))
+therm_data <- read_csv(data_dir("therm_data.csv.gz"))
+therm_info <- read_csv(data_dir("therm_inventory.csv"))
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -333,14 +346,15 @@ all_stn_list <- all_pts %>%
 #' mean d_o
 #' mean transparency
 #' mean streamflow
+#' mean biotic_index_score
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
     summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
   nutrient_data %>%
-    summarize(n_fieldwork = n(), .by = c(station_id, year)),
+    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
   therm_data %>%
-    summarize(n_fieldwork = 1, .by = c(station_id, year))
+    summarize(n_fieldwork = 2, .by = c(station_id, year))
 ) %>%
   summarize(
     n_years = n_distinct(year),
@@ -348,59 +362,40 @@ stn_fieldwork_counts <- bind_rows(
     .by = station_id
   )
 
-# baseline means from 10 most recent fieldwork events
-baseline_means <- baseline_data %>%
-  slice_max(date, n = 10, by = station_id) %>%
-  summarize(
-    water_temp = mean(water_temp, na.rm = T),
-    d_o = mean(d_o, na.rm = T),
-    transparency = mean(transparency, na.rm = T),
-    streamflow = mean(streamflow, na.rm = T),
-    .by = station_id
+str(baseline_data)
+stn_attr_stats <- baseline_data %>%
+  pivot_longer(
+    cols = c(water_temp, d_o, ph, specific_cond, transparency, stream_width, streamflow, biotic_index_total_animals, biotic_index_score),
+    names_to = "measure"
   ) %>%
-  {
-    df <- .
-    df[sapply(df, is.infinite)] <- NA
-    df[sapply(df, is.nan)] <- NA
-    df
-  } %>%
-  mutate(across(water_temp:streamflow, ~ signif(.x, 3)))
-
-# from 12 most recent months
-nutrient_means <- nutrient_data %>%
-  drop_na(tp) %>%
-  slice_max(date, n = 12, by = station_id) %>%
-  summarize(tp = signif(mean(tp, na.rm = T), 3), .by = station_id)
+  bind_rows({
+    nutrient_data %>%
+      pivot_longer(tp, names_to = "measure")
+  }) %>%
+  select(station_id, date, measure, value) %>%
+  drop_na(value) %>%
+  summarize(
+    n = n(),
+    across(value, c(mean = mean, median = median, min = min, max = max), .names = "{.fn}"),
+    .by = c(station_id, measure)
+  )
 
 stn_attr_totals <- stn_fieldwork_counts %>%
-  left_join(baseline_means, join_by(station_id)) %>%
-  left_join(nutrient_means, join_by(station_id)) %>%
-  mutate(station_id = as.numeric(station_id))
+  left_join({
+    stn_attr_stats %>%
+      select(station_id, measure, median) %>%
+      pivot_wider(names_from = measure, values_from = median)
+  })
 
 # summary(stn_attr_totals)
 
-stn_color_opts <- tribble(
-  ~label, ~value, ~domain, ~rev, ~pal,
-  "Years of data", "n_years", c(0, 10), F, "viridis",
-  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
-  "Mean water temp (°C)", "water_temp", c(5, 25), T, "RdYlBu",
-  "Mean dissolved oxygen (mg/L)", "d_o", c(3, 12), F, "RdYlBu",
-  "Mean transparency (cm)", "transparency", c(0, 120), F, "BrBG",
-  "Mean streamflow (cfs)", "streamflow", c(0, 50), T, "RdBu",
-  "Mean phosphorus (mg/L)", "tp", c(0, .25), T, "Spectral",
-)
-
-stn_color_choices <- append(
-  list("Station type" = "stn_type"),
-  deframe(stn_color_opts[, 1:2])
-)
 
 
 # Landscape data ----
 
-landcover_classes <- readRDS(data_dir("nlcd-classes.rds"))
-landscape_data <- readRDS(data_dir("nlcd-landcover.rds")) %>%
-  left_join(landcover_classes, join_by(class)) %>%
+landcover_classes <- read_csv(data_dir("nlcd_classes.csv"))
+landscape_data <- read_csv(data_dir("nlcd_landcover.csv")) %>%
+  left_join(landcover_classes) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")
 

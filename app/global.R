@@ -204,8 +204,8 @@ f_to_c <- function(f, d = 1) {
   round((f - 32) * 5.0 / 9.0, d)
 }
 
-clamp <- function(x, lower = x, upper = x) {
-  pmax(lower, pmin(upper, x))
+clamp <- function(x, lower = x, upper = x, na.rm = F) {
+  pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
 }
 
 new_date <- function(y, m, d) {
@@ -276,6 +276,30 @@ do_color <- function(do) {
   RColorBrewer::brewer.pal(11, "RdBu")[i]
 }
 
+
+
+
+# Map --------------------------------------------------------------------------
+
+stn_color_opts <- tribble(
+  ~label, ~value, ~domain, ~rev, ~pal,
+  "Years of data", "n_years", c(0, 10), F, "viridis",
+  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
+  "Water temp (°C)", "water_temp", c(5, 25), T, "RdYlBu",
+  "Dissolved oxygen (mg/L)", "d_o", c(3, 12), F, "RdYlBu",
+  "pH", "ph", c(5, 10), F, "Spectral",
+  "Specific conductance (µS/cm)", "specific_cond", c(0, 2000), T, "RdYlBu",
+  "Transparency (cm)", "transparency", c(0, 120), F, "BrBG",
+  "Streamflow (cfs)", "streamflow", c(0, 50), T, "RdBu",
+  "Biotic index total animals", "biotic_index_total_animals", c(0, 15), F, "RdYlBu",
+  "Biotic index score", "biotic_index_score", c(1, 4), F, "RdYlBu",
+  "Total phosphorus (mg/L)", "tp", c(0, .25), T, "Spectral",
+)
+
+stn_color_choices <- append(
+  list("Station type" = "stn_type"),
+  deframe(stn_color_opts[, 1:2])
+)
 
 
 # Nutrient tab -----------------------------------------------------------------

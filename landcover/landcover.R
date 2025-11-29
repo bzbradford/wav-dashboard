@@ -117,15 +117,9 @@ landscape_data <- bind_rows(
 
 
 # Export ----
-local({
-  nlcd_classes %>% write_csv(data_dir("nlcd-classes.csv"))
-  nlcd_classes %>% saveRDS(data_dir("nlcd-classes.rds"))
-  message("Saved NLCD class list")
 
-  landscape_data %>% write_csv(data_dir("nlcd-landcover.csv"))
-  landscape_data %>% saveRDS(data_dir("nlcd-landcover.rds"))
-  message("Saved NLCD landcover")
-})
+nlcd_classes %>% write_csv(data_dir("nlcd_classes.csv"))
+landscape_data %>% write_csv(data_dir("nlcd_landcover.csv"))
 
 
 

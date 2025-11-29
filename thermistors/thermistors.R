@@ -7,9 +7,11 @@ library(tidyverse)
 
 # Setup ----
 
-EXPORT_DIR <- "../data"
+data_dir <- function(f) {
+  file.path("../data", f)
+}
 
-stn_master_list <- read_rds("../data/stn_master_list.rds")
+stn_master_list <- read_csv(data_dir("stn_master_list.csv"))
 
 
 
@@ -560,24 +562,5 @@ therm_info_export <- therm_info %>%
 
 # Export data ----
 
-local({
-  df <- therm_info_export
-
-  fname <- file.path(EXPORT_DIR, paste0("therm-inventory-", min(df$year), "-", max(df$year), ".csv"))
-  message("Save thermistor inventory => ", fname)
-  write_csv(df, fname)
-
-  fname <- file.path(EXPORT_DIR, "therm-inventory.rds")
-  message("Save thermistor inventory => ", fname)
-  saveRDS(df, fname)
-
-  df <- hobo_data
-
-  fname <- file.path(EXPORT_DIR, paste0("therm-data-", min(df$year), "-", max(df$year), ".csv.gz"))
-  message("Save thermistor data => ", fname)
-  write_csv(df, fname)
-
-  fname <- file.path(EXPORT_DIR, "therm-data.rds")
-  message("Save thermistor data => ", fname)
-  saveRDS(df, fname)
-})
+therm_info_export %>% write_csv(data_dir("therm_inventory.csv"))
+hobo_data %>% write_csv(data_dir("therm_data.csv.gz"))
