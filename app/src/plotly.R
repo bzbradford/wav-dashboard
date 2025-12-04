@@ -388,19 +388,21 @@ plotly_baseline_ribbon <- function(df) {
       z = ~scaled,
       text = ~ if_else(is.na(value), "Not measured", paste(signif(value), units)),
       colors = "Blues",
-      hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
+      hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>",
+      ygap = 1,
+      showscale = F
     ) %>%
-    colorbar(
-      title = list(text = NA),
-      len = 1,
-      thickness = 20,
-      limits = c(0, 1),
-      dtick = 1,
-      outlinewidth = 0,
-      tickmode = "array",
-      tickvals = c(0, 1),
-      ticktext = c("Low", "High")
-    ) %>%
+    # colorbar(
+    #   title = list(text = NA),
+    #   len = 1,
+    #   thickness = 20,
+    #   limits = c(0, 1),
+    #   dtick = 1,
+    #   outlinewidth = 0,
+    #   tickmode = "array",
+    #   tickvals = c(0, 1),
+    #   ticktext = c("Low", "High")
+    # ) %>%
     layout(
       title = "Baseline monitoring record and observation heatmap",
       showlegend = F,
@@ -548,8 +550,6 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
     complete(date_label, species_name) %>%
     replace_na(list(z = 0))
 
-  test <<- plot_data
-
   # plot it
   plot_ly() %>%
     add_trace(
@@ -572,7 +572,6 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
         type = "category",
         categoryarray = levels(plot_data$date_label),
         categoryorder = "array",
-        # tickangle = ifelse(plot_type == "all", -30, 0),
         tickangle = -30,
         showgrid = F,
         fixedrange = T,
@@ -602,6 +601,7 @@ if (F) {
   plotly_macros(10011638)
   plotly_macros(283223)
   plotly_macros(10012445)
+  plotly_macros(10030403)
 }
 
 

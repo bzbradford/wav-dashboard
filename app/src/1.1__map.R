@@ -464,10 +464,9 @@ mapServer <- function(main_rv, main_session) {
             mutate(color = pal(attr_clamped)) %>%
             arrange(!is.na(attr), attr) %>%
             mutate(
-              map_label = lapply(
-                paste0(map_label, "<br>", opts$label, ": ", attr),
-                shiny::HTML
-              )
+              attr_label = if_else(is.na(attr), "No data", as.character(signif(attr, 4))),
+              map_label = paste0(map_label, "<br>", opts$label, ": ", attr_label) %>%
+                lapply(HTML)
             )
 
           # add legend with reversed palette and labels

@@ -58,9 +58,6 @@ suppressPackageStartupMessages({
 
 # Definitions ------------------------------------------------------------------
 
-# if TRUE will run the test examples
-TEST <- FALSE
-
 ## stn_colors ----
 stn_colors <- list(
   baseline = "green",
@@ -308,7 +305,6 @@ if (F) {
 build_formatted_data <- function(df, transpose = TRUE) {
   df <- df %>%
     arrange(date) %>%
-    distinct(date, .keep_all = TRUE) %>%
     clean_names(
       case = "title",
       abbreviations = c("ID", "WBIC", "DO", "pH", "TP"),
@@ -318,6 +314,13 @@ build_formatted_data <- function(df, transpose = TRUE) {
   if (transpose) {
     df <- df %>%
       mutate(label = format(Date, "%b %d, %Y")) %>%
+      mutate(obs_per_date = n(), .by = Date) %>%
+      mutate(label = if_else(
+        obs_per_date > 1,
+        paste0(label, " (", row_number(), ")"),
+        label
+      )) %>%
+      select(-obs_per_date) %>%
       mutate(across(everything(), as.character)) %>%
       pivot_longer(cols = -label, names_to = "Parameter") %>%
       pivot_wider(names_from = label)
@@ -342,6 +345,10 @@ if (F) {
   nutrient_data %>%
     slice_sample(n = 1, by = station_id) %>%
     build_formatted_data(transpose = FALSE)
+
+  baseline_data %>%
+    filter(station_id == 10030403) %>%
+    build_formatted_data(transpose = TRUE)
 }
 
 
@@ -394,14 +401,7 @@ baseline_plot_annot <- lst(
       "Coldwater fish\n(>6 mg/L) ",
       "Coldwater spawning\n(>7 mg/L) "
     ),
-    colors = c(
-      "red",
-      "orange",
-      "gold",
-      "lightblue",
-      "steelblue",
-      "cornflowerblue"
-    )
+    colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
   ),
   transparency = PlotAnnotOpts(
     values = c(55, 90, 120),
@@ -439,7 +439,16 @@ baseline_plot_annot <- lst(
       "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)"
     ),
     colors = c("#915119", "#e3c283", "#73cdc1", "#09968e")
-  )
+  ),
+  biotic_index_score = PlotAnnotOpts(
+    values = c(2, 2.5, 3.5),
+    labels = c(
+      "Poor (1-2) ",
+      "Fair (2-2.5)",
+      "Good (2.5-3.5) "
+    ),
+    colors = c("red", "orange", "green", "green")
+  ),
 )
 
 
