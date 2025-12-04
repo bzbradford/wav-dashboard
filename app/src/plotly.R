@@ -1,5 +1,4 @@
-
-# Plotly graphs and functions
+## Plotly graphs and functions ##
 
 
 # Helpers ----------------------------------------------------------------------
@@ -241,8 +240,7 @@ plotly_baseline <- function(df) {
 
 
 #' Shows long term trends as scatterplot or boxplots grouped by month or year
-#' @requires
-#'   `OPTS$baseline_plot_opts`
+#' @requires `data_opts`
 #' @param df data frame derived from `baseline_data`
 #' @param col name of the column to plot
 #' @param type determines plot type
@@ -250,7 +248,9 @@ plotly_baseline <- function(df) {
 plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year")) {
   type <- match.arg(type)
 
-  opts <- OPTS$baseline_plot_opts %>% filter(col == !!col)
+  opts <- data_opts %>%
+    filter(col == !!col)
+
   df <- df %>%
     select(year, month, date, all_of(c(value = col))) %>%
     drop_na(value) %>%
@@ -266,7 +266,7 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
   )
 
   # set y axis range
-  yrange <- c(min(df$value, opts$range_min), max(df$value, opts$range_max))
+  yrange <- c(min(df$value, opts$plot_min), max(df$value, opts$plot_max))
   yrange <- yrange + abs(yrange[2] - yrange[1]) * c(-.1, .1)
   if (min(df$value) >= 0 && yrange[1] < 0) yrange[1] <- 0
 
@@ -298,8 +298,8 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
         type = "scatter", mode = "lines+markers",
         x = ~date,
         y = ~value,
-        text = ~ paste(signif(value), opts$unit),
-        hovertemplate = paste("%{x}: %{y:.2f}", opts$unit)
+        text = ~ paste(signif(value), opts$units),
+        hovertemplate = paste("%{x}: %{y:.2f}", opts$units)
       )
   } else {
     plt %>%
@@ -320,12 +320,12 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
         mode = "markers",
         hoverinfo = list(extras = "none"),
         text = ~ paste(month_name, year),
-        hovertemplate = paste("%{text}: %{y}", opts$unit)
+        hovertemplate = paste("%{text}: %{y}", opts$units)
       )
   }
 
   # add annotations
-  annot <- OPTS$baseline_trend_annot[[col]]
+  annot <- baseline_plot_annot[[col]]
   if (!is.null(annot)) {
     values <- c(-1e6, annot$values, 1e6)
     shapes <- lapply(seq_along(annot$colors), function(i) {
@@ -352,12 +352,12 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
 
 
 #' Shows heatmap of observations and measured values over time
-#' @requires
-#'   `OPTS$baseline_plot_opts`
+#' @requires `data_opts`
 #' @param df data frame derived from `baseline_data`
 
 plotly_baseline_ribbon <- function(df) {
-  opts <- OPTS$baseline_plot_opts
+  opts <- data_opts %>%
+    filter(col %in% names(df))
 
   df <- df %>%
     mutate(
@@ -373,7 +373,7 @@ plotly_baseline_ribbon <- function(df) {
     filter(!all(is.na(value)), .by = measure) %>%
     left_join(opts, join_by(measure == col)) %>%
     mutate(
-      scaled = scales::rescale(value, from = c(min(c(value, range_min), na.rm = T), max(c(value, range_max), na.rm = T))),
+      scaled = scales::rescale(value, from = c(min(c(value, plot_min), na.rm = T), max(c(value, plot_max), na.rm = T))),
       .by = measure
     )
 
@@ -386,7 +386,7 @@ plotly_baseline_ribbon <- function(df) {
       x = ~date,
       y = ~name,
       z = ~scaled,
-      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), units)),
       colors = "Blues",
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
     ) %>%
@@ -402,8 +402,9 @@ plotly_baseline_ribbon <- function(df) {
       ticktext = c("Low", "High")
     ) %>%
     layout(
+      title = "Baseline monitoring record and observation heatmap",
       showlegend = F,
-      margin = list(t = 0, b = 25),
+      # margin = list(t = 0, b = 25),
       yaxis = list(
         title = NA,
         automargin = T,
@@ -425,10 +426,183 @@ plotly_baseline_ribbon <- function(df) {
     config(displayModeBar = F)
 }
 
-# baseline_data %>%
-#   filter(station_id == sample(station_id, 1)) %>%
-#   filter(year == sample(year, 1)) %>%
-#   makeBaselineRibbonPlot()
+if (F) {
+  baseline_data %>%
+    filter(station_id == sample(station_id, 1)) %>%
+    filter(year == sample(year, 1)) %>%
+    plotly_baseline_ribbon()
+}
+
+
+
+# Macroinvertebrate plot --------------------------------------------------
+
+hex2rgba <- function(hex, alpha = 1) {
+  rgb <- col2rgb(hex)
+  paste0("rgba(", rgb[1], ",", rgb[2], ",", rgb[3], ",", alpha, ")")
+}
+
+macro_species <- drop_na(macro_params, group)$dnr_parameter_description
+
+# 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
+macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
+
+macro_colortable <- tibble(
+  group = macro_groups,
+  base_color = c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0"),
+  description = c(
+    "Group 1 (Sensitive)",
+    "Group 2 (Moderately sensitive)",
+    "Group 3 (Moderately tolerant)",
+    "Group 4 (Tolerant)",
+    "Invasive"
+  )
+) %>%
+  expand_grid(present = c(T, F)) %>%
+  mutate(
+    z = (1:10 - .5) / 10,
+    alpha = if_else(present, 1, .1),
+    color = map2_chr(base_color, alpha, hex2rgba)
+  )
+
+# build plotly heatmap colorscale
+macro_colorscale <- local({
+  for (i in 1:10) {
+    if (i == 1) scale <- list()
+    row <- slice(macro_colortable, i)
+    scale <- c(
+      scale,
+      list(list((i - 1) / 10, row$color)),
+      list(list(i / 10, row$color))
+    )
+  }
+  # insert blank for z = 0
+  scale[[1]][[1]] <- .05
+  c(
+    list(list(0, "rgba(1,1,1,.025)")),
+    list(list(.05, "rgba(1,1,1,.025)")),
+    scale
+  )
+})
+
+macro_add_missing_years <- function(df) {
+  missing_yrs <- setdiff(2015:2025, unique(df$year))
+  if (length(missing_yrs) > 0) {
+    df <- df %>%
+      bind_rows(tibble(
+        year = missing_yrs,
+        date = as_date(paste(year, "-1-1")),
+        date_label = paste("(", year, ")")
+      ))
+  }
+  df %>%
+    arrange(date) %>%
+    mutate(date_label = fct_inorder(date_label))
+}
+
+plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
+  plot_type <- match.arg(plot_type)
+
+  # select a station
+  df <- macro_species_counts %>%
+    filter(station_id == stn_id) %>%
+    mutate(date_label = format(date, "%b %d, %Y"))
+
+  req(nrow(df) > 0)
+
+  # summarize by year
+  if (plot_type == "annual") {
+    df <- df %>%
+      summarize(present = any(present), .by = c(year, group, species_name)) %>%
+      mutate(
+        date = as_date(paste0(year, "-1-2")),
+        date_label = as.character(year)
+      )
+  }
+
+  # get overall presence/absence
+  df_total <- df %>%
+    summarize(
+      present = any(present),
+      .by = c(group, species_name)) %>%
+    mutate(
+      date = today() + 1,
+      date_label = "<b>All time</b>"
+    )
+
+  # injects e.g. (2015) when no sample from 2015
+  plot_data <- df %>%
+    bind_rows(df_total) %>%
+    left_join(macro_colortable, join_by(group, present)) %>%
+    mutate(
+      species_name = factor(species_name, macro_species),
+      group = factor(group, macro_groups),
+      status = if_else(present, "Present", "Absent"),
+      tooltip_text = str_glue("
+        <b>{species_name}</b>
+        {description}
+        {date_label}
+        {status}
+      ")) %>%
+    macro_add_missing_years() %>%
+    complete(date_label, species_name) %>%
+    replace_na(list(z = 0))
+
+  test <<- plot_data
+
+  # plot it
+  plot_ly() %>%
+    add_trace(
+      data = plot_data,
+      type = "heatmap",
+      x = ~date_label,
+      y = ~species_name,
+      z = ~z,
+      zmin = 0, zmax = 1,
+      text = ~tooltip_text,
+      hoverinfo = "text",
+      colorscale = macro_colorscale,
+      showscale = F,
+      xgap = 1, ygap = 1
+    ) %>%
+    layout(
+      title = "Macroinvertebrate Presence/Absence",
+      xaxis = list(
+        title = "",
+        type = "category",
+        categoryarray = levels(plot_data$date_label),
+        categoryorder = "array",
+        # tickangle = ifelse(plot_type == "all", -30, 0),
+        tickangle = -30,
+        showgrid = F,
+        fixedrange = T,
+        automargin = T,
+        tickmode = "linear",
+        dtick = 1
+      ),
+      yaxis = list(
+        title = NA,
+        type = 'category',
+        categoryorder = "array",
+        categoryarray = rev(levels(plot_data$species_name)),
+        showgrid = F,
+        fixedrange = T,
+        automargin = T,
+        tickmode = "linear",
+        dtick = 1
+      ),
+      plot_bgcolor = "white",
+      margin = list(t = 50, r = 10, b = 10, l = 10)
+    ) %>%
+    config(displayModeBar = F)
+}
+
+# test
+if (F) {
+  plotly_macros(10011638)
+  plotly_macros(283223)
+  plotly_macros(10012445)
+}
 
 
 

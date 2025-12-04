@@ -1,62 +1,76 @@
-##  server.R  ##
-
-# Server ----
+##  MAIN SERVER  ##
 
 server <- function(input, output, session) {
+
+  # Defs ----
+
+  # stations with data from most recent year
+  initial_avail_stns <- all_stns %>%
+    filter(max_fw_year == max(data_years))
+
+  # picks a baseline station from the most recent year
+  initial_stn <- initial_avail_stns %>%
+    filter(baseline_stn == TRUE) %>%
+    slice_sample() %>%
+    pull(station_id)
+
+
   # Reactives values ----
 
-  ## first_run ----
-  # becomes F after initial station selection
-  first_run <- reactiveVal(TRUE)
+  rv <- reactiveValues(
 
-  ## initial_stn ----
-  # determines station to select on app load
-  initial_stn <- reactiveVal({
-    set.seed(as.integer(Sys.time()))
-    all_stns %>%
-      filter(baseline_stn, max_fw_year == max(data_years)) %>%
-      slice_sample(n = 1) %>%
-      pull(station_id)
+    ## rv$init ----
+    # becomes F after initial station selection
+    init = TRUE,
+
+    ## rv$bookmarking ----
+    # enable/disable bookmarking features where station id shown in url
+    bookmarking = NULL,
+
+    ## rv$avail_stns ----
+    avail_stns = initial_avail_stns,
+
+    ## rv$initial_stn ----
+    initial_stn = NULL,
+
+    ## rv$stn_list ----
+    stn_list = list(),
+
+    ## rv$cur_stn ----
+    # single row data frame with station info for currently selected station
+    cur_stn = NULL
+
+  )
+
+  observe({
+    stns <- rv$avail_stns
+    rv$stn_list <- if (any(is.null(stns), nrow(stns) == 0)) {
+      list()
+    } else {
+      all_stn_list[all_stn_list %in% stns$station_id]
+    }
   })
 
-  ## bookmarking ----
-  # enable/disable bookmarking features
-  bookmarking <- reactiveVal(FALSE)
+  # set cur_stn based on input$station
+  observe({
+    req(rv$avail_stns)
+    stn <- req(input$station)
 
-  ## avail_stns ----
-  # reacts to map sidebar selections
-  avail_stns <- reactive({
-    mapReturn()$avail_stns
+    rv$cur_stn <- filter(all_pts, station_id == stn)
   })
 
-  ## stns_avail ----
-  # are any stations available?
-  stns_avail <- reactive({
-    nrow(avail_stns()) > 0
-  })
 
-  ## stn_list ----
+  ## stn_list() ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
-    if (!stns_avail()) {
-      return(list())
+    stns <- req(rv$avail_stns)
+    if (nrow(stns) > 0) {
+      all_stn_list[all_stn_list %in% stns$station_id]
+    } else {
+      list()
     }
-    all_stn_list[all_stn_list %in% avail_stns()$station_id]
   })
 
-  ## last_valid_stn ----
-  last_valid_stn <- reactiveVal()
-
-  ## cur_stn ----
-  # single line data frame with station info for currently selected station
-  cur_stn <- reactive({
-    req(stns_avail())
-    req(input$station)
-
-    stn <- filter(all_pts, station_id == input$station)
-    last_valid_stn(stn)
-    stn
-  })
 
   # Event reactives ----
 
@@ -64,46 +78,52 @@ server <- function(input, output, session) {
   # Checks for URL query string, set initial station to random or requested
   observeEvent(TRUE, once = TRUE, {
     # check for a url query
-    query <- parseQueryString(session$clientData$url_search)[["stn"]]
-    if (!is.null(query)) {
-      if (query %in% all_stns$station_id) {
-        selected <- query
-        stn_name <- all_stns[all_stns$station_id == selected, ]$station_name
-        bookmarking(TRUE)
-        initial_stn(selected)
-        output$notice <- renderUI({
-          div(
-            class = "notice notice-ok",
-            div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
-            div(class = "notice-text", sprintf("Dashboard loaded with station '%s: %s' selected.", query, stn_name))
-          )
-        })
-      } else {
-        output$notice <- renderUI({
-          div(
-            class = "notice notice-error",
-            div(class = "notice-close", "✕", onclick = "document.querySelector('#notice').style.display = 'none'"),
-            div(class = "notice-text", sprintf("Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.", query))
-          )
-        })
-      }
-      delay(10000, {
-        output$notice <- NULL
-      })
+    id <- parseQueryString(session$clientData$url_search)[["stn"]]
+
+    if (is.null(id)) {
+      rv$bookmarking <- FALSE
+      rv$initial_stn <- initial_stn
+      return()
     }
+
+    rv$bookmarking <- TRUE
+
+    opts <- if (id %in% all_stns$station_id) {
+      selected <- id
+      stn_name <- all_stns[all_stns$station_id == selected, ]$station_name
+      rv$initial_stn <- selected
+      list(
+        msg = sprintf("Dashboard loaded with station '%s: %s' selected.", id, stn_name),
+        type = "ok"
+      )
+    } else {
+      rv$initial_stn <- initial_stn
+      list(
+        msg = sprintf("Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.", query),
+        type = "error"
+      )
+    }
+
+    output$notice <- build_notice_ui(opts$msg, opts$type)
+
+    delay(10000, {
+      output$notice <- NULL
+    })
   })
 
   ## stn_list => updateSelectInput ----
   # if the previously selected station is still in the list, keep it selected
   # otherwise pick a random station from the list
-  observeEvent(stn_list(), {
-    stations <- stn_list()
+  observeEvent(rv$stn_list, ignoreInit = TRUE, {
+    stations <- rv$stn_list
+    req(length(stations) > 0)
     selected <- ""
+    cur_stn <- rv$cur_stn
 
     # pick the initial station, either from URL or random, on load
-    if (first_run()) {
-      selected <- initial_stn()
-      first_run(FALSE)
+    if (rv$init) {
+      selected <- req(rv$initial_stn)
+      rv$init <- FALSE
 
       # if current station is still in the list, keep it selected
     } else if (input$station %in% stations) {
@@ -111,17 +131,17 @@ server <- function(input, output, session) {
 
       # pick the geographically nearest station
     } else if (length(stations) > 0) {
-      last_pt <- last_valid_stn()
-      if (!is.null(last_pt)) {
+      # last_pt <- last_valid_stn()
+      if (!is.null(cur_stn)) {
         # find geographically nearest station
         avail_pts <- all_pts %>% filter(station_id %in% stations)
-        selected <- avail_pts[st_nearest_feature(last_pt, avail_pts), ]$station_id
+        selected <- avail_pts[st_nearest_feature(cur_stn, avail_pts), ]$station_id
       } else {
         selected <- stations[sample(seq_along(stations), 1)]
       }
     } else {
       # keep the current station selected in a one-item list
-      stations <- all_stn_list[all_stn_list %in% last_valid_stn()$station_id]
+      stations <- all_stn_list[all_stn_list %in% cur_stn$station_id]
       selected <- stations
     }
 
@@ -134,10 +154,13 @@ server <- function(input, output, session) {
 
   ## cur_stn & bookmarking => update URL ----
   # Set URL and page title when bookmarking enabled
-  observeEvent(list(last_valid_stn(), bookmarking()), {
-    if (bookmarking()) {
-      set_page_url(last_valid_stn()$station_id)
-      set_page_title(last_valid_stn()$label)
+  observeEvent(list(rv$cur_stn, rv$bookmarking), {
+    opt <- rv$bookmarking
+    req(!is.null(opt))
+    if (opt) {
+      stn <- rv$cur_stn
+      set_page_url(stn$station_id)
+      set_page_title(stn$label)
     } else {
       set_page_url(NULL)
       set_page_title(NULL)
@@ -150,9 +173,14 @@ server <- function(input, output, session) {
   ## next_stn => Next station button ----
   # go to the next station east
   observeEvent(input$next_stn, {
-    req(length(stn_list()) > 0)
-    avail_pts <- filter(all_pts, station_id %in% avail_stns()$station_id)
-    stns_east <- filter(avail_pts, longitude > cur_stn()$longitude)
+    stn_list <- rv$stn_list
+    req(length(stn_list) > 0)
+
+    avail_stns <- rv$avail_stns
+    cur_stn <- rv$cur_stn
+    avail_pts <- filter(all_pts, station_id %in% avail_stns$station_id)
+    stns_east <- filter(avail_pts, longitude > cur_stn$longitude)
+
     if (nrow(stns_east) == 0) {
       # circle back around
       selected <- avail_pts %>%
@@ -161,7 +189,7 @@ server <- function(input, output, session) {
     } else {
       # pick the next easterly station
       selected <- stns_east %>%
-        slice(st_nearest_feature(cur_stn(), stns_east)) %>%
+        slice(st_nearest_feature(cur_stn, stns_east)) %>%
         pull(station_id)
     }
 
@@ -171,9 +199,14 @@ server <- function(input, output, session) {
   ## prev_stn => Prev station button ----
   # go to the next station west
   observeEvent(input$prev_stn, {
-    req(length(stn_list()) > 0)
-    avail_pts <- all_pts %>% filter(station_id %in% avail_stns()$station_id)
-    stns_west <- avail_pts %>% filter(longitude < cur_stn()$longitude)
+    stn_list <- rv$stn_list
+    req(length(stn_list) > 0)
+
+    avail_stns <- rv$avail_stns
+    cur_stn <- rv$cur_stn
+    avail_pts <- filter(all_pts, station_id %in% avail_stns$station_id)
+    stns_east <- filter(avail_pts, longitude < cur_stn$longitude)
+
     if (nrow(stns_west) == 0) {
       # circle back around
       selected <- avail_pts %>%
@@ -181,7 +214,7 @@ server <- function(input, output, session) {
         pull(station_id)
     } else {
       selected <- stns_west %>%
-        slice(st_nearest_feature(cur_stn(), stns_west)) %>%
+        slice(st_nearest_feature(cur_stn, stns_west)) %>%
         pull(station_id)
     }
 
@@ -191,13 +224,18 @@ server <- function(input, output, session) {
   ## rnd_stn => Random station button ----
   # select a random station
   observeEvent(input$rnd_stn, {
-    req(length(stn_list()) > 0)
-    stn_id <- stn_list()[sample(seq_along(stn_list()), 1)]
+    stn_list <- rv$stn_list
+    req(length(stn_list) > 0)
+
+    stn_id <- stn_list[sample(seq_along(stn_list), 1)]
+
     updateSelectInput(inputId = "station", selected = stn_id)
   })
 
   ## bookmarking => toggle state ----
-  observeEvent(input$bookmarking, bookmarking(!bookmarking()))
+  observeEvent(input$bookmarking, {
+    rv$bookmarking <- !rv$bookmarking
+  })
 
   ## recent_stn => select a recent station ----
   # see 'recent_stations.R'
@@ -206,7 +244,7 @@ server <- function(input, output, session) {
     id <- input$recent_stn
     stn <- all_stns %>% filter(station_id == id)
 
-    if (!(id %in% stn_list())) {
+    if (!(id %in% rv$stn_list)) {
       # desired station not in list, need to remove restrictions
       # keep current year select, add the most recent year from the desired station
       new_years <- union(
@@ -226,56 +264,6 @@ server <- function(input, output, session) {
       )
   })
 
-  ## screenshot => download pdf ----
-  # observeEvent(stns_avail(), {
-  #   if (stns_avail()) enable("screenshot") else disable("screenshot")
-  # })
-
-  #' use html2canvas to screenshot the main page content
-  #' have to remove the map div for now because leaflet is using svg instead of canvas
-  #' map polygons render in the incorrect location with html2canvas
-  #' once cloned the radio buttons are modified because they didn't appear correctly
-  #' after rendering, the screenshot button is re-enabled
-  # buildScreenshotFilename <- function() {
-  #   stn_id <- cur_stn()$station_id
-  #   tab_name <- input$data_tabs
-  #   suffix <- case_match(tab_name,
-  #     tab_names$baseline ~ baselineReturn()$year,
-  #     tab_names$nutrient ~ nutrientReturn()$year,
-  #     tab_names$thermistor ~ thermistorReturn()$year,
-  #     tab_names$watershed ~ watershedReturn()$huc,
-  #     .default = ""
-  #   )
-  #   fname <- paste0("WAV Dashboard - Station ", cur_stn()$station_id, " - ", input$data_tabs)
-  #   if (!is.null(suffix)) fname <- paste(fname, suffix)
-  #   fname
-  # }
-
-  # observeEvent(input$screenshot, {
-  #   fname <- buildScreenshotFilename()
-  #   runjs(sprintf("
-  #     html2canvas(
-  #       document.querySelector('#main-content'),
-  #       {
-  #         scale: 1,
-  #         crossOrigin: 'anonymous',
-  #         useCORS: true,
-  #         imageTimeout: 5000,
-  #         onclone: (cloneDoc) => {
-  #           cloneDoc.querySelector('#map-content').style.display = 'none';
-  #           const style = cloneDoc.createElement('style');
-  #           style.innerHTML = 'input[type=\"radio\"] { appearance: none !important; };'
-  #           cloneDoc.body.appendChild(style);
-  #         }
-  #       }
-  #     ).then(canvas => {
-  #       saveAs(canvas.toDataURL(), '%s.png')
-  #     });
-  #   ", fname))
-  #   enable("screenshot")
-  #   runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
-  # })
-
 
   # Rendered UIs ----
 
@@ -283,7 +271,8 @@ server <- function(input, output, session) {
   # enable/disable URL and title to show current station
 
   output$bookmark_btn <- renderUI({
-    if (bookmarking()) {
+    req(!is.null(rv$bookmarking))
+    if (rv$bookmarking) {
       actionButton("bookmarking", icon("bookmark", class = "fa-solid"), class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
     } else {
       actionButton("bookmarking", icon("bookmark"), class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
@@ -293,56 +282,16 @@ server <- function(input, output, session) {
 
   # Module servers ----
 
-  ## Map ----
-  # returns the station that was clicked
-  mapReturn <- mapServer(
-    cur_stn = reactive(cur_stn()),
-    main_session = session
-  )
+  mapServer(rv, session)
 
-  ## Recent stations ----
-  recentStationsServer(
-    cur_stn = reactive(last_valid_stn()),
-    stn_list = reactive(stn_list())
-  )
+  recentStationsServer(rv)
+  stationInfoServer(rv)
+  stationListServer(rv)
 
-  ## Station info tab ----
-  stationInfoServer(
-    cur_stn = reactive(last_valid_stn())
-  )
+  baselineDataServer(rv)
+  nutrientDataServer(rv)
+  thermistorDataServer(rv)
+  watershedInfoServer(rv)
+  stnReportServer(rv)
 
-  ## Station list tab ----
-  stationListServer(
-    stn_list = reactive(stn_list())
-  )
-
-  ## Baseline data tab ----
-  baselineReturn <- baselineDataServer(
-    cur_stn = reactive(last_valid_stn()),
-    has_focus = reactive(input$data_tabs == tab_names$baseline)
-  )
-
-  ## Nutrient data tab ----
-  nutrientReturn <- nutrientDataServer(
-    cur_stn = reactive(last_valid_stn()),
-    has_focus = reactive(input$data_tabs == tab_names$nutrient)
-  )
-
-  ## Thermistor data tab ----
-  thermistorReturn <- thermistorDataServer(
-    cur_stn = reactive(last_valid_stn()),
-    has_focus = reactive(input$data_tabs == tab_names$thermistor)
-  )
-
-  ## Watershed info tab ----
-  watershedReturn <- watershedInfoServer(
-    cur_stn = reactive(last_valid_stn()),
-    has_focus = reactive(input$data_tabs == tab_names$watershed)
-  )
-
-  ## Station report tab ----
-  stnReportServer(
-    cur_stn = reactive(last_valid_stn()),
-    has_focus = reactive(input$data_tabs == tab_names$reports)
-  )
 }

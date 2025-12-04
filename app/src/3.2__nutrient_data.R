@@ -1,221 +1,164 @@
-# Nutrient tab
+## NUTRIENT TAB ##
 
 nutrientDataUI <- function() {
   ns <- NS("nutrient")
 
   div(
     class = "data-tab",
-    uiOutput(ns("mainUI")) %>% with_spinner(),
+    uiOutput(ns("ui")) %>% with_spinner(),
   )
 }
 
-
 #' @requires `nutrient_data`
-#' @param cur_stn a `reactive()` expression containing the current station
-
-nutrientDataServer <- function(cur_stn, has_focus) {
+#' @param main_rv reactive values object from main server session
+nutrientDataServer <- function(main_rv) {
   moduleServer(
     id = "nutrient",
     function(input, output, session) {
       ns <- session$ns
 
-      # Reactives ----
 
-      ## cur_data ----
-      cur_data <- reactive({
-        req(cur_stn())
+      # Reactives --------------------------------------------------------------
 
-        filter(nutrient_data, station_id == cur_stn()$station_id)
+      ## rv$ready ----
+      rv <- reactiveValues(
+        ready = FALSE
+      )
+
+      ## rv$ready handler ----
+      observe({
+        ready <- nrow(stn_data()) > 0
+        if (rv$ready != ready) rv$ready <- ready
       })
 
-      ## data_ready ----
-      data_ready <- reactive({
-        nrow(cur_data()) > 0
+      ## cur_stn ----
+      cur_stn <- reactive({
+        req(main_rv$cur_stn)
       })
 
-      ## cur_years ----
-      cur_years <- reactive({
-        sort(unique(cur_data()$year))
+      ## stn_data ----
+      stn_data <- reactive({
+        nutrient_data %>%
+          filter(station_id == cur_stn()$station_id)
       })
 
       ## selected_data ----
       selected_data <- reactive({
-        req(input$year)
-
-        if (input$year == "All") {
-          cur_data()
-        } else {
-          cur_data() %>% filter(year == input$year)
-        }
-      })
-
-      ## selected_data_ready ----
-      selected_data_ready <- reactive({
-        nrow(cur_data()) > 0
+        df <- stn_data()
+        yr <- req(input$year)
+        df <- if (yr == "All") df else filter(df, year == yr)
+        req(nrow(df) > 0)
+        df
       })
 
       ## phos_estimate ----
       phos_estimate <- reactive({
-        req(selected_data_ready())
-
-        get_phos_estimate(selected_data()$tp)
+        df <- selected_data()
+        get_phos_estimate(df$tp)
       })
 
 
-      # Rendered UIs ----
+      # UI ---------------------------------------------------------------------
 
-      ## mainUI ----
-      output$mainUI <- renderUI({
-        if (!data_ready()) {
-          return(div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."))
+      ## ui ----
+      output$ui <- renderUI({
+        if (rv$ready) {
+          uiOutput(ns("main_ui"))
+        } else {
+          div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station.")
         }
+      })
 
-        req(cur_stn())
+      ## main_ui ----
+      output$main_ui <- renderUI({
         tagList(
-          div(
-            class = "well flex-row year-btns",
-            style = "margin-bottom: 1rem;",
-            div(class = "year-btn-text", em("Choose year:")),
-            radioGroupButtons(
-              inputId = ns("year"),
-              label = NULL,
-              choices = year_choices(cur_years()),
-              selected = first_truthy(
-                intersect(isolate(input$year), cur_years()),
-                last(cur_years())
-              )
-            )
-          ),
+          uiOutput(ns("year_select_ui")),
           div(
             id = "nutrient-plot-container",
-            h3(cur_stn()$label, align = "center"),
+            h3(textOutput(ns("stn_title_text")), align = "center"),
             plotlyOutput(ns("plot")),
-            uiOutput(ns("plotCaptionUI"))
+            uiOutput(ns("plot_caption_ui"))
           ),
-          uiOutput(ns("plotExportUI")),
+          uiOutput(ns("plot_export_ui")),
           div(
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/nutrient_info.md")
           ),
-          accordion(
-            accordion_panel(
-              title = "View or download nutrient data",
-              uiOutput(ns("viewDataUI")),
-            ),
-            open = FALSE
+          dataViewUI(ns("data_view"))
+        )
+      })
+
+      ## dataViewServer ----
+      dataViewServer(
+        id = "data_view",
+        dataset_name = "Nutrient",
+        master_data = nutrient_data,
+        cur_stn = cur_stn,
+        stn_data = stn_data,
+        selected_data = selected_data
+      )
+
+      ## year_select_ui ----
+      output$year_select_ui <- renderUI({
+        yrs <- sort(unique(stn_data()$year))
+        div(
+          class = "well flex-row year-btns",
+          style = "margin-bottom: 1rem;",
+          div(class = "year-btn-text", em("Choose year:")),
+          radioGroupButtons(
+            inputId = ns("year"),
+            label = NULL,
+            choices = year_choices(yrs),
+            selected = first_truthy(
+              intersect(isolate(input$year), yrs),
+              last(yrs)
+            )
           )
         )
       })
 
-      ## plotCaptionUI ----
-      output$plotCaptionUI <- renderUI({
+      ## stn_title_text ----
+      output$stn_title_text <- renderText({
+        cur_stn()$label
+      })
+
+      ## plot_caption_ui ----
+      output$plot_caption_ui <- renderUI({
+        phostext <- phos_estimate() %>%
+          get_phos_exceedance_text()
+
         tagList(
           div(
             class = "plot-caption",
             "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection.",
             br(),
-            strong(get_phos_exceedance_text(phos_estimate()))
+            strong(phostext)
           ),
         )
       })
-
-
-      # Plot ----
 
       ## plot ----
       output$plot <- renderPlotly({
-        req(selected_data_ready())
-
-        plotly_nutrient(selected_data(), phoslimit, phos_estimate())
+        plotly_nutrient(
+          df = selected_data(),
+          phoslimit = phoslimit,
+          phos_estimate = phos_estimate()
+        )
       })
 
-      ## plotExportUI ----
-      output$plotExportUI <- renderUI({
-        req(input$year)
-        filename <- sprintf("WAV Nutrient Data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+      ## plot_export_ui ----
+      output$plot_export_ui <- renderUI({
+        yr <- req(input$year)
+        stn <- cur_stn()
         p(
           align = "center",
-          build_plot_download_btn("#nutrient-plot-container", filename)
-        )
-      })
-
-
-      # View/download nutrient data ----
-
-      ## viewDataUI ----
-      output$viewDataUI <- renderUI({
-        # btn_year <-  downloadButton(ns("downloadYear"), paste("Download", input$year, "data"))
-        # btn_all <- downloadButton(ns("downloadAll"), paste("Download all years of nutrient data for this site"))
-        # dl_btns <- if (input$year == "All") list(btn_all) else list(btn_year, btn_all)
-
-        tagList(
-          p(
-            strong("Station ID:"), cur_stn()$station_id, br(),
-            strong("Station Name:"), cur_stn()$station_name, br(),
-            strong("Waterbody:"), cur_stn()$waterbody
-          ),
-          p(
-            if (input$year != "All") {
-              downloadButton(ns("downloadStnYear"), sprintf("Download station data (%s)", input$year))
-            },
-            downloadButton(ns("downloadStn"), "Download station data (all years)"),
-            downloadButton(ns("downloadBaseline"), "Download entire nutrient dataset")
-          ),
-          dataTableOutput(ns("dataTable")),
-          p(em("Total phosphorus is shown in units of mg/L (ppm)."))
-        )
-      })
-
-      ## dataTable ----
-      output$dataTable <- renderDataTable(
-        {
-          req(selected_data_ready())
-
-          df <- selected_data() %>%
-            drop_na(tp) %>%
-            clean_names(case = "big_camel")
-
-          datatable(
-            df,
-            selection = "none",
-            rownames = F,
-            options = list(
-              paging = F,
-              scrollX = T,
-              scrollCollapse = T
-            )
+          build_plot_download_btn(
+            id = "#nutrient-plot-container",
+            filename = sprintf("WAV Nutrient Data - Stn %s - %s.png", stn$station_id, yr)
           )
-        },
-        server = F
-      )
+        )
+      })
 
-      ## downloadStnYear ----
-      output$downloadStnYear <- downloadHandler(
-        sprintf("WAV Stn %s Nutrient Data (%s).csv", cur_stn()$station_id, input$year),
-        function(file) {
-          write_csv(selected_data(), file, na = "")
-        }
-      )
-
-      ## downloadStn ----
-      output$downloadStn <- downloadHandler(
-        sprintf("WAV Stn %s Nutrient Data.csv", cur_stn()$station_id),
-        function(file) {
-          write_csv(cur_data(), file, na = "")
-        }
-      )
-
-      ## downloadBaseline ----
-      output$downloadBaseline <- downloadHandler(
-        "WAV Nutrient Data.csv",
-        function(file) {
-          write_csv(nutrient_data, file, na = "")
-        }
-      )
-
-
-      # Return values ----
-      return(reactive(list(year = input$year)))
     }
   )
 }

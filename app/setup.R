@@ -1,4 +1,4 @@
-# setup.R
+## SETUP ##
 
 # resets Rdata and generates variables for the app that take a little time to compute
 
@@ -137,11 +137,6 @@ huc12 <- data_dir("shp/huc12.rds") %>%
 station_list <- read_csv(data_dir("stn_list.csv"))
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
-station_types <- list(
-  "Baseline (stream monitoring)" = "baseline",
-  "Nutrient (total phosphorus)" = "nutrient",
-  "Thermistor (temperature loggers)" = "thermistor"
-)
 
 
 ## Baseline data ----
@@ -173,6 +168,12 @@ baseline_pts <- station_pts %>%
 
 # this will produce a warning if there are missing stations for the data
 check_missing_stns(baseline_data, baseline_pts, "baseline")
+
+
+## Macroinvertebrates ----
+
+macro_params <- read_csv(data_dir("macro_parameters.csv"))
+macro_species_counts <- read_csv(data_dir("macro_species_counts.csv"))
 
 
 ## Nutrient data ----
@@ -261,12 +262,6 @@ all_stn_years <- bind_rows(
     nutrient_stn = station_id %in% nutrient_pts$station_id
   )
 
-data_years <- rev(as.character(sort(unique(all_stn_years$year))))
-stn_year_choices <- append(
-  setNames(data_years[1:4], data_years[1:4]),
-  setNames(data_years[5], paste0(last(data_years), "-", data_years[5]))
-)
-
 baseline_tallies <- baseline_data %>%
   count(station_id, year, name = "baseline") %>%
   mutate(baseline = paste("\u2705", baseline, "obs"))
@@ -342,11 +337,7 @@ all_stn_list <- all_pts %>%
 #' color map by
 #' n years
 #' n fieldwork
-#' max water_temp
-#' mean d_o
-#' mean transparency
-#' mean streamflow
-#' mean biotic_index_score
+#' baseline and nutrient params
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
@@ -362,17 +353,22 @@ stn_fieldwork_counts <- bind_rows(
     .by = station_id
   )
 
-str(baseline_data)
-stn_attr_stats <- baseline_data %>%
-  pivot_longer(
-    cols = c(water_temp, d_o, ph, specific_cond, transparency, stream_width, streamflow, biotic_index_total_animals, biotic_index_score),
-    names_to = "measure"
-  ) %>%
-  bind_rows({
+# names, plot, and map settings for baseline and nutrient data
+data_opts <- read_csv("column_options.csv") %>%
+  mutate(label = if_else(is.na(units), name, str_glue("{name} ({units})")), .after = name) %>%
+  replace_na(list(units = ""))
+
+stn_measure_stats <- bind_rows(
+    baseline_data %>%
+      pivot_longer(
+        cols = any_of(data_opts$col),
+        names_to = "measure"
+      ) %>%
+      select(station_id, date, measure, value),
     nutrient_data %>%
-      pivot_longer(tp, names_to = "measure")
-  }) %>%
-  select(station_id, date, measure, value) %>%
+      pivot_longer(tp, names_to = "measure") %>%
+      select(station_id, date, measure, value)
+  ) %>%
   drop_na(value) %>%
   summarize(
     n = n(),
@@ -380,15 +376,12 @@ stn_attr_stats <- baseline_data %>%
     .by = c(station_id, measure)
   )
 
-stn_attr_totals <- stn_fieldwork_counts %>%
+map_color_data <- stn_fieldwork_counts %>%
   left_join({
-    stn_attr_stats %>%
-      select(station_id, measure, median) %>%
-      pivot_wider(names_from = measure, values_from = median)
+    stn_measure_stats %>%
+      select(station_id, measure, mean) %>%
+      pivot_wider(names_from = measure, values_from = mean)
   })
-
-# summary(stn_attr_totals)
-
 
 
 # Landscape data ----

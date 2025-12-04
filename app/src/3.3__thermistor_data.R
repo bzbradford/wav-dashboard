@@ -1,64 +1,57 @@
-# Thermistor tab
+##  THERMISTOR TAB  ##
 
 thermistorDataUI <- function() {
   ns <- NS("thermistor")
 
   div(
     class = "data-tab",
-    uiOutput(ns("content")) %>% with_spinner(),
+    uiOutput(ns("ui")) %>% with_spinner(),
   )
 }
 
-
 #' @requires `therm_data`
-#' @param cur_stn a `reactive()` expression containing the current station
-
-thermistorDataServer <- function(cur_stn, has_focus) {
+#' @param main_rv reactive values object from main server session
+thermistorDataServer <- function(main_rv) {
   moduleServer(
     id = "thermistor",
     function(input, output, session) {
       ns <- session$ns
 
 
-      # Reactives ----
+      # Reactives ---------------------------------------------------------------
 
-      ## cur_data ----
-      cur_data <- reactive({
-        req(cur_stn())
+      rv <- reactiveValues(
+        ready = FALSE
+      )
 
-        filter(therm_data, station_id == cur_stn()$station_id)
+      ## rv$ready handler ----
+      observe({
+        ready <- nrow(stn_data()) > 0
+        if (rv$ready != ready) rv$ready <- ready
       })
 
-      ## data_ready ----
-      data_ready <- reactive({
-        nrow(cur_data()) > 0
+      ## cur_stn ----
+      cur_stn <- reactive({
+        req(main_rv$cur_stn)
       })
 
-      ## cur_years ----
-      cur_years <- reactive({
-        sort(unique(cur_data()$year))
+      ## stn_data ----
+      stn_data <- reactive({
+        therm_data %>%
+          filter(station_id == cur_stn()$station_id)
       })
 
       ## selected_data ----
       selected_data <- reactive({
-        req(input$year)
-
-        if (input$year == "All") {
-          return(cur_data())
-        }
-        cur_data() %>% filter(year == input$year)
-      })
-
-      ## selected_data_ready ----
-      selected_data_ready <- reactive({
-        nrow(selected_data()) > 0
+        df <- stn_data()
+        yr <- req(input$year)
+        df <- if (yr == "All") df else filter(df, year == yr)
+        req(nrow(df) > 0)
+        df
       })
 
       ## logger_serials ----
       logger_serials <- reactive({
-        req(input$year)
-        req(selected_data_ready())
-
         loggers <- selected_data() %>%
           count(year, logger_sn)
 
@@ -75,73 +68,83 @@ thermistorDataServer <- function(cur_stn, has_focus) {
       ## daily_data ----
       # create station daily totals
       daily_data <- reactive({
-        req(selected_data_ready())
-        req(cur_stn())
-        req(input$units)
-
-        build_therm_daily(selected_data(), input$units, cur_stn())
+        build_therm_daily(
+          df = selected_data(),
+          units = req(input$units),
+          stn = cur_stn()
+        )
       })
 
       ## summary_data ----
       summary_data <- reactive({
-        req(selected_data_ready())
-        req(input$units)
-
-        build_therm_summary(selected_data(), input$units)
+        build_therm_summary(
+          df = selected_data(),
+          units = req(input$units)
+        )
       })
 
 
-      # Layout ----
 
-      ## content ----
-      output$content <- renderUI({
-        if (!data_ready()) {
-          return(div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."))
+      # Interface ---------------------------------------------------------------
+
+      ## ui ----
+      output$ui <- renderUI({
+        if (rv$ready) {
+          uiOutput(ns("main_ui"))
+        } else {
+          div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station.")
         }
+      })
 
-        req(cur_stn())
+      ## main_ui ----
+      output$main_ui <- renderUI({
         tagList(
-          div(
-            class = "well flex-row year-btns",
-            div(class = "year-btn-text", em("Choose year:")),
-            radioGroupButtons(
-              inputId = ns("year"),
-              label = NULL,
-              choices = year_choices(cur_years()),
-              selected = first_truthy(
-                intersect(isolate(input$year), cur_years()),
-                last(cur_years())
-              )
-            )
-          ),
-          uiOutput(ns("plotOptionsUI")),
+          uiOutput(ns("year_select_ui")),
+          uiOutput(ns("plot_opts_ui")),
           div(
             id = "therm-plot-container",
-            h3(cur_stn()$label, align = "center"),
+            h3(textOutput(ns("stn_title")), align = "center"),
             plotlyOutput(ns("plot")) %>% with_spinner(hide.ui = FALSE),
-            uiOutput(ns("plotCaptionUI")),
-            uiOutput(ns("naturalCommunityUI"))
+            uiOutput(ns("plot_caption_ui")),
+            uiOutput(ns("natural_community_ui"))
           ),
-          uiOutput(ns("plotExportUI")),
+          uiOutput(ns("plot_export_ui")),
           div(
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/thermistor_info.md")
           ),
-          accordion(
-            accordion_panel(
-              title = "View or download monthly, daily, and hourly temperature data",
-              uiOutput(ns("viewDataUI"))
-            ),
-            open = FALSE
+          h3("Station data summary and downloads"),
+          uiOutput(ns("stn_data_ui"))
+        )
+      })
+
+      output$stn_title <- renderText({
+        cur_stn()$label
+      })
+
+      ## Year selector ----
+      output$year_select_ui <- renderUI({
+        yrs <- sort(unique(stn_data()$year))
+        div(
+          class = "well flex-row year-btns",
+          div(class = "year-btn-text", em("Choose year:")),
+          radioGroupButtons(
+            inputId = ns("year"),
+            label = NULL,
+            choices = year_choices(yrs),
+            selected = first_truthy(
+              intersect(isolate(input$year), yrs),
+              last(yrs)
+            )
           )
         )
       })
 
 
-      # Plot ----
+      # Plot -------------------------------------------------------------------
 
-      ## plotOptionsUI ----
-      output$plotOptionsUI <- renderUI({
+      ## plot_opts_ui----
+      output$plot_opts_ui <- renderUI({
         tagList(
           p(
             div(
@@ -175,15 +178,12 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         )
       })
 
-
       ## plot ----
       output$plot <- renderPlotly({
-        req(selected_data_ready())
-        req(input$units)
-        req(input$annotations)
-
         df_hourly <- selected_data()
         df_daily <- daily_data()
+        units <- req(input$units)
+        annot <- req(input$annotations)
 
         # insert rows to break plotly lines across years
         # ribbon can't handle NA values to min/max are pinched to = mean
@@ -205,11 +205,11 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             arrange(date)
         }
 
-        plotly_thermistor(df_hourly, df_daily, input$units, input$annotations)
+        plotly_thermistor(df_hourly, df_daily, units, annot)
       })
 
-      ## plotCaptionUI ----
-      output$plotCaptionUI <- renderUI({
+      ## plot_caption_ui ----
+      output$plot_caption_ui <- renderUI({
         units <- req(input$units)
         annotation <- req(input$annotations)
         unit_text <- paste0("°", units)
@@ -245,11 +245,10 @@ thermistorDataServer <- function(cur_stn, has_focus) {
         )
       })
 
-      ## naturalCommunityUI ----
-      output$naturalCommunityUI <- renderUI({
-        req(nrow(daily_data()) > 0)
-
-        max_temp <- max(daily_data()$mean)
+      ## natural_community_ui ----
+      output$natural_community_ui <- renderUI({
+        df <- daily_data()
+        max_temp <- max(df$mean)
         if (input$units == "C") max_temp <- c_to_f(max_temp)
         temp_class <- case_when(
           max_temp < 69.3 ~ "coldwater",
@@ -257,58 +256,74 @@ thermistorDataServer <- function(cur_stn, has_focus) {
           max_temp < 76.3 ~ "cool-warm",
           T ~ "warmwater"
         )
+
         p(
           class = "plot-caption", style = "font-weight: bold;",
           paste0("Based on the maximum daily average water temperature of ", round(max_temp, 1), "°F (", round(f_to_c(max_temp), 1), "°C), this is likely to be a ", temp_class, " stream.")
         )
       })
 
-      ## plotExportUI ----
-      output$plotExportUI <- renderUI({
-        req(input$year)
-        filename <- sprintf("WAV thermistor data - Stn %s - %s.png", cur_stn()$station_id, input$year)
+      ## plot_export_ui ----
+      output$plot_export_ui <- renderUI({
+        yr <- req(input$year)
+        stn <- cur_stn()
 
         p(
           align = "center",
-          build_plot_download_btn("#therm-plot-container", filename)
+          build_plot_download_btn(
+            id = "#therm-plot-container",
+            filename = sprintf("WAV thermistor data - Stn %s - %s.png", stn$station_id, yr)
+          )
         )
       })
 
 
       # View summary and raw data tables ----
 
-      ## viewDataUI ----
-      output$viewDataUI <- renderUI({
-        req(selected_data_ready())
-        req(input$units)
-
-        dates <- unique(selected_data()$date)
+      ## stn_data_ui ----
+      output$stn_data_ui <- renderUI({
+        stn <- cur_stn()
+        data <- selected_data()
+        units <- req(input$units)
+        dates <- unique(data$date)
         date_span <- as.numeric(max(dates) - min(dates)) + 1
+
         monthly_dt <- summary_data() %>%
           mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
           renderDataTable(
-            rownames = F,
+            rownames = FALSE,
             extensions = "Buttons",
             options = list(
               dom = "Bt",
               buttons = c("copy"),
               columnDefs = list(
                 list(targets = 0:5, className = "dt-center")
-              )
+              ),
+              scrollX = TRUE
             )
           )
+
         daily_dt <- daily_data() %>%
           clean_names("big_camel") %>%
-          renderDataTable()
+          renderDataTable(
+            options = list(
+              scrollX = TRUE
+            )
+          )
+
         hourly_dt <- selected_data() %>%
           clean_names("big_camel") %>%
-          renderDataTable()
+          renderDataTable(
+            options = list(
+              scrollX = TRUE
+            )
+          )
 
         tagList(
           p(
-            strong("Station ID:"), cur_stn()$station_id, br(),
-            strong("Station Name:"), cur_stn()$station_name, br(),
-            strong("Waterbody:"), cur_stn()$waterbody, br(),
+            strong("Station ID:"), stn$station_id, br(),
+            strong("Station Name:"), stn$station_name, br(),
+            strong("Waterbody:"), stn$waterbody, br(),
             strong("Date range:"),
             paste(
               format(
@@ -338,39 +353,36 @@ thermistorDataServer <- function(cur_stn, has_focus) {
             tabPanel(
               title = "Daily temperature data",
               class = "data-tab",
-              p(downloadButton(ns("downloadDaily"), "Download this data")),
+              p(downloadButton(ns("dl_daily"), "Download this data")),
               daily_dt
             ),
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
               p("The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."),
-              p(downloadButton(ns("downloadHourly"), "Download this data")),
+              p(downloadButton(ns("dl_hourly"), "Download this data")),
               hourly_dt
             )
           )
         )
       })
 
-      ## downloadDaily ----
-      output$downloadDaily <- downloadHandler(
+      ## dl_daily ----
+      output$dl_daily <- downloadHandler(
         sprintf("WAV Stn %s Daily Temperature Data (%s).csv", cur_stn()$station_id, input$year),
         function(file) {
           write_csv(daily_data(), file, na = "")
         }
       )
 
-      ## downloadDaily ----
-      output$downloadHourly <- downloadHandler(
+      ## dl_hourly ----
+      output$dl_hourly <- downloadHandler(
         sprintf("WAV Stn %s Hourly Temperature Data (%s).csv", cur_stn()$station_id, input$year),
         function(file) {
           write_csv(selected_data(), file, na = "")
         }
       )
 
-
-      # Return values ----
-      return(reactive(list(year = input$year)))
     }
   )
 }

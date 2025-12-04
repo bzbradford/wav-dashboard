@@ -1,0 +1,13 @@
+﻿source,col,name,units,plot_min,plot_max,plot_color,map_color_menu,palette_name,palette_min,palette_max,palette_reverse
+fieldwork,n_years,Years of data,,,,,FALSE,viridis,0,10,FALSE
+fieldwork,n_fieldwork,Fieldwork events,,,,,FALSE,viridis,0,100,FALSE
+baseline,water_temp,Water temperature,°C,5,25,steelblue,TRUE,RdYlBu,5,25,TRUE
+baseline,air_temp,Air temperature,°C,0,35,orange,FALSE,,,,
+baseline,d_o,Dissolved oxygen,mg/L,2,14,navy,TRUE,RdYlBu,3,12,FALSE
+baseline,transparency,Transparency,cm,0,120,brown,TRUE,BrBG,0,120,FALSE
+baseline,ph,pH,,5,10,orchid,TRUE,Spectral,5,10,FALSE
+baseline,specific_cond,Conductivity,µS/cm,100,1000,pink,TRUE,RdYlBu,0,2000,TRUE
+baseline,streamflow,Streamflow,cfs,0,10,#48a67b,TRUE,RdBu,0,50,TRUE
+baseline,biotic_index_total_animals,Macroinvertebrates,species,0,15,green,TRUE,RdYlBu,0,15,FALSE
+baseline,biotic_index_score,Biotic index score,,1,4,green,TRUE,RdYlBu,1,4,FALSE
+nutrient,tp,Total phosphorus,mg/L,,,,TRUE,Spectral,0,0.25,TRUE

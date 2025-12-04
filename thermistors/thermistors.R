@@ -89,7 +89,7 @@ read_hobos <- function(dir, yr) {
         "%m/%d/%y %H:%M:%S",
         "%m/%d/%Y %H:%M",
         "%m/%d/%Y %H:%M:%S"
-      ), exact = T)) %>%
+      ), exact = T, tz = "America/Chicago")) %>%
       mutate(Date = as.Date(DateTime), Year = lubridate::year(Date), .after = DateTime) %>%
       mutate(TempOK = temp_check(Temp, Unit))
 
@@ -513,15 +513,14 @@ hobo_data <-
     hobos_2023,
     hobos_2024
   ) %>%
-  filter(!is.na(station_id)) %>%
-  mutate(hour = hour(date_time), .after = day)
+  filter(!is.na(station_id), !is.na(date_time))
 
 # loggers per year
 hobo_data %>%
   count(logger_sn, year) %>%
   count(year)
 
-tz(hobo_data$date_time[1])
+tz(hobo_data$date_time)
 
 # Collect list of SNs by year
 hobo_serials <- hobo_data %>%
