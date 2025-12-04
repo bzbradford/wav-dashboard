@@ -266,6 +266,10 @@ a:focus :not(.btn):not(.fas) {
   gap: 10px;
 }
 
+.align-center {
+  align-items: center;
+}
+
 .pie-container {
   height: inherit;
   margin: 0;
@@ -313,11 +317,11 @@ a:focus :not(.btn):not(.fas) {
   text-align: center;
 }
 
-.plot-export {
+/*.plot-export {
   margin-left: 2em;
   margin-right: 2em;
   font-size: smaller;
-}
+}*/
 
 .report-tbl *>table>thead>tr>th {
   vertical-align: middle;

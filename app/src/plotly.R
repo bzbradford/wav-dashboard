@@ -705,7 +705,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       x = ~date,
       y = ~tp,
       type = "bar",
-      text = ~tp,
+      text = ~signif(tp, 3),
       textposition = "auto",
       color = ~exceedance,
       colors = "Set2",

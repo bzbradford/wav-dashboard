@@ -108,7 +108,10 @@ thermistorDataServer <- function(main_rv) {
             uiOutput(ns("plot_caption_ui")),
             uiOutput(ns("natural_community_ui"))
           ),
-          uiOutput(ns("plot_export_ui")),
+          div(
+            style = "display: flex; flex-direction: row-reverse;",
+            uiOutput(ns("plot_dl_btn"))
+          ),
           div(
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/thermistor_info.md")
@@ -263,17 +266,14 @@ thermistorDataServer <- function(main_rv) {
         )
       })
 
-      ## plot_export_ui ----
-      output$plot_export_ui <- renderUI({
+      ## plot_dl_btn ----
+      output$plot_dl_btn <- renderUI({
         yr <- req(input$year)
         stn <- cur_stn()
 
-        p(
-          align = "center",
-          build_plot_download_btn(
-            id = "#therm-plot-container",
-            filename = sprintf("WAV thermistor data - Stn %s - %s.png", stn$station_id, yr)
-          )
+        build_plot_download_btn(
+          id = "#therm-plot-container",
+          filename = sprintf("WAV thermistor data - Stn %s - %s.png", stn$station_id, yr)
         )
       })
 

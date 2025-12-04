@@ -22,11 +22,11 @@ gc() # garbage collect
 
 ## Used here only ----
 
-create_popups <- function(.data) {
+create_popups <- function(df) {
   title <- "<div class=popup-title>Monitoring Station Details</div>"
-  cols <- names(.data)
-  lapply(seq_len(nrow(.data)), function(r) {
-    row <- .data[r, ]
+  cols <- names(df)
+  lapply(seq_len(nrow(df)), function(r) {
+    row <- slice(df, r)
     details <-
       lapply(seq_along(cols), function(c) {
         paste0("<b>", cols[c], ":</b> ", row[c])

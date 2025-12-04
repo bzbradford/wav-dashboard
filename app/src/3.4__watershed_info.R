@@ -61,7 +61,15 @@ watershedInfoUI <- function() {
         selected = 12
       )
     ),
-    uiOutput(ns("plot_ui")),
+    div(
+      id = "landscape-plot-container",
+      uiOutput(ns("pie_chart_ui")),
+      uiOutput(ns("diff_plot_ui")),
+    ),
+    div(
+      style = "display: flex; flex-direction: row-reverse;",
+      uiOutput(ns("plot_dl_btn"))
+    ),
   )
 }
 
@@ -139,19 +147,6 @@ watershedInfoServer <- function(main_rv) {
         )
       })
 
-      ## plot_ui ----
-      output$plot_ui <- renderUI({
-        tagList(
-          div(
-            id = "landscape-plot-container",
-            uiOutput(ns("pie_chart_ui")),
-            uiOutput(ns("diff_plot_ui")),
-          ),
-          uiOutput(ns("plot_export_ui")),
-        )
-      })
-
-
       ## pie_chart_ui ----
       output$pie_chart_ui <- renderUI({
 
@@ -195,7 +190,7 @@ watershedInfoServer <- function(main_rv) {
       })
 
       ## plot_export_ui ----
-      output$plot_export_ui <- renderUI({
+      output$plot_dl_btn <- renderUI({
         build_plot_download_btn(
           id = "#landscape-plot-container",
           filename = sprintf("Landscape composition - %s.png", selected_name())

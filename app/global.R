@@ -58,6 +58,9 @@ suppressPackageStartupMessages({
 
 # Definitions ------------------------------------------------------------------
 
+# if TRUE will run the test examples
+TEST <- FALSE
+
 ## stn_colors ----
 stn_colors <- list(
   baseline = "green",
@@ -246,6 +249,102 @@ do_color <- function(do) {
 
 # Baseline data ----------------------------------------------------------------
 
+get_baseline_param_choices <- function(df) {
+  opts <- data_opts
+
+  df %>%
+    pivot_longer(any_of(opts$col), names_to = "col") %>%
+    summarize(n = sum(!is.na(value)), .by = col) %>%
+    filter(n > 0) %>%
+    left_join(opts, join_by(col)) %>%
+    select(name, col) %>%
+    deframe()
+}
+
+# identify min and max values and returns the dates for each
+stn_summary_min_max <- function(df, var) {
+  v <- df[[var]]
+  if (length(v) == 0) {
+    return(tibble())
+  }
+  tibble(
+    observations = length(na.omit(v)),
+    min = df[which.min(v), ][[var]],
+    mean = round(mean(df[[var]], na.rm = TRUE), 1),
+    max = df[which.max(v), ][[var]],
+    date_of_min = df[which.min(v), ]$date,
+    date_of_max = df[which.max(v), ]$date
+  )
+}
+
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    stn_summary_min_max("water_temp")
+}
+
+# creates the summary table for the baseline tab
+build_baseline_summary <- function(df) {
+  date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
+  data_opts %>%
+    filter(source == "baseline") %>%
+    select(col, name, units) %>%
+    rowwise() %>%
+    reframe(pick(everything()), stn_summary_min_max(df, col)) %>%
+    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) %>%
+    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) %>%
+    select(-c(col, units)) %>%
+    clean_names("title")
+}
+
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_baseline_summary()
+}
+
+
+# for baseline and nutrient data downloads
+build_formatted_data <- function(df, transpose = TRUE) {
+  df <- df %>%
+    arrange(date) %>%
+    distinct(date, .keep_all = TRUE) %>%
+    clean_names(
+      case = "title",
+      abbreviations = c("ID", "WBIC", "DO", "pH", "TP"),
+      replace = c("d_o" = "DO", "tp" = "Total Phosphorus")
+    )
+
+  if (transpose) {
+    df <- df %>%
+      mutate(label = format(Date, "%b %d, %Y")) %>%
+      mutate(across(everything(), as.character)) %>%
+      pivot_longer(cols = -label, names_to = "Parameter") %>%
+      pivot_wider(names_from = label)
+  }
+
+  df
+}
+
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = FALSE)
+
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = TRUE)
+
+  nutrient_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = TRUE)
+
+  nutrient_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = FALSE)
+}
+
+
 # data structure for plotly background annotation rectangles
 PlotAnnotOpts <- function(
   values = numeric(),
@@ -343,17 +442,7 @@ baseline_plot_annot <- lst(
   )
 )
 
-get_baseline_param_choices <- function(df) {
-  opts <- data_opts
 
-  df %>%
-    pivot_longer(any_of(opts$col), names_to = "col") %>%
-    summarize(n = sum(!is.na(value)), .by = col) %>%
-    filter(n > 0) %>%
-    left_join(opts, join_by(col)) %>%
-    select(name, col) %>%
-    deframe()
-}
 
 # baseline_data %>%
 #   slice_sample(n = 1, by = station_id) %>%
