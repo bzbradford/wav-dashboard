@@ -21,10 +21,11 @@ data_dir <- function(f) {
 # point to latest data
 SWIMS_DIR <- "swims/2025-11-07"
 
-load_xl <- function(fname) {
+load_xl <- function(fname, clean = TRUE) {
   f <- file.path(SWIMS_DIR, fname)
   cat("Loading", f, "...\n")
-  df <- read_excel(f, na = c("", "NA")) %>% clean_names()
+  df <- read_excel(f, na = c("", "NA"))
+  if (clean) df <- clean_names(df)
   show(str(df))
   df
 }
@@ -34,9 +35,10 @@ load_xl <- function(fname) {
 
 quickmap <- function(shape) {
   message("Shape has ", nrow(shape), " objects and ", format(mapview::npts(shape), big.mark = ","), " vertices")
-  leaflet(shape) %>%
+  leaflet() %>%
     addTiles() %>%
     addPolygons(
+      data = shape,
       color = "black",
       weight = 2,
       opacity = .5,
@@ -58,8 +60,10 @@ counties <- read_sf("shp/wi-county-bounds.geojson") %>%
 
 counties.simp <- rmapshaper::ms_simplify(counties, .25)
 
-quickmap(counties)
-quickmap(counties.simp)
+if (F) {
+  quickmap(counties)
+  quickmap(counties.simp)
+}
 
 
 ## NKEs ----
@@ -71,9 +75,6 @@ nkes <- read_sf("shp/wi-nke-plans-2022.geojson") %>%
 
 nkes.simp <- rmapshaper::ms_simplify(nkes, .25)
 
-quickmap(nkes)
-quickmap(nkes.simp)
-
 nke_data <- nkes %>%
   select(
     nke_plan_name = PlanName,
@@ -83,6 +84,11 @@ nke_data <- nkes %>%
     nke_end = EndDate
   ) %>%
   mutate(across(where(is_character), ~ str_to_sentence(str_trim(gsub("[\r\n]", "", .x)))))
+
+if (F) {
+  quickmap(nkes)
+  quickmap(nkes.simp)
+}
 
 
 ## Watersheds ----
@@ -164,21 +170,58 @@ huc12.simp <- rmapshaper::ms_simplify(huc12, .5)
 dnr_watersheds.simp <- rmapshaper::ms_simplify(dnr_watersheds, .15)
 
 # inspect
-quickmap(huc6)
-quickmap(huc8)
-quickmap(huc8.simp)
-quickmap(huc10)
-quickmap(huc10.simp)
-quickmap(huc12)
-quickmap(huc12.simp)
-quickmap(dnr_watersheds)
-quickmap(dnr_watersheds.simp)
+if (F) {
+  quickmap(huc6)
+  quickmap(huc8)
+  quickmap(huc8.simp)
+  quickmap(huc10)
+  quickmap(huc10.simp)
+  quickmap(huc12)
+  quickmap(huc12.simp)
+  quickmap(dnr_watersheds)
+  quickmap(dnr_watersheds.simp)
+}
 
 
 ## Major waterbodies ----
 # Top 1000 waterbodies in the state by area, for use on the pdf reports
 
 waterbodies <- read_sf("shp/wi-major-lakes.geojson")
+
+if (F) {
+  quickmap(waterbodies)
+}
+
+
+## Flowlines ----
+
+flowlines <- read_sf("shp/wi-hydro-nhd-flowlines.gpkg")
+head(flowlines)
+str(flowlines)
+sort(unique(flowlines$visibilityfilter))
+flow2d <- flowlines %>%
+  rename(geometry = geom) %>%
+  st_zm() %>%
+  st_make_valid() %>%
+  st_transform(4326) %>%
+  arrange(desc(visibilityfilter)) %>%
+  mutate(level = consecutive_id(visibilityfilter))
+
+flowlines.simp <- flow2d %>%
+  select(level, geometry) %>%
+  filter(level <= 5) %>%
+  rmapshaper::ms_simplify(.25)
+
+rm(flowlines)
+rm(flow2d)
+
+if (F) {
+  flow2d.simp %>%
+    ggplot() +
+    geom_sf(aes(color = factor(level))) +
+    scale_color_brewer(palette = "Spectral", direction = -1)
+}
+
 
 
 ## Export shapes ----
@@ -191,18 +234,20 @@ local({
     huc10 = huc10.simp,
     huc12 = huc12.simp,
     dnr_watersheds = dnr_watersheds.simp,
-    waterbodies = waterbodies
+    waterbodies = waterbodies,
+    flowlines = flowlines.simp
   )
   for (shape in names(shapes)) {
     fname <- paste0(shape, ".rds")
-    fpath <- file.path(EXPORT_DIR, "shp", fname)
+    fpath <- data_dir(file.path("shp", fname))
     saveRDS(shapes[[shape]], fpath)
     message("Save shape => ", fpath)
   }
 })
 
 
-# 2 => Load SWIMS Stations =====================================================
+
+# 2 => SWIMS Stations ==========================================================
 
 stn_xl <- load_xl("2_wav_all_stns.xlsx")
 
@@ -219,10 +264,11 @@ stns_in <- stn_xl %>%
     station_type = station_type_code,
     county_name
   ) %>%
-  # mutate(across(wbic, as.integer)) %>%
-  # bind_rows(read_csv("stations/extra-stations.csv")) %>%
   distinct(station_id, .keep_all = T) %>%
   arrange(station_id)
+
+
+## Validation ----
 
 validate_stns <- function(stns, return_valid = TRUE) {
   cat("Input stations:", nrow(stns), "\n")
@@ -281,38 +327,101 @@ validate_stns <- function(stns, return_valid = TRUE) {
 }
 
 stn_master_list <- validate_stns(stns_in)
-
 invalid_stns <- validate_stns(stns_in, F)
 
-for (nm in names(invalid_stns)) {
-  local({
-    df <- invalid_stns[[nm]]$data
-    print(nm)
-    print(df)
-    if (nrow(df) > 0) {
-      write_excel_csv(df, sprintf("QC/invalid_stns_%s.csv", nm), na = "")
-    }
-  })
+
+# export invalid station lists
+if (F) {
+  for (nm in names(invalid_stns)) {
+    local({
+      df <- invalid_stns[[nm]]$data
+      print(nm)
+      print(df)
+      if (nrow(df) > 0) {
+        write_excel_csv(df, sprintf("QC/invalid_stns_%s.csv", nm), na = "")
+      }
+    })
+  }
 }
 
-stn_master_list %>%
-  leaflet() %>%
-  addTiles() %>%
-  addCircleMarkers(
-    lng = ~longitude, lat = ~latitude,
-    radius = 1, fillColor = "orange", weight = 0, fillOpacity = 1
-  )
+# leaflet
+if (F) {
+  stn_master_list %>%
+    leaflet() %>%
+    addTiles() %>%
+    addCircleMarkers(
+      lng = ~longitude, lat = ~latitude,
+      radius = 1, fillColor = "orange", weight = 0, fillOpacity = 1
+    )
+}
 
 
 ## Export full station list ----
 
-saveRDS(stn_master_list, data_dir("stn-master-list.rds"))
+stn_master_list %>% write_csv(data_dir("stn_master_list.csv"))
+
+
+
+# IP Groups ===============================================================
+
+# ip_groups <- load_xl("1_wav_all_ip_groups.xlsx")
+#
+# group_descs <- ip_groups %>%
+#   summarize(
+#     group_desc = paste(unique(str_to_title(paste(first_name, last_name))), collapse = ", "),
+#     .by = group_seq_no
+#   )
 
 
 
 # 3 => Baseline data ===========================================================
 
-## Baseline observations ----
+compare_fieldwork <- function(df1, df2) {
+  message("Total: ", length(unique(c(df1$fsn, df2$fsn))))
+  message("Shared: ", sum(df1$fsn %in% df2$fsn))
+  message("Only in ", deparse(substitute(df1)), ": ", sum(!(df1$fsn %in% df2$fsn)))
+  message("Only in ", deparse(substitute(df2)), ": ", sum(!(df2$fsn %in% df1$fsn)))
+}
+
+validate <- function(x, low = NULL, high = NULL) {
+  len <- length(x)
+  nas <- sum(is.na(x))
+  vals <- len - nas
+  message("Values: ", len)
+  message("NA: ", nas, sprintf(" (%.1f%%)", 100 * nas / len ))
+  message("Numeric: ", vals, sprintf(" (%.1f%%)", 100 * vals / len))
+  message(
+    "Quantiles:\n  ",
+    quantile(x, c(0, .01, .05, .5, .95, .99, .995, .999, 1), TRUE) %>%
+      paste(names(.), ., sep = ": ", collapse = "\n  ")
+  )
+  if (!is.null(low)) message("x < ", low, ": ", sum(x < low, na.rm = T))
+  if (!is.null(high)) message("x > ", high, ": ", sum(x > high, na.rm = T))
+  x <- trim(x, low, high)
+  hist(x)
+  invisible(x)
+}
+
+# clamp <- function(x, lower = x, upper = x, na.rm = F) {
+#   pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
+# }
+
+clamp <- function(x, lower = x, upper = x, na.rm = F) {
+  pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
+}
+
+trim <- function(x, low = NULL, high = NULL, msg = FALSE) {
+  if (!is.null(low)) x[x < low] <- NA
+  if (!is.null(high)) x[x > high] <- NA
+  x
+}
+
+f_to_c <- function(x, digits = 1) {
+  round((x - 32) * (5 / 9), digits)
+}
+
+
+## Baseline measurements ----
 
 baseline_xl <- load_xl("3_wav_baseline_fw.xlsx")
 
@@ -323,16 +432,10 @@ baseline_obs <- baseline_xl %>%
     fsn = fieldwork_seq_no,
     datetime = start_date_time,
     station_id,
-    station_name = primary_station_name,
-    latitude,
-    longitude,
-    wbic,
-    waterbody = official_waterbody_name,
-    station_type = station_type_code,
     air_temp = ambient_air_temp,
-    air_temp_units = ambient_air_temp_units,
+    # air_temp_units = ambient_air_temp_units,
     water_temp,
-    water_temp_units,
+    # water_temp_units,
     d_o = do_mg,
     d_o_percent_saturation = do_pct,
     ph,
@@ -343,23 +446,29 @@ baseline_obs <- baseline_xl %>%
     weather_last_2_days,
     current_stream_condition,
     group_desc,
-    fieldwork_comments = fieldwork_comment,
+    fieldwork_comment,
     additional_comments
   ) %>%
-  mutate(
-    across(c(air_temp, water_temp, d_o, d_o_percent_saturation, ph, specific_cond, transparency, transparency_tube_length), as.numeric),
-    across(c(weather_last_2_days, additional_comments, fieldwork_comments), ~ str_to_sentence(str_squish(.x))),
-    weather_conditions = str_to_sentence(gsub("_", " ", weather_conditions)),
-    across(c(fsn, station_id, wbic), as.integer)
-    # across(datetime, ~ parse_date_time(.x, "ymdHMp"))
-  ) %>%
-  mutate(date = as.Date(datetime), .after = datetime) %>%
-  arrange(datetime) %>%
-  filter(datetime >= "2015-1-1") %>%
-  distinct(fsn, station_id, date, .keep_all = T)
-# ok if NAs were introduced
+  mutate(datetime = with_tz(datetime, "America/Chicago")) %>%
+  mutate(date = as_date(datetime), .after = datetime) %>%
+  mutate(suppressWarnings(across(c(fsn, station_id), as.integer))) %>%
+  mutate(suppressWarnings(across(c(air_temp, water_temp, d_o, d_o_percent_saturation, ph, specific_cond, transparency, transparency_tube_length), as.numeric))) %>%
+  distinct(fsn, station_id, date, .keep_all = T) %>%
+  filter(date >= "2015-1-1")
 
-baseline_obs %>% count(year(datetime))
+# data check
+if (F) {
+  baseline_obs %>% count(year(datetime))
+
+  hist(log10(baseline_obs$specific_cond))
+
+  baseline_obs %>%
+    # filter(between(specific_cond, 5, 100)) %>%
+    # filter(between(specific_cond, 0, 5)) %>%
+    ggplot(aes(specific_cond)) +
+    geom_histogram()
+}
+
 
 
 ## Streamflow ----
@@ -373,42 +482,153 @@ flow_obs <- flow_xl %>%
     fsn = fieldwork_seq_no,
     datetime = start_date_time,
     station_id,
-    station_name = primary_station_name,
-    latitude,
-    longitude,
-    wbic,
-    waterbody = official_waterbody_name,
-    station_type = station_type_code,
     stream_width,
     average_stream_depth,
     average_surface_velocity,
     entered_streamflow = stream_flow_cfs,
     calculated_streamflow = calculated_streamflow_cfs,
     corrected_streamflow = calculated_corrected_streamflow_cfs,
-    flow_method_used
+    flow_method_used,
+    weather_conditions,
+    weather_last_2_days = weather_past_two_days,
+    current_stream_condition = current_stream_conditions,
+    group_desc,
+    fieldwork_comment
   ) %>%
-  mutate(
-    # across(datetime, ~ parse_date_time(.x, "ymdHMp")),
-    across(c(fsn, station_id, wbic), as.integer),
-    across(stream_width:corrected_streamflow, as.numeric)
+  mutate(datetime = with_tz(datetime, "America/Chicago")) %>%
+  mutate(date = as_date(datetime), .after = datetime) %>%
+  mutate(across(c(fsn, station_id), as.integer)) %>%
+  mutate(suppressWarnings(across(stream_width:corrected_streamflow, as.numeric))) %>%
+  # fix the few cases of infinity/nan for streamflow
+  mutate(across(
+    c(average_surface_velocity, calculated_streamflow, corrected_streamflow),
+    ~if_else(is.infinite(.x) | is.nan(.x), 0, .x))
   ) %>%
-  mutate(date = as.Date(datetime), .after = datetime) %>%
   mutate(streamflow = coalesce(entered_streamflow, corrected_streamflow, calculated_streamflow), .before = entered_streamflow) %>%
   distinct(fsn, station_id, date, .keep_all = T) %>%
   filter(date >= "2015-1-1")
-# ok if NAs were introduced
 
-flow_obs %>% count(year(datetime))
+# data check
+if (F) {
 
+  # check for infinity
+  flow_obs %>% filter(if_any(where(is.numeric), is.infinite))
 
-## Join baseline obs + flow ----
+  flow_obs %>% count(year(datetime))
 
-add_units <- function(.data, col, units) {
-  mutate(.data, "{col}_units" := case_when(is.na(.data[[col]]) ~ "", T ~ units), .after = {{ col }})
+  compare_fieldwork(baseline_obs, flow_obs)
+
+  # shows need to set timezone correctly
+  tz(flow_obs$datetime)
+  hist(hour(flow_obs$datetime))
+
+  flow_obs$datetime %>%
+    with_tz("America/Chicago") %>%
+    hour() %>%
+    hist()
 }
 
-baseline_data <- baseline_obs %>%
-  left_join(flow_obs) %>%
+
+
+## Macroinvertebrates ----
+
+macro_index <- read_csv("macro/macros.csv")
+macro_species <- macro_index %>%
+  drop_na(group) %>%
+  pull(dnr_parameter_description)
+
+macro_xl <- load_xl("8_wav_ibi_fw.xlsx", clean = F)
+
+names(macro_xl)
+
+# fieldwork and score
+macro_obs <- macro_xl %>%
+  select(-all_of(macro_species)) %>%
+  janitor::clean_names() %>%
+  select(
+    fsn = fieldwork_seq_no,
+    station_id,
+    # group_seq_no,
+    # plan_name,
+    datetime = start_date_time,
+    biotic_index_group_1_animals = no_of_group_1_animals,
+    biotic_index_group_2_animals = no_of_group_2_animals,
+    biotic_index_group_3_animals = no_of_group_3_animals,
+    biotic_index_group_4_animals = no_of_group_4_animals_present,
+    biotic_index_total_animals = total_animals,
+    # ends_with("total_value"),
+    biotic_index_score = index_score,
+    group_desc,
+    fieldwork_comment
+  ) %>%
+  mutate(datetime = with_tz(datetime, "America/Chicago")) %>%
+  mutate(date = as_date(datetime), .after = datetime) %>%
+  drop_na(biotic_index_score) %>%
+  mutate(across(c(fsn, station_id, ends_with("_animals")), as.integer)) %>%
+  mutate(across(biotic_index_score, as.numeric)) %>%
+  arrange(datetime) %>%
+  filter(date >= "2015-1-1") %>%
+  # the form doesn't explicitly ask if you did a biotic index and if people click
+  # and then unclick an animal it fills in zeros. We discard this as invalid data
+  filter(biotic_index_total_animals > 0)
+
+compare_fieldwork(baseline_obs, macro_obs)
+
+# macro_obs %>%
+#   filter(biotic_index_total_animals == 0) %>% view()
+
+
+# individual species counts
+macro_species_counts <- macro_xl %>%
+  mutate(across(all_of(macro_species), ~ .x %in% c("Present", "YES"))) %>%
+  select(fsn = FIELDWORK_SEQ_NO, all_of(macro_species)) %>%
+  pivot_longer(
+    all_of(macro_species),
+    names_to = "species_name",
+    values_to = "present"
+  ) %>%
+  left_join(macro_index, join_by(species_name == dnr_parameter_description)) %>%
+  right_join({
+    macro_obs %>%
+      select(fsn, station_id, datetime, date)
+  }) %>%
+  relocate(station_id, datetime, date, .after = fsn) %>%
+  arrange(datetime) %>%
+  mutate(year = year(date), .after = date)
+
+
+# data check
+if (F) {
+  str(macro_obs)
+
+  macro_obs %>%
+    filter(!(fsn %in% baseline_data$fsn)) %>%
+    view()
+
+  macro_species_counts %>%
+    select(-c(dnr_parameter_code, group)) %>%
+    pivot_wider(names_from = species_name, values_from = present)
+
+  macro_species_counts %>%
+    filter(fsn %in% sample(fsn, 100)) %>%
+    write_csv("macro_sampling.csv")
+}
+
+
+## Combine datasets ----
+
+# combine datasets and merge. takes a little bit
+baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
+  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
+
+# finalize baseline data
+baseline_data <- baseline_merged %>%
+  left_join(stn_master_list) %>%
+  relocate(any_of(names(stn_master_list)), .after = station_id) %>%
+  mutate(across(c(weather_last_2_days, fieldwork_comment, additional_comments), ~ str_to_sentence(str_squish(.x)))) %>%
+  mutate(weather_conditions = str_to_sentence(gsub("_", " ", weather_conditions))) %>%
+  arrange(datetime) %>%
+  # mutate(across(ends_with("_units"), ~if_else(is.na(.x), "", .x))) %>%
   mutate(
     year = year(date),
     month = month(date),
@@ -416,37 +636,159 @@ baseline_data <- baseline_obs %>%
     yday = yday(date),
     .after = date
   ) %>%
-  add_units("d_o", "mg/L") %>%
-  add_units("transparency", "cm") %>%
-  add_units("stream_width", "ft") %>%
-  add_units("average_stream_depth", "ft") %>%
-  add_units("average_surface_velocity", "ft/s") %>%
-  add_units("streamflow", "cfs") %>%
-  relocate(contains("_comment"), .after = everything()) %>%
+  relocate(
+    weather_conditions,
+    weather_last_2_days,
+    fieldwork_comment,
+    additional_comments,
+    group_desc,
+    .after = everything()
+  ) %>%
   arrange(year, station_id, date)
 
 
+## Data validation ----
+
+# look at histograms of each parameter to determine appropriate ranges
+if (F) {
+  names(baseline_data)
+  bd <- baseline_data
+
+  # baseline params
+  names(select_if(baseline_obs, is.numeric))
+  validate(bd$air_temp) # convert some from F to C
+  validate(bd$air_temp, -20, 40)
+  validate(bd$water_temp) # convert some from F to C
+  validate(bd$d_o)
+  validate(bd$d_o, 0, 25)
+  validate(bd$d_o_percent_saturation)
+  validate(bd$d_o_percent_saturation, 0, 150)
+  validate(bd$ph)
+  validate(bd$ph, 4, 10)
+  validate(bd$specific_cond)
+  validate(bd$specific_cond, 0, 5)
+  validate(bd$specific_cond, 5, 5000)
+  validate(bd$transparency, 0, 120)
+
+  # streamflow params
+  names(select_if(flow_obs, is.numeric))
+  validate(bd$stream_width)
+  validate(log(bd$stream_width))
+  validate(bd$stream_width, 1, 150)
+  validate(bd$average_stream_depth)
+  validate(bd$average_stream_depth, 0, 20)
+  validate(bd$average_surface_velocity)
+  validate(log(bd$average_surface_velocity))
+  validate(bd$average_surface_velocity, 0, 6)
+  validate(bd$streamflow)
+  validate(log(bd$streamflow))
+  validate(bd$streamflow, 0, 300)
+  validate(bd$entered_streamflow)
+  validate(log(bd$entered_streamflow))
+  validate(bd$entered_streamflow, 0, 2000)
+  validate(bd$calculated_streamflow)
+  validate(log(bd$calculated_streamflow))
+  validate(bd$calculated_streamflow, 0, 300)
+  validate(bd$corrected_streamflow)
+  validate(log(bd$corrected_streamflow))
+  validate(bd$corrected_streamflow, 0, 250)
+
+  # macroinvertebrates
+  validate(bd$biotic_index_total_animals)
+  validate(bd$biotic_index_score)
+}
+
+# apply validation to select columns
+validation_actions <- tribble(
+  ~measure, ~min, ~max, ~action,
+  "air_temp", -40, 40, "f_to_c",
+  "water_temp", -40, 40, "f_to_c",
+  "d_o", 0, 25, "remove",
+  "d_o_percent_saturation", 0, 150, "remove",
+  "ph", 4, 10, "remove",
+  "specific_cond", 5, 5000, "keep",
+  "transparency", 0, 120, "cap",
+  "stream_width", 1, 150, "keep",
+  "average_stream_depth", 0, 20, "keep",
+  "average_surface_velocity", 0, 6, "keep",
+  "streamflow", 0, 300, "keep",
+  "entered_streamflow", 0, 2000, "keep",
+  "calculated_streamflow", 0, 300, "keep",
+  "corrected_streamflow", 0, 250, "keep",
+  "biotic_index_total_animals", 1, 22, "keep",
+  "biotic_index_score", 1, 4, "keep"
+)
+
+# apply action to out of range values
+baseline_validation <- baseline_data %>%
+  select(fsn, all_of(validation_actions$measure)) %>%
+  pivot_longer(cols = -fsn, names_to = "measure") %>%
+  left_join(validation_actions) %>%
+  mutate(
+    valid = between(value, min, max),
+    new_value = case_when(
+      valid ~ value,
+      # convert specific_cond when likely using incorrect units
+      measure == "specific_cond" ~ case_when(
+        value == 0 ~ NA,
+        value < 5 ~ value * 1000,
+        TRUE ~ value
+      ),
+      action == "f_to_c" ~ f_to_c(value),
+      action == "cap" ~ clamp(value, min, max),
+      action == "remove" ~ NA,
+      action == "keep" ~ value
+    ),
+    msg = case_when(
+      valid ~ NA,
+      is.na(value) ~ NA,
+      action == "f_to_c" ~ str_glue("converted from {value} to {new_value}"),
+      measure == "specific_cond" ~ case_when(
+        value == 0 ~ "bad value 0 removed",
+        value < 5 ~ str_glue("value {value} converted to {new_value}"),
+        !valid ~ str_glue("value {value} out of range")
+      ),
+      action == "cap" ~ str_glue("value {value} clamped to {new_value}"),
+      action == "remove" ~ str_glue("bad value {value} removed"),
+      action == "keep" ~ str_glue("value {value} out of range")
+    ),
+    msg = if_else(is.na(msg), NA, paste(measure, msg))
+  )
+
+# put it back together and swap in validated values
+baseline_clean <- baseline_data %>%
+  select(-all_of(validation_actions$measure)) %>%
+  left_join({
+    baseline_validation %>%
+      select(fsn, measure, new_value) %>%
+      pivot_wider(names_from = measure, values_from = new_value)
+  }) %>%
+  left_join({
+    baseline_validation %>%
+      summarize(data_validation = paste(na.omit(msg), collapse = "; "), .by = fsn) %>%
+      mutate(across(data_validation, ~if_else(.x == "", "OK", .x)))
+  }) %>%
+  select(all_of(names(baseline_data)), everything())
+
+# baseline_clean %>%
+#   filter(str_detect(data_validation, "specific_cond")) %>%
+#   pull(data_validation)
+
+baseline_clean %>%
+  filter(specific_cond == 0)
+
+
+## Data checks ----
+
 # any missing lat/lng?
-baseline_data %>%
+baseline_clean %>%
   distinct(station_id, .keep_all = TRUE) %>%
   filter(is.na(latitude) | is.na(longitude) | latitude == 0 | longitude == 0)
 
-
-## Determine which fieldwork events are missing all of the key baseline parameters ----
-key_baseline_vars <- c(
-  "air_temp",
-  "water_temp",
-  "d_o",
-  "ph",
-  "specific_cond",
-  "transparency",
-  "streamflow"
-)
-
 # find stations where all FSNs in a year have no baseline data and drop them
-has_key_baseline_data <- baseline_data %>%
-  select(station_id, year, fsn, all_of(key_baseline_vars)) %>%
-  pivot_longer(all_of(key_baseline_vars)) %>%
+has_key_baseline_data <- baseline_clean %>%
+  select(station_id, year, fsn, all_of(validation_actions$measure)) %>%
+  pivot_longer(all_of(validation_actions$measure)) %>%
   summarize(has_baseline = sum(!is.na(value)) > 0, .by = c(station_id, year, fsn)) %>%
   mutate(valid_year = any(has_baseline), .by = c(station_id, year)) %>%
   filter(valid_year)
@@ -457,7 +799,7 @@ invalid_baseline_data <- baseline_data %>%
   filter(!(fsn %in% valid_fsn))
 
 # message says how many baseline fieldworks will be dropped due to lack of data
-message(nrow(baseline_data) - length(valid_fsn), " fieldwork events will be dropped due to having no key baseline data")
+message(nrow(baseline_data) - length(valid_fsn), " fieldwork events will be dropped due to having no baseline data")
 
 # check for problems with baseline stations
 baseline_data %>%
@@ -465,31 +807,234 @@ baseline_data %>%
   validate_stns()
 
 
-## Final baseline join and filter ----
+## Export baseline data ----
 
-baseline_final <- baseline_data %>%
+baseline_final <- baseline_clean %>%
   arrange(station_id, date) %>%
   filter(fsn %in% valid_fsn) %>%
-  filter(station_id %in% stn_master_list$station_id)
+  drop_na(latitude, longitude)
+
+baseline_final %>% write_csv(data_dir("baseline_data.csv"))
+macro_species_counts %>% write_csv(data_dir("macro_species_counts.csv"))
 
 
-## Export baseline data ----
-local({
-  df <- baseline_final
-  f <- list(
-    csv = data_dir(sprintf("baseline-data-%s-%s.csv", min(df$year), max(df$year))),
-    rds = data_dir("baseline-data.rds")
+
+# 3b => Macroinvertebrate data =================================================
+
+
+## data exploration ----
+
+macro_obs %>%
+  ggplot(aes(x = index_score)) +
+  geom_histogram() +
+  facet_grid(year(datetime)~.)
+
+macro_obs %>%
+  ggplot(aes(x = year(datetime), y = total_value)) +
+  geom_boxplot(aes(group = year(datetime))) +
+  stat_summary() +
+  geom_smooth()
+
+macro_obs %>%
+  ggplot(aes(x = total_value / total_animals)) +
+  geom_histogram()
+
+macro_obs %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  ggplot(aes(x = datetime, y = index_score)) +
+  geom_boxplot(aes(group = year)) +
+  geom_line() +
+  geom_point() +
+  geom_smooth(method = "loess", color = "blue", fill = "blue", alpha = .1) +
+  geom_smooth(method = "gam", color = "red", fill = "red", alpha = .1) +
+  scale_y_continuous(limits = c(0, 4)) +
+  scale_x_date(date_breaks = "year", date_labels = "%Y")
+
+# number of samplings per year
+macro_obs %>%
+  filter(year == 2024) %>%
+  summarize(n = n(), .by = c(year, station_id)) %>%
+  summarize(stations = n(), .by = c(year, n)) %>%
+  mutate(pct = stations / sum(stations), .by = year) %>%
+  ggplot(aes(x = factor(n), y = pct)) +
+  geom_col() +
+  geom_text(aes(label = scales::label_percent(1)(pct)), vjust = -.5)
+
+
+
+## Validation ----
+
+# Duplicate FSN 351071051 == 357587224
+# how should we handle duplicate data? Manually delete the fieldwork in swims?
+
+
+## plotly prototype ----
+
+library(plotly)
+
+hex_to_rgba <- function(hex, alpha = 1) {
+  rgb <- col2rgb(hex)
+  paste0("rgba(", rgb[1], ",", rgb[2], ",", rgb[3], ",", alpha, ")")
+}
+
+# Logic: 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
+macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
+# macro_colors <- c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0")
+# macro_desc   <- c("Sensitive", "Moderately sensitive", "Moderately tolerant", "Tolerant", "Tolerant")
+macro_colortable <- tibble(
+  group = macro_groups,
+  base_color = c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0"),
+  description = c(
+    "Group 1 (Sensitive)",
+    "Group 2 (Moderately sensitive)",
+    "Group 3 (Moderately tolerant)",
+    "Group 4 (Tolerant)",
+    "Invasive"
   )
-  message("Save baseline data => ", paste(f, collapse = ", "))
-  write_csv(df, f$csv)
-  saveRDS(df, f$rds)
-})
+) %>%
+  expand_grid(present = c(T, F)) %>%
+  mutate(
+    z = (1:10 - .5) / 10,
+    alpha = if_else(present, 1, .1),
+    color = mapply(hex_to_rgba, base_color, alpha, USE.NAMES = F)
+  )
+
+# build plotly heatmap colorscale
+colorscale <- list()
+for (i in 1:10) {
+  row <- slice(macro_colortable, i)
+  colorscale[[length(colorscale) + 1]] <- list((i - 1) / 10, row$color)
+  colorscale[[length(colorscale) + 1]] <- list(i / 10, row$color)
+}
+
+
+add_missing_years <- function(df) {
+  bind_rows(df, tibble(
+    year = setdiff(2015:2025, unique(df$year)),
+    date = as_date(paste(year, "-1-1")),
+    date_label = paste("(", year, ")")
+  )) %>%
+    arrange(date) %>%
+    mutate(date_label = fct_inorder(date_label))
+}
+
+# select a station
+selected_data <- macro_species_counts %>%
+  filter(station_id == sample(station_id, 1)) %>%
+  mutate(
+    species_name = factor(species_name, macro_species),
+    group = factor(group, macro_groups),
+    status = if_else(present, "Present", "Absent")
+  ) %>%
+  left_join(macro_colortable, join_by(group, present))
+
+
+# all observations
+plot_data <- selected_data %>%
+  mutate(
+    date_label = format(date, "%b %d, %Y"),
+    tooltip_text = str_glue("
+      <b>{species_name}</b>
+      {description}
+      {date_label}
+      {status}
+    ")
+  ) %>%
+  add_missing_years()
+
+# or summarize by year
+plot_data <- selected_data %>%
+  summarize(
+    present = any(present),
+    .by = c(year, group, species_name)
+  ) %>%
+  left_join(macro_colortable, join_by(group, present)) %>%
+  mutate(
+    date = as_date(paste0(year, "-1-2")),
+    date_label = as.character(year),
+    species_name = factor(species_name, macro_species),
+    group = factor(group, macro_groups),
+    status = if_else(present, "Present", "Absent"),
+    tooltip_text = paste0(
+      "Species: ", species_name,
+      "<br>Year: ", year,
+      "<br>Group: ", group,
+      "<br>Status: ", status
+    )
+  ) %>%
+  add_missing_years()
+
+# plot it
+plot_ly() %>%
+  add_trace(
+    data = plot_data,
+    type = "heatmap",
+    x = ~date_label,
+    y = ~species_name,
+    z = ~z,
+    text = ~tooltip_text,
+    hoverinfo = "text",
+    colorscale = colorscale,
+    showscale = F, # Hide the rainbow bar
+    xgap = 1, ygap = 1
+  ) %>%
+  layout(
+    title = "Macroinvertebrate Sampling: Presence/Absence Heatmap",
+    xaxis = list(
+      title = "",
+      type = "category",
+      categoryarray = levels(plot_data$date_label),
+      categoryorder = "array",
+      tickangle = -45,
+      showgrid = F
+    ),
+    yaxis = list(
+      title = "",
+      type = 'category',
+      categoryarray = rev(levels(plot_data$species_name)),
+      categoryorder = "array",
+      showgrid = F
+    ),
+    plot_bgcolor = "white",
+    margin = list(t = 50, r = 10, b = 10, l = 10),
+    legend = list(title = list(text = "Species Group"))
+  ) %>%
+  config(displayModeBar = F)
+
+
+## ggplot prototype ----
+
+p <- plot_data %>%
+  ggplot(aes(x = date_label, y = species_name, text = tooltip_text)) +
+  geom_tile(
+    aes(fill = base_color, alpha = alpha, color = base_color),
+    lwd = 0.25, width = 0.9, height = 0.9
+  ) +
+  scale_y_discrete(limits = rev, na.translate = F) +
+  scale_fill_identity(aes(color = base_color), na.value = "transparent") +
+  scale_color_identity(aes(color = base_color), na.value = "transparent") +
+  labs(
+    title = "Macroinvertebrate Sampling: Presence/Absence Heatmap",
+    x = NULL, y = NULL,
+    fill = "Species group", color = "Species group"
+  ) +
+  guides(alpha = guide_none()) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    panel.grid = element_blank(),
+    plot.background = element_rect(fill = "white"),
+    panel.border = element_rect(color = "black", linewidth = .25)
+  )
+
+# Convert to Interactive Plotly Figure
+ggplotly(p, tooltip = "text")
+
 
 
 # 4 => Nutrient data ===========================================================
 
-## From LPDES/SWIMS ----
-# formatted as export from NPDES
+## From SWIMS ----
 # select total phosphorus parameter 665, should be all that's in here though
 # tp data in units of mg/L = ppm
 
@@ -499,23 +1044,37 @@ tp_data_wav <- nutrient_xl %>%
   select(
     fsn = fieldwork_seq_no,
     station_id,
-    station_name = primary_station_name,
-    latitude,
-    longitude,
-    wbic,
-    waterbody = official_waterbody_name,
-    station_type = station_type_code,
+    # station_name = primary_station_name,
+    # latitude,
+    # longitude,
+    # wbic,
+    # waterbody = official_waterbody_name,
+    # station_type = station_type_code,
     plan_id, plan_name,
     collector_name,
     datetime = start_date_time,
-    tp = result_value_no
+    result_value_no
   ) %>%
-  drop_na(tp) %>%
-  mutate(
-    across(c(fsn, station_id, wbic), as.integer),
-    tp = as.numeric(gsub("ND", 0, tp))
-  )
+  drop_na(result_value_no) %>%
+  mutate(across(c(fsn, station_id), as.integer)) %>%
+  mutate(tp = suppressWarnings(
+    result_value_no %>%
+      str_replace_all(fixed("*"), "") %>%
+      str_replace_all("ND", "0") %>%
+      as.numeric()
+  )) %>%
+  select(-result_value_no) %>%
+  mutate(datetime = with_tz(datetime, "America/Chicago"))
 
+# tp_data_wav %>%
+#   filter(is.na(tp)) %>% view()
+
+# data check
+hist(tp_data_wav$tp)
+hist(hour(tp_data_wav$datetime))
+tz(tp_data_wav$datetime) # need to with_tz
+
+# count of plan_ids
 tp_data_wav %>% count(plan_id, sort = T)
 
 # whitelist specific data collectors for non-CBSM projects
@@ -539,14 +1098,15 @@ tp_data_mrk <- "nutrient/MilwaukeeRiverkeeper_TotalPhosphorusData_2024.xlsx" %>%
     tp = result_value_no
   ) %>%
   drop_na(tp) %>%
-  mutate(
-    across(c(fsn, station_id), as.integer),
-    tp = as.numeric(gsub("ND", 0, tp)),
-    across(datetime, ~ parse_date_time(.x, "mdy HMS p"))
-  ) %>%
-  left_join(stn_master_list)
+  mutate(across(c(fsn, station_id), as.integer)) %>%
+  mutate(tp = as.numeric(gsub("ND", 0, tp))) %>%
+  mutate(across(datetime, ~ parse_date_time(.x, "mdy HMS p"))) %>%
+  mutate(datetime = force_tz(datetime, "America/Chicago"))
 
+# data check
 hist(tp_data_mrk$tp)
+hist(hour(tp_data_mrk$datetime))
+tz(tp_data_mrk$datetime) # need to force_tz
 
 # East TWA 2024 data & West CMP
 # result units mg/L
@@ -565,21 +1125,18 @@ tp_data_twa <-
     tp = result
   ) %>%
   drop_na(tp) %>%
-  mutate(
-    across(c(fsn, station_id), as.integer),
-    tp = as.numeric(gsub("ND", 0, tp)),
-    across(datetime, ~ parse_date_time(.x, "mdy HMS p"))
-  ) %>%
+  mutate(across(c(fsn, station_id), as.integer)) %>%
+  mutate(tp = as.numeric(gsub("ND", 0, tp))) %>%
   filter(!(station_id %in% c(33223, 10037357, 10037358, 10056308, 173209, 183005))) %>%
-  left_join(stn_master_list)
+  mutate(across(datetime, ~ parse_date_time(.x, "mdy HMS p"))) %>%
+  mutate(datetime = force_tz(datetime, "America/Chicago"))
 
-tp_data_twa %>%
-  filter(is.na(latitude))
-
-# tp_data_twa %>% distinct(station_id) %>% write_csv("stns.csv")
-
-hist(tp_data_twa$tp)
+# data check
 tp_data_twa %>% count(station_id, sort = T)
+hist(tp_data_twa$tp)
+hist(hour(tp_data_twa$datetime))
+tz(tp_data_twa$datetime) # need to force_tz
+
 
 # merge and strip dupes
 tp_data <-
@@ -589,150 +1146,116 @@ tp_data <-
     tp_data_twa
   ) %>%
   mutate(
-    tp = gsub("ND", 0, tp),
-    across(tp, as.numeric),
     across(collector_name, str_to_title),
-    date = as.Date(datetime),
+    date = as_date(datetime),
     year = year(date),
     month = month(date),
     month_name = month.name[month]
   ) %>%
+  filter(year >= 2015) %>%
   distinct(station_id, datetime, tp, .keep_all = TRUE) %>%
-  mutate(
-    num_obs = sum(!is.na(tp)),
-    .by = c(year, station_id)
-  ) %>%
+  mutate(num_obs = sum(!is.na(tp)), .by = c(year, station_id)) %>%
   filter(month %in% 5:10) %>%
-  filter(!is.na(latitude), !is.na(longitude))
+  left_join(stn_master_list) %>%
+  relocate(any_of(names(stn_master_list)), .after = station_id) %>%
+  drop_na(latitude, longitude, tp)
 
 
 ## Data check ----
 
-tp_data %>% count(month)
-tp_data %>% slice_max(tp, n = 5)
-ggplot(tp_data) +
-  geom_histogram(aes(x = tp)) +
-  scale_x_sqrt()
-tp_data %>%
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
-  ggplot() +
-  geom_sf(data = counties, fill = "grey", lwd = .25) +
-  geom_sf(aes(fill = log1p(tp * 1000 + 1)), shape = 24, size = 3) +
-  scale_fill_distiller(palette = "Spectral") +
-  facet_wrap(~year) +
-  theme(legend.position = "inside", legend.position.inside = c(.85, .15))
+if (F) {
+  tp_data %>% count(year)
+  tp_data %>% count(month)
+  tp_data %>% slice_max(tp, n = 5)
+  ggplot(tp_data) +
+    geom_histogram(aes(x = tp)) +
+    scale_x_sqrt()
+  tp_data %>%
+    st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
+    ggplot() +
+    geom_sf(data = counties, fill = "grey", lwd = .25) +
+    geom_sf(aes(fill = log1p(tp * 1000 + 1)), shape = 24, size = 3) +
+    scale_fill_distiller(palette = "Spectral") +
+    facet_wrap(~year) +
+    theme(legend.position = "inside", legend.position.inside = c(.85, .15))
+}
+
+
+## Export nutrient data ----
 
 tp_final <- tp_data %>%
   select(-datetime) %>%
   arrange(station_id, date) %>%
   filter(tp < 5) # for now to catch bad data
 
+tp_final %>% write_csv(data_dir("tp_data.csv"))
 
-## Export nutrient data ----
-local({
-  df <- tp_final
-  f <- list(
-    csv = data_dir(sprintf("tp-data-%s-%s.csv", min(df$year), max(df$year))),
-    rds = data_dir("tp-data.rds")
-  )
-  message("Save nutrient data => ", paste(f, collapse = ", "))
-  write_csv(df, f$csv)
-  saveRDS(df, f$rds)
-})
 
 
 # 5 => Thermistor data =========================================================
 
 # see thermistors.R
 
-therm_inventory <- readRDS(data_dir("therm-inventory.rds"))
-hobo_data <- readRDS(data_dir("therm-data.rds"))
+therm_inventory <- read_csv(data_dir("therm_inventory.csv"))
+hobo_data <- read_csv(data_dir("therm_data.csv.gz"))
+
+all(unique(hobo_data$station_id) %in% therm_inventory$station_id)
+all(unique(hobo_data$station_id) %in% stn_master_list$station_id)
+
 
 
 # 6 => Finalize station list ===================================================
 
-stn_attrib_cols <- c("station_id", "station_name", "latitude", "longitude", "wbic", "waterbody", "station_type")
-
 # generate station lists
-baseline_stns <- baseline_final %>%
-  distinct(across(any_of(stn_attrib_cols))) %>%
-  arrange(station_id) %>%
-  validate_stns()
-nutrient_stns <- tp_final %>%
-  distinct(across(any_of(stn_attrib_cols))) %>%
-  arrange(station_id) %>%
-  validate_stns()
-therm_stns <- therm_inventory %>%
-  distinct(station_id) %>%
-  drop_na() %>%
-  left_join(stn_master_list) %>%
-  arrange(station_id) %>%
-  validate_stns()
-stn_list <- bind_rows(baseline_stns, nutrient_stns, therm_stns) %>%
-  drop_na(station_id, latitude, longitude) %>%
-  distinct(station_id, .keep_all = T) %>%
-  arrange(station_id) %>%
-  validate_stns() %>%
+stn_ids <- sort(unique(c(
+  baseline_final$station_id,
+  tp_final$station_id,
+  hobo_data$station_id
+)))
+
+stn_list <- stn_master_list %>%
+  filter(station_id %in% stn_ids) %>%
   mutate(station_name = str_squish(str_replace_all(station_name, "[^[:alnum:][:punct:] ]", "")))
+
+stn_list %>% validate_stns()
 
 
 ## Check baseline ----
 
-# number of baseline stations
-baseline_final %>% count(station_id, sort = T)
-
-# count of fieldwork by station
-stn_tally_baseline <- baseline_final %>%
-  count(across(any_of(stn_attrib_cols)), sort = T)
-
-# any baseline stations missing from list?
-stn_tally_baseline %>%
+baseline_final %>%
+  count(station_id, sort = T) %>%
   filter(!(station_id %in% stn_list$station_id))
 
 
 ## Check nutrient ----
 
-# number of nutrient stations
-tp_final %>% count(station_id, sort = T)
-
-# any nutrient stations missing?
 tp_final %>%
-  count(station_id) %>%
+  count(station_id, sort = T) %>%
   filter(!(station_id %in% stn_list$station_id))
 
 
 ## Check thermistor ----
 
-# number of thermistor stations
-hobo_data %>% count(station_id, sort = T)
-
-# any thermistor inventory entries missing a station id?
 hobo_data %>%
-  count(station_id) %>%
+  count(station_id, sort = T) %>%
   filter(!(station_id %in% stn_list$station_id))
-
-
-## Stations to keep ----
-
-keep_stns <- sort(unique(c(
-  baseline_data$station_id,
-  tp_final$station_id,
-  hobo_data$station_id
-)))
 
 
 ## Create station SF ----
 
+stn_list %>%
+  count(county_name, sort = T) %>%
+  print(n = 100)
+
 stn_list.sf <- stn_list %>%
-  filter(station_id %in% keep_stns) %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F) %>%
-  st_join(select(counties, DnrRegion, CountyName)) %>%
+  st_join(select(counties, DnrRegion)) %>%
   st_join(select(huc12, -Area)) %>%
   st_join(select(dnr_watersheds, DnrWatershedCode, DnrWatershedName)) %>%
   select(
     station_id, station_name,
     latitude, longitude,
-    county_name = CountyName,
+    county_name,
     dnr_region = DnrRegion,
     wbic, waterbody,
     huc12 = Huc12Code,
@@ -751,34 +1274,27 @@ stn_list.sf <- stn_list %>%
 
 ## Plot stations on a map ----
 
-stn_list.sf %>%
-  mutate(label = paste0("[", station_id, "] ", station_name)) %>%
-  leaflet() %>%
-  addTiles() %>%
-  addCircleMarkers(
-    label = ~label,
-    radius = 1, opacity = 1, fill = F
-  ) %>%
-  addMarkers(
-    label = ~label,
-    clusterOptions = markerClusterOptions()
-  )
+if (F) {
+  stn_list.sf %>%
+    mutate(label = paste0("[", station_id, "] ", station_name)) %>%
+    leaflet() %>%
+    addTiles() %>%
+    addCircleMarkers(
+      label = ~label,
+      radius = 1, opacity = 1, fill = F
+    ) %>%
+    addMarkers(
+      label = ~label,
+      clusterOptions = markerClusterOptions()
+    )
+}
 
 
 ## Export station list ----
 
 all_stns <- stn_list.sf %>% st_set_geometry(NULL)
 
-local({
-  df <- all_stns
-  f <- list(
-    csv = data_dir("station-list.csv"),
-    rds = data_dir("station-list.rds")
-  )
-  message("Saved station list => ", paste(f, collapse = ", "))
-  write_csv(df, f$csv)
-  saveRDS(df, f$rds)
-})
+all_stns %>% write_csv(data_dir("stn_list.csv"))
 
 
 

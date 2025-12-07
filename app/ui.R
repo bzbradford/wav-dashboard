@@ -1,52 +1,15 @@
-##  ui.R  ##
-
-
-# UI ----
-
-stnSelectorUI <- function() {
-  div(
-    class = "well",
-    style = "padding: 15px;",
-    tabsetPanel(
-      type = "pills",
-      tabPanel(
-        title = "Current Station",
-        div(
-          class = "flex-row stn-select",
-          div(
-            class = "flex-col",
-            title = "Currently selected station",
-            selectInput(
-              inputId = "station",
-              label = NULL,
-              choices = list()
-            ),
-          ),
-          div(
-            class = "stn-btns",
-            actionButton("prev_stn", icon("arrow-left"), class = "stn-btn", title = "Next closest station West"),
-            actionButton("next_stn", icon("arrow-right"), class = "stn-btn", title = "Next closes station East"),
-            actionButton("rnd_stn", icon("random"), class = "stn-btn", title = "Random station"),
-            uiOutput("bookmark_btn", inline = TRUE)
-          )
-        ),
-        div(class = "note", style = "margin-top: 5px;", "To search for a station by name or ID, delete the text above and start typing. Click the bookmark icon above to show the station ID in the browser URL and page title (for sharing a site or bookmarking the page to easily return to it). You can also search for stations in the Station Lists tab.")
-      ),
-      tabPanel("Recently Viewed Stations", recentStationsUI()),
-      tabPanel("Station Details", stationInfoUI()),
-      tabPanel("Station Lists", stationListUI())
-    )
-  )
-}
+##  MAIN UI  ##
 
 ui <- fluidPage(
 
-  ## Setup ----
+  # Settings ----
   title = "WAV Data Dashboard",
   theme = bs_theme(
     version = 5,
     bootswatch = "flatly"
   ),
+
+  # Head ----
   tags$head(
     tags$meta(charset = "UTF-8"),
     tags$meta(name = "description", content = "An online data dashboard for viewing stream monitoring data collected by volunteers across Wisconsin"),
@@ -55,9 +18,11 @@ ui <- fluidPage(
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
     includeHTML("google-analytics.html"),
     tags$script(src = "html2canvas.min.js"),
-    tags$script(src = "saveAs.js")
+    tags$script(src = "saveAs.js"),
+    useShinyjs(),
   ),
-  useShinyjs(),
+
+  # Body ----
   div(
     id = "main-content",
 
@@ -74,6 +39,23 @@ ui <- fluidPage(
       uiOutput("notice"),
     ),
 
+    ## Info text above map ----
+    div(
+      style = "margin: 0.5em 1em;",
+      align = "center",
+      p(em(HTML(paste0(
+        "Baseline stations are shown in ",
+        colorize(stn_colors$baseline),
+        ", total phosphorus monitoring stations in ",
+        colorize(stn_colors$nutrient),
+        ", and temperature logging stations in ",
+        colorize(stn_colors$thermistor),
+        " (stations may have more than one type of data). Currently selected station is shown in ",
+        colorize("blue", stn_colors$current),
+        ". Click on any station to select it, or choose from the list below the map."
+      ))))
+    ),
+
     ## Map and sidebar ----
     div(
       id = "map-content",
@@ -81,12 +63,42 @@ ui <- fluidPage(
       mapUI(),
     ),
 
-
     ## Station tabs ----
-
     div(
       id = "stn-selector-content",
-      stnSelectorUI(),
+      div(
+        class = "well",
+        style = "padding: 15px;",
+        tabsetPanel(
+          type = "pills",
+          tabPanel(
+            title = "Current Station",
+            div(
+              class = "flex-row stn-select",
+              div(
+                class = "flex-col",
+                title = "Currently selected station",
+                selectInput(
+                  inputId = "station",
+                  label = NULL,
+                  choices = list()
+                ),
+              ),
+              div(
+                class = "stn-btns",
+                actionButton("prev_stn", icon("arrow-left"), class = "stn-btn", title = "Next closest station West"),
+                actionButton("next_stn", icon("arrow-right"), class = "stn-btn", title = "Next closes station East"),
+                actionButton("rnd_stn", icon("random"), class = "stn-btn", title = "Random station"),
+                uiOutput("bookmark_btn", inline = TRUE)
+              )
+            ),
+            div(class = "note", style = "margin-top: 5px;", "To search for a station by name or ID, delete the text above and start typing. Click the bookmark icon above to show the station ID in the browser URL and page title (for sharing a site or bookmarking the page to easily return to it). You can also search for stations in the Station Lists tab.")
+          ),
+          tabPanel("Recently Viewed Stations", recentStationsUI()),
+          tabPanel("Station Details", stationInfoUI()),
+          tabPanel("Station Lists", stationListUI())
+        )
+      ),
     ),
 
     ## Data tabs ----
@@ -100,34 +112,27 @@ ui <- fluidPage(
         tabPanel(tab_names$nutrient, nutrientDataUI()),
         tabPanel(tab_names$thermistor, thermistorDataUI()),
         tabPanel(tab_names$watershed, watershedInfoUI()),
-        # temporarily disable the reports tab on the wisc server
-        {
-          if (Sys.getenv("REPORT_DISABLED") == "") tabPanel(tab_names$reports, stnReportUI())
-        },
-        tabPanel(tab_names$more, learnMoreUI())
-      ),
-    ),
+        tabPanel(tab_names$reports, stnReportUI()),
+        tabPanel(
+          title = tab_names$more,
+          includeMarkdown("md/learn_more.md"),
+          accordion(
+            accordion_panel(
+              title = "Changelog",
+              includeMarkdown("CHANGELOG.md")
+            ),
+            open = FALSE
+          )
+        )
+      )
+    )
   ),
 
-
   # Footer ----
-
   tags$footer(
     id = "footer-content",
     br(),
     hr(),
-    # div(
-    #   align = "center",
-    #   actionButton(
-    #     "screenshot",
-    #     "Download a screenshot of the entire page (except map)",
-    #     title = "Screenshot does not currently include the map",
-    #     class = "btn-xs",
-    #     onclick = "this.disabled = true; document.querySelector('#screenshot-msg').style.display = null;"
-    #   ),
-    #   div(id = "screenshot-msg", style = "padding: 5px; font-style: italic; font-size: small; display: none;", "Generating screenshot, please wait...")
-    # ),
-    # br(),
     p(
       style = "color: grey; font-size: smaller; font-style: italic;",
       align = "center",
@@ -138,13 +143,6 @@ ui <- fluidPage(
         "Last updated:", format(file.info(".")$mtime, "%Y-%m-%d"), " | ",
         "Most recent fieldwork:", as.character(max(baseline_data$date))
       ), br(),
-      # glue("
-      #   Pandoc {rmarkdown::pandoc_version()},
-      #   GEOS {sf::sf_extSoftVersion()[['GEOS']]},
-      #   GDAL {sf::sf_extSoftVersion()[['GDAL']]},
-      #   proj.4 {sf::sf_extSoftVersion()[['proj.4']]},
-      #   PROJ {sf::sf_extSoftVersion()[['PROJ']]}
-      # "), br(),
       a("Source code", href = "https://github.com/bzbradford/wav-dashboard", target = "_blank")
     )
   )

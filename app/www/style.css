@@ -36,14 +36,16 @@
 
 /* Reduce excessive padding */
 .accordion-body {
-  padding: 0.75rem 1rem !important; /* Default is 1rem 1.25rem */
+  padding: 0.75rem 1rem !important;
+  /* Default is 1rem 1.25rem */
 }
 
 /* Better button styling with hover effects */
 .accordion-button {
   font-size: large;
   transition: all 0.2s ease-in-out;
-  padding: 0.5rem 1rem !important; /* Reduce button padding too */
+  padding: 0.5rem 1rem !important;
+  /* Reduce button padding too */
   background-color: var(--card-bg-color);
 }
 
@@ -73,7 +75,7 @@
   --bs-btn-bg: rgba(71, 109, 138, 0.1);
 }
 
-.btn-group > .btn:hover:not(.btn-check:checked + .btn) {
+.btn-group>.btn:hover:not(.btn-check:checked + .btn) {
   background-color: var(--bs-btn-bg);
 }
 
@@ -135,9 +137,10 @@ h3 {
   margin-top: 1em;
 }
 
-a,
-a:hover,
-a:focus {
+/* make links green except buttons or icons */
+a:not(.btn):not(.fas),
+a:hover:focus :not(.btn):not(.fas),
+a:focus :not(.btn):not(.fas) {
   color: #48a67b;
 }
 
@@ -161,20 +164,20 @@ a:focus {
   background: #ecf0f1;
 }*/
 
-.well > * > .nav > li:not(.active) > a:hover {
+.well>*>.nav>li:not(.active)>a:hover {
   background-color: #dee3e4;
 }
 
-.nav > li > a:hover {
+.nav>li>a:hover {
   background-color: #ecf0f1;
 }
 
-.nav-pills > li.active,
-.nav-pills > li + li {
+.nav-pills>li.active,
+.nav-pills>li+li {
   margin-left: 0px;
 }
 
-.nav-pills > li.active > a {
+.nav-pills>li.active>a {
   border: 1px solid #293e4f;
   font-weight: bold;
 }
@@ -185,9 +188,9 @@ a:focus {
   margin-bottom: 0px;
 }
 
-.dataTables_wrapper {
+/*.dataTables_wrapper {
   overflow: auto;
-}
+}*/
 
 .table {
   margin-bottom: 0px;
@@ -251,16 +254,6 @@ a:focus {
   margin-bottom: 5px;
 }
 
-.total-stns-text {
-  width: 100%;
-  margin: 1em 0;
-  padding: 5px;
-  border: 2px solid grey;
-  border-radius: 5px;
-  text-align: center;
-  font-weight: bold;
-}
-
 .data-tab {
   min-height: 300px;
   margin-top: 1em;
@@ -271,6 +264,10 @@ a:focus {
   flex-wrap: wrap;
   flex-direction: row;
   gap: 10px;
+}
+
+.align-center {
+  align-items: center;
 }
 
 .pie-container {
@@ -320,18 +317,22 @@ a:focus {
   text-align: center;
 }
 
-.plot-export {
+/*.plot-export {
   margin-left: 2em;
   margin-right: 2em;
   font-size: smaller;
-}
+}*/
 
-.report-tbl * > table > thead > tr > th {
+.report-tbl *>table>thead>tr>th {
   vertical-align: middle;
   border-bottom: 2px solid #ecf0f1;
 }
 
-.report-tbl * > table > tbody > tr > td {
+.report-tbl *>table>tbody>tr>td {
+  vertical-align: middle;
+}
+
+.align-middle {
   vertical-align: middle;
 }
 
@@ -344,4 +345,8 @@ a:focus {
   .stn-btns {
     text-align: center;
   }
+}
+
+.monospace {
+  font-family: monospace;
 }

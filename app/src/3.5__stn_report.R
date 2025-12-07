@@ -1,4 +1,4 @@
-## REPORT TAB ##
+##  REPORT TAB  ##
 
 stnReportUI <- function() {
   ns <- NS("report")
@@ -6,13 +6,13 @@ stnReportUI <- function() {
   tagList(
     div(
       class = "data-tab",
-      uiOutput(ns("mainUI")) %>% with_spinner()
+      uiOutput(ns("main_ui")) %>% with_spinner()
     )
   )
 }
 
-
-stnReportServer <- function(cur_stn, has_focus) {
+#' @param main_rv reactive values object from main server session
+stnReportServer <- function(main_rv) {
   moduleServer(
     id = "report",
     function(input, output, session) {
@@ -20,14 +20,22 @@ stnReportServer <- function(cur_stn, has_focus) {
 
       temp_dir <- tempdir()
 
-      # Reactive values ----
+      # Reactive values --------------------------------------------------------
 
-      ## report ----
-      report <- reactiveValues()
+      cur_stn <- reactive({
+        req(main_rv$cur_stn)
+      })
+
+      ## report rv ----
+      # holds data for rendering a report
+      report <- reactiveValues(
+        filename = NULL,
+        stn = NULL,
+        data = NULL
+      )
 
       ## stn_data ----
       stn_data <- reactive({
-        req(cur_stn())
         stn_id <- cur_stn()$station_id
 
         list(
@@ -79,7 +87,7 @@ stnReportServer <- function(cur_stn, has_focus) {
       # UI components ----
 
       ## mainUI ----
-      output$mainUI <- renderUI({
+      output$main_ui <- renderUI({
         tagList(
           h4("Station", cur_stn()$label, align = "center"),
           tags$span(em("Station data summary:")),
@@ -176,9 +184,9 @@ stnReportServer <- function(cur_stn, has_focus) {
             file.copy(temp_out, file)
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
           },
-          error = function(cond) {
+          error = function(e) {
             runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
-            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff with this information and we will get it fixed.';", yr, report$stn$label))
+            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s';", yr, report$stn$label, e$message))
             runjs("document.querySelector('#report-msg-container').style.display = null;")
           }
         )

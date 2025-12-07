@@ -3,14 +3,14 @@
 stationListUI <- function() {
   ns <- NS("station-list")
 
-  createStnPanel <- function(title, btn_id, tbl_id) {
-    accordion_panel(
-      title = title,
-      style = "primary",
-      p(downloadButton(ns(btn_id), "Download this list")),
-      dataTableOutput(ns(tbl_id))
-    )
-  }
+  # createStnPanel <- function(title, btn_id, tbl_id) {
+  #   accordion_panel(
+  #     title = title,
+  #     style = "primary",
+  #     p(downloadButton(ns(btn_id), "Download this list")),
+  #     dataTableOutput(ns(tbl_id))
+  #   )
+  # }
 
   tagList(
     radioButtons(
@@ -35,76 +35,47 @@ stationListUI <- function() {
   )
 }
 
-
-#' requires global data frame 'all_stns'
-#' @param avail_stns list of stations currently shown on the map
-
-stationListServer <- function(stn_list) {
+#' @requires `all_stns`
+#' @param main_rv reactive values object from main server session
+stationListServer <- function(main_rv) {
   moduleServer(
     id = "station-list",
     function(input, output, session) {
       ns <- session$ns
 
-      fmtStns <- function(df) {
-        df %>%
-          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) %>%
-          clean_names(case = "big_camel")
-      }
-
-      # Reactives ----
-
-      ## cur_stns // reactive ----
-      cur_stns <- reactive({
-        req(input$stn_set)
-        set <- input$stn_set
-
-        if (set == "map") {
-          all_stns %>%
-            filter(station_id %in% stn_list()) %>%
-            fmtStns()
-        } else if (set == "baseline") {
-          all_stns %>%
-            filter(baseline_stn) %>%
-            fmtStns()
-        } else if (set == "nutrient") {
-          all_stns %>%
-            filter(nutrient_stn) %>%
-            fmtStns()
-        } else if (set == "therm") {
-          all_stns %>%
-            filter(therm_stn) %>%
-            fmtStns()
-        } else {
-          fmtStns(all_stns)
-        }
+      stn_list <- reactive({
+        req(main_rv$stn_list)
       })
 
-      ## dt_data // reactive ----
+      # Station table ----------------------------------------------------------
+
+      ## cur_stns() ----
+      cur_stns <- reactive({
+        req(input$stn_set)
+
+        stns <- switch(input$stn_set,
+          "map" = all_stns %>% filter(station_id %in% stn_list()),
+          "baseline" = all_stns %>% filter(baseline_stn),
+          "nutrient" = all_stns %>% filter(nutrient_stn),
+          "therm" = all_stns %>% filter(therm_stn),
+          all_stns
+        )
+
+        stns %>%
+          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) %>%
+          clean_names(case = "big_camel")
+      })
+
+      ## dt_data() ----
       dt_data <- reactive({
+        stn_list <- req
         cur_stns() %>%
           mutate(Action = if_else(
             StationId %in% stn_list(),
             sprintf("<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>", StationId),
             ""
-          ) %>% lapply(shiny::HTML), .before = 1)
+          ) %>% lapply(HTML), .before = 1)
       })
-
-      ## filename // reactive ----
-      # sets file name for downloads
-      filename <- reactive({
-        req(input$stn_set)
-        case_match(
-          input$stn_set,
-          "map" ~ "WAV Selected Station List",
-          "baseline" ~ "WAV Baseline Stations",
-          "nutrient" ~ "WAV Nutrient Stations",
-          "therm" ~ "WAV Thermistor Stations",
-          "all" ~ "WAV Station List"
-        )
-      })
-
-
-      # Data table ----
 
       ## stn_tbl // renderDataTable ----
       # handle initial rendering of the data table
@@ -134,14 +105,27 @@ stationListServer <- function(stn_list) {
         )
       )
 
-      ## observe // update data table when source data changes ----
+      ## stn_tbl observer ----
+      # update data table when source data changes
       observe({
         dataTableProxy("stn_tbl") %>%
           replaceData(dt_data(), rownames = F)
       })
 
 
-      # Downloads ----
+      # Download handlers ------------------------------------------------------
+
+      ## filename() ----
+      # sets file name for downloads
+      filename <- reactive({
+        switch(req(input$stn_set),
+          "map" = "WAV Selected Station List",
+          "baseline" = "WAV Baseline Stations",
+          "nutrient" = "WAV Nutrient Stations",
+          "therm" = "WAV Thermistor Stations",
+          "all" = "WAV Station List"
+        )
+      })
 
       ## dl_btns // renderUI ----
       output$dl_btns <- renderUI({
@@ -157,19 +141,18 @@ stationListServer <- function(stn_list) {
         )
       })
 
-
-      ## Download handlers per file type ----
-
+      ## dl_csv handler ----
       output$dl_csv <- downloadHandler(
-        filename = paste0(filename(), ".csv"),
-        content = function(file) {
+        paste0(filename(), ".csv"),
+        function(file) {
           write_csv(cur_stns(), file)
         }
       )
 
+      ## dl_kml handler ----
       output$dl_kml <- downloadHandler(
-        filename = paste0(filename(), ".kml"),
-        content = function(file) {
+        paste0(filename(), ".kml"),
+        function(file) {
           cur_stns() %>%
             mutate(Name = paste(StationId, StationName), .before = 1) %>%
             st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%
@@ -177,9 +160,10 @@ stationListServer <- function(stn_list) {
         }
       )
 
+      ## dl_geojson handler ----
       output$dl_geojson <- downloadHandler(
-        filename = paste0(filename(), ".geojson"),
-        content = function(file) {
+        paste0(filename(), ".geojson"),
+        function(file) {
           cur_stns() %>%
             mutate(Name = paste(StationId, StationName), .before = 1) %>%
             st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%

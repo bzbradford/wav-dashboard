@@ -1,6 +1,4 @@
-##  global.R  ##
-
-# Load Dependencies ----
+##  GLOBAL  ##
 
 library(sf) # spatial
 
@@ -31,7 +29,10 @@ suppressPackageStartupMessages({
 })
 
 
-# Development ----
+# Development ------------------------------------------------------------------
+
+# Reload/reset data
+# source("setup.R")
 
 # renv::status()
 # renv::init()         # initiate renv if not already
@@ -53,9 +54,11 @@ suppressPackageStartupMessages({
 #     # assign(var, st_transform(shape, "+proj=longlat +datum=WGS84 +ellps=WGS84 +no_defs"))
 #   })
 
+# install xelatex
 
-# Definitions ----
+# Definitions ------------------------------------------------------------------
 
+## stn_colors ----
 stn_colors <- list(
   baseline = "green",
   nutrient = "orange",
@@ -63,6 +66,7 @@ stn_colors <- list(
   current = "deepskyblue"
 )
 
+## tab_names ----
 tab_names <- list(
   baseline = "Baseline data",
   nutrient = "Nutrient data",
@@ -72,8 +76,33 @@ tab_names <- list(
   more = "Learn more"
 )
 
+stn_type_choices <- list(
+  "Baseline (stream monitoring)" = "baseline",
+  "Nutrient (total phosphorus)" = "nutrient",
+  "Thermistor (temperature loggers)" = "thermistor"
+)
 
-# Functions ---------------------------------------------------------------
+stn_data_years <- rev(as.character(sort(unique(all_stn_years$year))))
+
+stn_year_choices <- append(
+  setNames(stn_data_years[1:4], stn_data_years[1:4]),
+  setNames(stn_data_years[5], paste0(last(stn_data_years), "-", stn_data_years[5]))
+)
+
+map_color_choices <- list(
+  "Station type" = "type",
+  "Years of data" = "n_years",
+  "Fieldwork events" = "n_fieldwork",
+  "Measured value:" = "measure"
+)
+
+map_measure_choices <- data_opts %>%
+  filter(map_color_menu == TRUE) %>%
+  select(name, col) %>%
+  deframe()
+
+
+# Functions --------------------------------------------------------------------
 
 ## Utility ----
 
@@ -93,7 +122,7 @@ invert <- function(x) {
 # return the first truthy argument
 first_truthy <- function(...) {
   for (arg in list(...)) {
-    if (shiny::isTruthy(arg)) {
+    if (shiny::isTruthy(arg) & length(arg) > 0) {
       return(arg)
     }
   }
@@ -108,8 +137,8 @@ f_to_c <- function(f, d = 1) {
   round((f - 32) * 5.0 / 9.0, d)
 }
 
-clamp <- function(x, lower = x, upper = x) {
-  pmax(lower, pmin(upper, x))
+clamp <- function(x, lower = x, upper = x, na.rm = F) {
+  pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
 }
 
 new_date <- function(y, m, d) {
@@ -117,19 +146,38 @@ new_date <- function(y, m, d) {
 }
 
 
+## UI ----
 
-## HTML / JS ----
+# adds "All" to end of years list
+year_choices <- function(years) {
+  if (length(years) > 1) {
+    c(years, "All")
+  } else {
+    years
+  }
+}
 
 colorize <- function(text, color = tolower(text)) {
-  shiny::HTML(paste0("<span style='font-weight:bold; color:", color, "'>", text, "</span>"))
+  HTML(paste0(
+    "<span style='font-weight:bold; color:",
+    color,
+    "'>",
+    text,
+    "</span>"
+  ))
 }
 
 set_page_url <- function(id) {
   if (!is.null(id)) {
-    url <- sprintf("window.location.origin + window.location.pathname + '?stn=%s'", id)
-    shinyjs::runjs(sprintf("window.history.replaceState(null, null, %s)", url))
+    url <- sprintf(
+      "window.location.origin + window.location.pathname + '?stn=%s'",
+      id
+    )
+    runjs(sprintf("window.history.replaceState(null, null, %s)", url))
   } else {
-    shinyjs::runjs("window.history.replaceState(null, null, window.location.origin + window.location.pathname)")
+    runjs(
+      "window.history.replaceState(null, null, window.location.origin + window.location.pathname)"
+    )
   }
 }
 
@@ -143,253 +191,391 @@ set_page_title <- function(label) {
 }
 
 with_spinner <- function(ui, ...) {
-  ui %>% shinycssloaders::withSpinner(type = 8, color = "#30a67d", ...)
+  shinycssloaders::withSpinner(ui, type = 8, color = "#30a67d", ...)
 }
 
 build_plot_download_btn <- function(id, filename, text = "Download plot") {
   a(
     class = "btn btn-default btn-sm",
     style = "cursor: pointer;",
-    onclick = sprintf("html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})", id, filename),
-    icon("save"), " ", text
+    title = paste0("Save a copy of this plot as '", filename, "'"),
+    onclick = sprintf(
+      "html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})",
+      id,
+      filename
+    ),
+    icon("save"),
+    " ",
+    text
   )
+}
+
+build_notice_ui <- function(content, type = c("ok", "error")) {
+  type <- match.arg(type)
+  class <- paste0("notice notice-", type)
+  renderUI({
+    div(
+      class = class,
+      div(
+        class = "notice-close",
+        "✕",
+        onclick = "document.querySelector('#notice').remove()"
+      ),
+      div(class = "notice-text", content)
+    )
+  })
 }
 
 
 ## Plot helpers ----
 
-# plotly horizontal line annotation
-hline <- function(y = 0, color = "black") {
-  list(
-    type = "line",
-    x0 = 0,
-    x1 = 1,
-    xref = "paper",
-    y0 = y,
-    y1 = y,
-    line = list(color = color, dash = "dash")
-  )
-}
-
-# plotly rectanglular annotation
-rect <- function(ymin, ymax, color = "red") {
-  list(
-    type = "rect",
-    fillcolor = color,
-    line = list(color = color),
-    opacity = 0.1,
-    y0 = ymin,
-    y1 = ymax,
-    xref = "paper",
-    x0 = 0,
-    x1 = 1,
-    layer = "below"
-  )
-}
-
 # get the min and max of a vector for plotly axis ranges
-min_max <- function(v) {
-  possibly(
-    return(c(floor(min(v, na.rm = TRUE)), ceiling(max(v, na.rm = TRUE)))),
-    return(c(NA, NA))
-  )
-}
+# min_max <- function(v) {
+#   possibly(
+#     return(c(floor(min(v, na.rm = TRUE)), ceiling(max(v, na.rm = TRUE)))),
+#     return(c(NA, NA))
+#   )
+# }
 
-# get the color for the dissolved oxygen bars on the baseline plotly
+# get the color for the dissolved oxygen bars on plots
 do_color <- function(do) {
   i <- min(max(round(do), 1), 11)
   RColorBrewer::brewer.pal(11, "RdBu")[i]
 }
 
-find_max <- function(vals, min_val) {
-  vals <- na.omit(vals)
-  if (length(vals) == 0) {
-    return(min_val)
+
+# Baseline data ----------------------------------------------------------------
+
+get_baseline_param_choices <- function(df) {
+  opts <- data_opts
+
+  df %>%
+    pivot_longer(any_of(opts$col), names_to = "col") %>%
+    summarize(n = sum(!is.na(value)), .by = col) %>%
+    filter(n > 0) %>%
+    left_join(opts, join_by(col)) %>%
+    select(name, col) %>%
+    deframe()
+}
+
+# identify min and max values and returns the dates for each
+stn_summary_min_max <- function(df, var) {
+  v <- df[[var]]
+  if (length(v) == 0) {
+    return(tibble())
   }
-  # ceiling(max(min_val, max(vals)) * 1.1)
-  max(min_val, max(vals)) * 1.1
+  tibble(
+    observations = length(na.omit(v)),
+    min = df[which.min(v), ][[var]],
+    mean = round(mean(df[[var]], na.rm = TRUE), 1),
+    max = df[which.max(v), ][[var]],
+    date_of_min = df[which.min(v), ]$date,
+    date_of_max = df[which.max(v), ]$date
+  )
 }
 
-# used for x axis in plots
-set_report_date_range <- function(dates, pad_right = FALSE) {
-  yr <- format(dates[1], "%Y")
-  default_range <- as.Date(paste0(yr, c("-05-1", "-10-1")))
-  lims <- c(
-    min(dates - 10, default_range[1]),
-    max(dates + 10, default_range[2])
-  )
-  if (pad_right) lims[2] <- lims[2] + 30
-  lims
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    stn_summary_min_max("water_temp")
 }
 
-set_axis_limits <- function(vals, lower, upper) {
-  lims <- c(
-    min(vals, lower, na.rm = TRUE),
-    max(vals, upper, na.rm = TRUE)
-  )
-  lims + abs(lims) * c(-.1, .1)
+# creates the summary table for the baseline tab
+build_baseline_summary <- function(df) {
+  date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
+  data_opts %>%
+    filter(source == "baseline") %>%
+    select(col, name, units) %>%
+    rowwise() %>%
+    reframe(pick(everything()), stn_summary_min_max(df, col)) %>%
+    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) %>%
+    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) %>%
+    select(-c(col, units)) %>%
+    clean_names("title")
 }
 
-add_rect_date <- function(ymin, ymax, color) {
-  gg <- annotate("rect",
-    xmin = as.Date(-Inf), xmax = as.Date(Inf),
-    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
-  )
-  if (!is.infinite(ymax)) {
-    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_baseline_summary()
+}
+
+
+# for baseline and nutrient data downloads
+build_formatted_data <- function(df, transpose = TRUE) {
+  df <- df %>%
+    arrange(date) %>%
+    clean_names(
+      case = "title",
+      abbreviations = c("ID", "WBIC", "DO", "pH", "TP"),
+      replace = c("d_o" = "DO", "tp" = "Total Phosphorus")
+    )
+
+  if (transpose) {
+    df <- df %>%
+      mutate(label = format(Date, "%b %d, %Y")) %>%
+      mutate(obs_per_date = n(), .by = Date) %>%
+      mutate(label = if_else(
+        obs_per_date > 1,
+        paste0(label, " (", row_number(), ")"),
+        label
+      )) %>%
+      select(-obs_per_date) %>%
+      mutate(across(everything(), as.character)) %>%
+      pivot_longer(cols = -label, names_to = "Parameter") %>%
+      pivot_wider(names_from = label)
   }
-  gg
+
+  df
 }
 
-add_rect_datetime <- function(ymin, ymax, color) {
-  gg <- annotate("rect",
-    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
-    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
-  )
-  if (!is.infinite(ymax)) {
-    gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
-  }
-  gg
+if (F) {
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = FALSE)
+
+  baseline_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = TRUE)
+
+  nutrient_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = TRUE)
+
+  nutrient_data %>%
+    slice_sample(n = 1, by = station_id) %>%
+    build_formatted_data(transpose = FALSE)
+
+  baseline_data %>%
+    filter(station_id == 10030403) %>%
+    build_formatted_data(transpose = TRUE)
 }
 
 
-## Server ----
+# data structure for plotly background annotation rectangles
+PlotAnnotOpts <- function(
+  values = numeric(),
+  labels = character(),
+  colors = character()
+) {
+  stopifnot(is.numeric(values), length(values) > 0)
+  stopifnot(is.character(labels), length(labels) == length(values))
+  stopifnot(is.character(labels), length(colors) == length(values) + 1)
 
-# adds "All" to end of years list
-year_choices <- function(years) {
-  if (length(years) > 1) {
-    c(years, "All")
-  } else {
-    years
-  }
+  lst(values, labels, colors)
 }
 
-
-
-# Settings ----------------------------------------------------------------
-
-OPTS <- lst(
-
-  ## Baseline tab ----
-  baseline_plot_type_choices = list(
-    "Annual" = "annual",
-    "Long-term" = "trend"
+## baseline_plot_annot ----
+baseline_plot_annot <- lst(
+  water_temp = PlotAnnotOpts(
+    values = c(20.7, 22.5, 24.6),
+    labels = c(
+      "Cold/Cool-cold transition",
+      "Cool-cold/Cool-warm transition",
+      "Cool-warm/Warm transition"
+    ),
+    colors = c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
   ),
-  baseline_trend_type_choices = list(
-    "None" = "scatter",
-    "Month" = "month",
-    "Year" = "year"
-  ),
-  baseline_plot_opts = tribble(
-    ~col, ~name, ~unit, ~range_min, ~range_max, ~color,
-    "water_temp", "Water temperature", "°C", 5, 25, "steelblue",
-    "air_temp", "Air temperature", "°C", 5, 35, "orange",
-    "d_o", "Dissolved oxygen", "mg/L", 2, 14, "navy",
-    "transparency", "Transparency", "cm", 0, 120, "brown",
-    "streamflow", "Streamflow", "cfs", 0, 10, "#48a67b",
-    "ph", "pH", "pH", 6, 9, "orchid",
-    "specific_cond", "Conductivity", "µS/cm", 100, 1000, "pink",
-  ) %>% mutate(label = sprintf("%s (%s)", name, unit)),
-
-  #' each option should have a value list and color list.
-  #' the value list will be expanded with the plot limits on either side
-  baseline_trend_annot = list(
-    water_temp = list(
-      values = c(20.7, 22.5, 24.6),
-      labels = c("Cold/Cool-cold transition", "Cool-cold/Cool-warm transition", "Cool-warm/Warm transition"),
-      colors = c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
+  air_temp = PlotAnnotOpts(
+    values = c(0, 10, 20, 30),
+    labels = c(
+      "Freezing weather",
+      "Cold weather",
+      "Moderate weather",
+      "Warm weather"
     ),
-    air_temp = list(
-      values = c(0, 10, 20, 30),
-      labels = c("Freezing weather", "Cold weather", "Moderate weather", "Warm weather"),
-      colors = c("blue", "steelblue", "cornflowerblue", "lightsteelblue", "darkorange")
-    ),
-    d_o = list(
-      values = c(1, 3, 5, 6, 7),
-      labels = c(
-        "Aquatic life minimum\n(1 mg/L) ",
-        "Limited forage fish\n(>3 mg/L) ",
-        "Warmwater fish\n(>5 mg/L) ",
-        "Coldwater fish\n(>6 mg/L) ",
-        "Coldwater spawning\n(>7 mg/L) "
-      ),
-      colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
-    ),
-    transparency = list(
-      values = c(55, 90, 120),
-      labels = c("Low transparency", "Moderate transparency", "High transparency"),
-      colors = c("khaki", "lightgreen", "lightblue", "lightblue")
-    ),
-    streamflow = list(
-      values = c(.03, 3, 150),
-      labels = c(
-        "Headwater stream (0.03-3 cfs)\nEphemeral stream (< 0.03 cfs)",
-        "Mainstem stream (3-150 cfs)\nHeadwater stream (0.03-3 cfs)",
-        "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)"
-      ),
-      colors = c("#915119", "#e3c283", "#73cdc1", "#09968e")
-    ),
-    ph = list(
-      values = c(6, 7.5, 9),
-      labels = c(
-        "Minimum water quality\nstandard (pH 6.0) ",
-        "Optimal for fish\n(pH 7.5) ",
-        "Maximum water quality\nstandard (pH 9.0) "
-      ),
-      colors = c("orange", "lightgreen", "lightgreen", "purple")
-    ),
-    specific_cond = list(
-      values = c(150, 800, 1500),
-      labels = c("Low conductivity (<150 µs/cm)", "Normal conductivity (150-800 µs/cm)", "High conductivity (800-1500 µs/cm)", "Very high conductivity (>1500 µs/cm)"),
-      colors = c("steelblue", "lightblue", "pink", "orchid")
+    colors = c(
+      "blue",
+      "steelblue",
+      "cornflowerblue",
+      "lightsteelblue",
+      "darkorange"
     )
   ),
-  baseline_trend_captions = list(
-    "scatter" = "All observations for the selected parameter are shown above.",
-    "month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points.",
-    "year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points."
-  ) %>% lapply(function(txt) paste(txt, " Interpretive ranges are illustrated to contextualize the observations.")),
-  baseline_summary_vars = tribble(
-    ~var, ~parameter, ~units,
-    "d_o", "Dissolved oxygen", "mg/L",
-    "water_temp", "Water temperature", "°C",
-    "air_temp", "Air temperature", "°C",
-    "transparency", "Transparency", "cm",
-    "streamflow", "Stream flow", "cfs",
-    "average_stream_depth", "Stream depth", "ft",
-  ) %>% rowwise()
+  d_o = PlotAnnotOpts(
+    values = c(1, 3, 5, 6, 7),
+    labels = c(
+      "Aquatic life minimum\n(1 mg/L) ",
+      "Limited forage fish\n(>3 mg/L) ",
+      "Warmwater fish\n(>5 mg/L) ",
+      "Coldwater fish\n(>6 mg/L) ",
+      "Coldwater spawning\n(>7 mg/L) "
+    ),
+    colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
+  ),
+  transparency = PlotAnnotOpts(
+    values = c(55, 90, 120),
+    labels = c(
+      "Low transparency",
+      "Moderate transparency",
+      "High transparency"
+    ),
+    colors = c("khaki", "lightgreen", "lightblue", "lightblue")
+  ),
+  ph = PlotAnnotOpts(
+    values = c(6, 7.5, 9),
+    labels = c(
+      "Minimum water quality\nstandard (pH 6.0) ",
+      "Optimal for fish\n(pH 7.5) ",
+      "Maximum water quality\nstandard (pH 9.0) "
+    ),
+    colors = c("orange", "lightgreen", "lightgreen", "purple")
+  ),
+  specific_cond = PlotAnnotOpts(
+    values = c(150, 800, 1500, Inf),
+    labels = c(
+      "Low conductivity (<150 µs/cm)",
+      "Normal conductivity (150-800 µs/cm)",
+      "High conductivity (800-1500 µs/cm)",
+      "Very high conductivity (>1500 µs/cm)"
+    ),
+    colors = c("steelblue", "lightblue", "pink", "orchid", "purple")
+  ),
+  streamflow = PlotAnnotOpts(
+    values = c(.03, 3, 150),
+    labels = c(
+      "Headwater stream (0.03-3 cfs)\nEphemeral stream (< 0.03 cfs)",
+      "Mainstem stream (3-150 cfs)\nHeadwater stream (0.03-3 cfs)",
+      "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)"
+    ),
+    colors = c("#915119", "#e3c283", "#73cdc1", "#09968e")
+  ),
+  biotic_index_score = PlotAnnotOpts(
+    values = c(2, 2.5, 3.5),
+    labels = c(
+      "Poor (1-2) ",
+      "Fair (2-2.5)",
+      "Good (2.5-3.5) "
+    ),
+    colors = c("red", "orange", "green", "green")
+  ),
 )
 
 
-# Source remaining files in /R ----
 
-source_dir <- function(path) {
-  files <- list.files(path, pattern = "\\.[Rr]$", full.names = TRUE)
-  for (file in files) {
-    source(file)
+# baseline_data %>%
+#   slice_sample(n = 1, by = station_id) %>%
+#   get_baseline_param_choices()
+
+
+
+
+# Nutrient tab -----------------------------------------------------------------
+
+phoslimit <- 0.075 # mg/L or ppm
+
+#' @param vals vector of phosphorus readings
+get_phos_estimate <- function(vals) {
+  suppressWarnings({
+    vals <- na.omit(vals)
+    n <- length(vals)
+    log_vals <- log(vals + .001)
+    log_mean <- mean(log_vals)
+    se <- sd(log_vals) / sqrt(n)
+    tval <- qt(p = 0.80, df = n - 1)
+  })
+  params <- list(
+    mean = log_mean,
+    median = median(log_vals),
+    lower = log_mean - tval * se,
+    upper = log_mean + tval * se
+  ) %>%
+    lapply(exp) %>%
+    lapply(signif, 3)
+  params$n <- n
+  params$limit <- phoslimit
+  params
+}
+
+#' @param vals
+#'   `n` number of observations
+#'   `median` median value
+#'   `lower` lower confidence limit
+#'   `upper` upper confidence limit
+#' @param limit state phosphorus exceedance limit
+get_phos_exceedance_text <- function(vals, limit = phoslimit) {
+  median <- vals$median
+  lower <- vals$lower
+  upper <- vals$upper
+
+  msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
+  if (anyNA(c(median, lower, upper))) {
+    return(msg)
+  }
+
+  msg <- case_when(
+    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
+    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
+    .default = msg
+  )
+
+  if (vals$n < 6) {
+    msg <- paste(msg, "However, less than the required 6 monthly measurements were taken at this station.")
   }
 }
 
-source_dir("R/components")
-source_dir("R/modules")
 
-# source("R/components/fn_makeBaselinePlot.R")
-# source("R/components/fn_makeBaselineRibbonPlot.R")
-# source("R/components/fn_makeBaselineTrendPlot.R")
-# source("R/components/fn_makeLandscapeDiffPlot.R")
-# source("R/components/fn_makeLandscapePieChart.R")
-# source("R/components/fn_makeNutrientPlot.R")
-# source("R/components/fn_makeReportMap.R")
-# source("R/components/fn_makeReportPlots.R")
-# source("R/components/fn_makeThermistorPlot.R")
+# Thermistor tab ----------------------------------------------------------
 
-# source("R/modules/1.1__map.R")
-# source("R/modules/2.1__recent_stations.R")
-# source("R/modules/2.2__station_info.R")
-# source("R/modules/2.3__station_list.R")
-# source("R/modules/3.1__baseline_data.R")
-# source("R/modules/3.2__nutrient_data.R")
-# source("R/modules/3.3__thermistor_data.R")
-# source("R/modules/3.4__watershed_info.R")
-# source("R/modules/3.5__stn_report.R")
-# source("R/modules/3.6__learn_more.R")
+build_therm_daily <- function(df, units, stn) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  df %>%
+    group_by(date) %>%
+    summarise(
+      hours = n(),
+      min = min(!!sym(temp_col)),
+      max = max(!!sym(temp_col)),
+      mean = round(mean(!!sym(temp_col)), 2),
+      units = units,
+      lat = latitude[1],
+      long = longitude[1]
+    ) %>%
+    mutate(
+      station_id = stn$station_id,
+      station_name = stn$station_name,
+      .before = lat
+    )
+}
+
+build_therm_summary <- function(df, units) {
+  temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
+
+  daily <- df %>%
+    mutate(temp = !!sym(temp_col)) %>%
+    drop_na(temp) %>%
+    arrange(date) %>%
+    summarize(temp = mean(temp), .by = c(date, month))
+
+  monthly <- daily %>%
+    mutate(name = fct_inorder(format(date, "%B"))) %>%
+    summarize(
+      days = n_distinct(date),
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1),
+      .by = c(month, name)
+    ) %>%
+    clean_names("title")
+
+  total <- daily %>%
+    summarize(
+      name = "Total",
+      days = n_distinct(date),
+      min = round(min(temp), 1),
+      mean = round(mean(temp), 1),
+      max = round(max(temp), 1)
+    ) %>%
+    clean_names("title")
+
+  bind_rows(monthly, total)
+}
+
+
+# Source files in /R ----
+
+for (file in list.files("src", pattern = "\\.[Rr]$", full.names = TRUE)) {
+  source(file)
+}

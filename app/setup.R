@@ -1,16 +1,15 @@
-## WAV DASHBOARD ##
-# Ben Bradford, UW-Madison
-# Requires data prep in separate RProj
-# Source this file to prepare .RData for deployment
+## SETUP ##
+
+# resets Rdata and generates variables for the app that take a little time to compute
 
 
 # Load packages ----
 
 library(tidyverse)
-library(lubridate)
 library(janitor)
-library(sf)
 library(shiny)
+library(sf)
+
 
 
 # Clear environment ----
@@ -23,11 +22,11 @@ gc() # garbage collect
 
 ## Used here only ----
 
-create_popups <- function(.data) {
+create_popups <- function(df) {
   title <- "<div class=popup-title>Monitoring Station Details</div>"
-  cols <- names(.data)
-  lapply(seq_len(nrow(.data)), function(r) {
-    row <- .data[r, ]
+  cols <- names(df)
+  lapply(seq_len(nrow(df)), function(r) {
+    row <- slice(df, r)
     details <-
       lapply(seq_along(cols), function(c) {
         paste0("<b>", cols[c], ":</b> ", row[c])
@@ -66,229 +65,10 @@ check_missing_stns <- function(data, pts, type) {
 }
 
 
-
-## Nutrient tab ----
-
-phoslimit <- 0.075 # mg/L or ppm
-
-#' @param vals vector of phosphorus readings
-getPhosEstimate <- function(vals) {
-  suppressWarnings({
-    vals <- na.omit(vals)
-    n <- length(vals)
-    log_vals <- log(vals + .001)
-    log_mean <- mean(log_vals)
-    se <- sd(log_vals) / sqrt(n)
-    tval <- qt(p = 0.80, df = n - 1)
-  })
-  params <- list(
-    mean = log_mean,
-    median = median(log_vals),
-    lower = log_mean - tval * se,
-    upper = log_mean + tval * se
-  ) %>%
-    lapply(exp) %>%
-    lapply(signif, 3)
-  params$n <- n
-  params$limit <- phoslimit
-  params
-}
-
-#' @param vals
-#'   `n` number of observations
-#'   `median` median value
-#'   `lower` lower confidence limit
-#'   `upper` upper confidence limit
-#' @param limit state phosphorus exceedance limit
-getPhosExceedanceText <- function(vals, limit = phoslimit) {
-  median <- vals$median
-  lower <- vals$lower
-  upper <- vals$upper
-
-  msg <- "Insufficient data to determine phosphorus exceedance language based on the data shown above."
-  if (anyNA(c(median, lower, upper))) {
-    return(msg)
-  }
-
-  msg <- case_when(
-    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
-    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
-    .default = msg
-  )
-  msg <- paste(msg, ifelse(vals$n < 6, "However, less than the required 6 monthly measurements were taken at this station.", ""))
-}
-
-
-## Reports ----
-
-# baseline temperature data normally stored in C, must be converted to F
-report_baseline_cols <- c(
-  `Air temp (°C)` = "air_temp",
-  `Water temp (°C)` = "water_temp",
-  `DO (mg/L)` = "d_o",
-  `DO (% sat.)` = "d_o_percent_saturation",
-  `pH` = "ph",
-  `Specific conductance (μS/cm)` = "specific_cond",
-  `Transparency (cm)` = "transparency",
-  `Streamflow (cfs)` = "streamflow"
-)
-
-# will be excluded if all NA
-report_baseline_optional_cols <- c("ph", "specific_cond")
-
-# will be included if any streamflow cfs data
-report_streamflow_cols <- c(
-  `Stream width (ft)` = "stream_width",
-  `Average depth (ft)` = "average_stream_depth",
-  `Surface velocity (ft/s)` = "average_surface_velocity"
-)
-
-# creates a paragraph of text describing the data
-buildReportSummary <- function(params) {
-  yr <- params$year
-  data <- params$data
-
-  counts <- list(
-    baseline = nrow(data$baseline),
-    nutrient = sum(!is.na(data$nutrient$tp)),
-    thermistor = n_distinct(data$thermistor$date)
-  )
-
-  baseline_count_cols <- c(
-    air_temp = "air temperature",
-    water_temp = "water temperature",
-    d_o = "dissolved oxygen",
-    ph = "ph",
-    specific_cond = "specific conductivity",
-    transparency = "water transparency",
-    streamflow = "streamflow"
-  )
-
-  for (var in names(baseline_count_cols)) {
-    counts[[var]] <- sum(!is.na(data$baseline[[var]]))
-  }
-
-  has <- sapply(counts, function(n) {
-    n > 0
-  }, simplify = F)
-
-  # generate summary paragraph
-  base_counts <- tribble(
-    ~count, ~text,
-    counts$baseline, "baseline water quality measurements",
-    counts$nutrient, "total phosphorus samples",
-    counts$thermistor, "days of continuous water temperature logging"
-  ) %>%
-    filter(count > 0) %>%
-    mutate(text = paste(count, text)) %>%
-    pull(text) %>%
-    combine_words()
-
-  msg <- str_glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
-
-  if (has$baseline) {
-    baseline_counts <- data$baseline %>%
-      select(all_of(names(baseline_count_cols))) %>%
-      pivot_longer(everything()) %>%
-      summarize(count = sum(!is.na(value)), .by = name) %>%
-      filter(count != 0) %>%
-      left_join(enframe(baseline_count_cols), join_by(name)) %>%
-      summarize(text = combine_words(value), .by = count) %>%
-      arrange(desc(count)) %>%
-      mutate(text = paste(count, text, if_else(count == 1, "measurement", "measurements"))) %>%
-      pull(text) %>%
-      combine_words()
-    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report downloaded on ", format(Sys.Date(), "%b %d, %Y"), ".")
-  }
-
-  list(counts = counts, has = has, message = msg)
-}
-
-# min/max etc for data cols
-summarizeReportCols <- function(df, cols) {
-  df %>%
-    rename(all_of(cols)) %>%
-    pivot_longer(all_of(names(cols)), names_to = "Parameter") %>%
-    mutate(Parameter = factor(Parameter, levels = names(cols))) %>%
-    drop_na(value) %>%
-    summarize(
-      across(value, list(
-        N = ~ n(),
-        Min = min,
-        Max = max,
-        Median = median,
-        Mean = mean,
-        SD = sd
-      ), .names = "{.fn}"),
-      .by = Parameter
-    ) %>%
-    mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    mutate(across(Min:SD, ~ if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
-}
-
-# summary table
-makeReportBaselineTable <- function(baseline) {
-  df <- baseline
-  for (col in report_baseline_optional_cols) {
-    if (all(is.na(df[[col]]))) df[[col]] <- NULL
-  }
-  df <- df %>% select(`Date` = formatted_date, any_of(report_baseline_cols))
-  names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
-  df
-}
-
-# summary table
-makeReportStreamflowTable <- function(baseline) {
-  baseline %>%
-    mutate(across(flow_method_used, ~ gsub(" Method", "", .x))) %>%
-    select(
-      `Date` = formatted_date,
-      all_of(report_streamflow_cols),
-      `Streamflow (cfs)` = streamflow,
-      `Flow method` = flow_method_used
-    )
-}
-
-# creates some paragraphs with fieldwork details for the report
-buildReportFieldworkComments <- function(baseline) {
-  baseline %>%
-    select(
-      date,
-      fsn = fieldwork_seq_no,
-      names = group_desc,
-      wx = weather_conditions,
-      rec_wx = weather_last_2_days,
-      com1 = fieldwork_comments,
-      com2 = additional_comments
-    ) %>%
-    mutate(across(where(is.character), xtable::sanitize)) %>%
-    rowwise() %>%
-    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
-    mutate(fieldwork_desc = str_glue(
-      "* **{format(date, '%b %d, %Y')}** - ",
-      "SWIMS fieldwork number: {fsn}. ",
-      if_else(is.na(wx), "", " Weather: {wx}."),
-      if_else(is.na(rec_wx), "", " Weather past 2 days: {rec_wx}."),
-      if_else(nchar(comments) == 0, "", " Fieldwork comments: {comments}."),
-      if_else(is.na(names), "", " Submitted by: {names}.")
-    )) %>%
-    pull(fieldwork_desc) %>%
-    gsub("..", ".", ., fixed = T)
-}
-
-
-
 # Load data ---------------------------------------------------------------
 
 data_dir <- function(f) {
   file.path("../data", f)
-}
-
-shp_dir <- function(f) {
-  file.path(data_dir("shp"), f)
 }
 
 
@@ -305,38 +85,43 @@ fmt_area <- function(area) {
   )
 }
 
-counties <- readRDS(shp_dir("counties.rds")) %>%
+wi_counties <- data_dir("shp/counties.rds") %>%
+  read_rds() %>%
   st_make_valid()
-waterbodies <- readRDS(shp_dir("waterbodies.rds")) %>%
-  st_make_valid()
-nkes <- readRDS(shp_dir("nkes.rds")) %>%
+wi_state <- st_union(wi_counties)
+waterbodies <- data_dir("shp/waterbodies.rds") %>%
+  read_rds()
+flowlines <- data_dir("shp/flowlines.rds") %>%
+  read_rds()
+nkes <- data_dir("shp/nkes.rds") %>%
+read_rds() %>%
   mutate(Label = paste0(
     "<b>", PlanName, "</b>",
     "<br>Ends: ", EndDate,
     "<br>Objective: ", Objective
-  )) %>%
-  st_make_valid()
-huc8 <- readRDS(shp_dir("huc8.rds")) %>%
+  ))
+huc8 <- data_dir("shp/huc8.rds") %>%
+  read_rds() %>%
   mutate(Label = paste0(
     "<b>", Huc8Name, " Subbasin</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC8 Code: ", Huc8Code,
     "<br>HUC6 basin: ", MajorBasin
-  )) %>%
-  st_make_valid()
-huc10 <- readRDS(shp_dir("huc10.rds")) %>%
+  ))
+huc10 <- data_dir("shp/huc10.rds") %>%
+  read_rds() %>%
   mutate(Label = paste0(
     "<b>", Huc10Name, " Watershed</b>",
     "<br>Area: ", fmt_area(Area),
     "<br>HUC10 Code: ", Huc10Code,
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
-  )) %>%
-  st_make_valid()
+  ))
 suppressWarnings({
   huc10_centroids <- st_centroid(huc10)
 })
-huc12 <- readRDS(shp_dir("huc12.rds")) %>%
+huc12 <- data_dir("shp/huc12.rds") %>%
+  read_rds() %>%
   mutate(Label = paste0(
     "<b>", Huc12Name, " Subwatershed</b>",
     "<br>Area: ", fmt_area(Area),
@@ -344,27 +129,35 @@ huc12 <- readRDS(shp_dir("huc12.rds")) %>%
     "<br>HUC10 watershed: ", Huc10Name,
     "<br>HUC8 subbasin: ", Huc8Name,
     "<br>HUC6 basin: ", MajorBasin
-  )) %>%
-  st_make_valid()
+  ))
 
 
 ## Station lists ----
 
-station_list <- readRDS(data_dir("station-list.rds"))
+station_list <- read_csv(data_dir("stn_list.csv"))
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
-station_types <- list(
-  "Baseline (stream monitoring)" = "baseline",
-  "Nutrient (total phosphorus)" = "nutrient",
-  "Thermistor (temperature loggers)" = "thermistor"
-)
 
 
 ## Baseline data ----
 
-baseline_data <- readRDS(data_dir("baseline-data.rds")) %>%
+# adds a column right after `col` with the units in it
+add_units <- function(.data, col, units) {
+  mutate(.data, "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units), .after = {{ col }})
+}
+
+baseline_data <- read_csv(data_dir("baseline_data.csv")) %>%
   arrange(station_id, date) %>%
-  rename(fieldwork_seq_no = fsn)
+  rename(fieldwork_seq_no = fsn) %>%
+  add_units("water_temp", "C") %>%
+  add_units("air_temp", "C") %>%
+  add_units("d_o", "mg/L") %>%
+  add_units("transparency", "cm") %>%
+  add_units("stream_width", "ft") %>%
+  add_units("average_stream_depth", "ft") %>%
+  add_units("average_surface_velocity", "ft/s") %>%
+  add_units("streamflow", "cfs")
+
 baseline_coverage <- get_coverage(baseline_data)
 baseline_stn_years <- baseline_data %>% distinct(station_id, year)
 baseline_years <- unique(baseline_stn_years$year)
@@ -377,9 +170,15 @@ baseline_pts <- station_pts %>%
 check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 
+## Macroinvertebrates ----
+
+macro_params <- read_csv(data_dir("macro_parameters.csv"))
+macro_species_counts <- read_csv(data_dir("macro_species_counts.csv"))
+
+
 ## Nutrient data ----
 
-nutrient_data <- readRDS(data_dir("tp-data.rds")) %>%
+nutrient_data <- read_csv(data_dir("tp_data.csv")) %>%
   rename(fieldwork_seq_no = fsn) %>%
   arrange(station_id, date)
 nutrient_coverage <- get_coverage(nutrient_data)
@@ -395,8 +194,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 ## Thermistor data ----
 
-therm_data <- readRDS(data_dir("therm-data.rds"))
-therm_info <- readRDS(data_dir("therm-inventory.rds"))
+therm_data <- read_csv(data_dir("therm_data.csv.gz"))
+therm_info <- read_csv(data_dir("therm_inventory.csv"))
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -462,12 +261,6 @@ all_stn_years <- bind_rows(
     therm_stn = station_id %in% therm_pts$station_id,
     nutrient_stn = station_id %in% nutrient_pts$station_id
   )
-
-data_years <- rev(as.character(sort(unique(all_stn_years$year))))
-stn_year_choices <- append(
-  setNames(data_years[1:4], data_years[1:4]),
-  setNames(data_years[5], paste0(last(data_years), "-", data_years[5]))
-)
 
 baseline_tallies <- baseline_data %>%
   count(station_id, year, name = "baseline") %>%
@@ -544,18 +337,15 @@ all_stn_list <- all_pts %>%
 #' color map by
 #' n years
 #' n fieldwork
-#' max water_temp
-#' mean d_o
-#' mean transparency
-#' mean streamflow
+#' baseline and nutrient params
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
     summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
   nutrient_data %>%
-    summarize(n_fieldwork = n(), .by = c(station_id, year)),
+    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
   therm_data %>%
-    summarize(n_fieldwork = 1, .by = c(station_id, year))
+    summarize(n_fieldwork = 2, .by = c(station_id, year))
 ) %>%
   summarize(
     n_years = n_distinct(year),
@@ -563,59 +353,42 @@ stn_fieldwork_counts <- bind_rows(
     .by = station_id
   )
 
-# baseline means from 10 most recent fieldwork events
-baseline_means <- baseline_data %>%
-  slice_max(date, n = 10, by = station_id) %>%
-  summarize(
-    water_temp = mean(water_temp, na.rm = T),
-    d_o = mean(d_o, na.rm = T),
-    transparency = mean(transparency, na.rm = T),
-    streamflow = mean(streamflow, na.rm = T),
-    .by = station_id
+# names, plot, and map settings for baseline and nutrient data
+data_opts <- read_csv("column_options.csv") %>%
+  mutate(label = if_else(is.na(units), name, str_glue("{name} ({units})")), .after = name) %>%
+  replace_na(list(units = ""))
+
+stn_measure_stats <- bind_rows(
+    baseline_data %>%
+      pivot_longer(
+        cols = any_of(data_opts$col),
+        names_to = "measure"
+      ) %>%
+      select(station_id, date, measure, value),
+    nutrient_data %>%
+      pivot_longer(tp, names_to = "measure") %>%
+      select(station_id, date, measure, value)
   ) %>%
-  {
-    df <- .
-    df[sapply(df, is.infinite)] <- NA
-    df[sapply(df, is.nan)] <- NA
-    df
-  } %>%
-  mutate(across(water_temp:streamflow, ~ signif(.x, 3)))
+  drop_na(value) %>%
+  summarize(
+    n = n(),
+    across(value, c(mean = mean, median = median, min = min, max = max), .names = "{.fn}"),
+    .by = c(station_id, measure)
+  )
 
-# from 12 most recent months
-nutrient_means <- nutrient_data %>%
-  drop_na(tp) %>%
-  slice_max(date, n = 12, by = station_id) %>%
-  summarize(tp = signif(mean(tp, na.rm = T), 3), .by = station_id)
-
-stn_attr_totals <- stn_fieldwork_counts %>%
-  left_join(baseline_means, join_by(station_id)) %>%
-  left_join(nutrient_means, join_by(station_id)) %>%
-  mutate(station_id = as.numeric(station_id))
-
-# summary(stn_attr_totals)
-
-stn_color_opts <- tribble(
-  ~label, ~value, ~domain, ~rev, ~pal,
-  "Years of data", "n_years", c(0, 10), F, "viridis",
-  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
-  "Mean water temp (°C)", "water_temp", c(5, 25), T, "RdYlBu",
-  "Mean dissolved oxygen (mg/L)", "d_o", c(3, 12), F, "RdYlBu",
-  "Mean transparency (cm)", "transparency", c(0, 120), F, "BrBG",
-  "Mean streamflow (cfs)", "streamflow", c(0, 50), T, "RdBu",
-  "Mean phosphorus (mg/L)", "tp", c(0, .25), T, "Spectral",
-)
-
-stn_color_choices <- append(
-  list("Station type" = "stn_type"),
-  deframe(stn_color_opts[, 1:2])
-)
+map_color_data <- stn_fieldwork_counts %>%
+  left_join({
+    stn_measure_stats %>%
+      select(station_id, measure, mean) %>%
+      pivot_wider(names_from = measure, values_from = mean)
+  })
 
 
 # Landscape data ----
 
-landcover_classes <- readRDS(data_dir("nlcd-classes.rds"))
-landscape_data <- readRDS(data_dir("nlcd-landcover.rds")) %>%
-  left_join(landcover_classes, join_by(class)) %>%
+landcover_classes <- read_csv(data_dir("nlcd_classes.csv"))
+landscape_data <- read_csv(data_dir("nlcd_landcover.csv")) %>%
+  left_join(landcover_classes) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")
 

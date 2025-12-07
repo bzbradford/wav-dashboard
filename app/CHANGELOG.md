@@ -1,11 +1,15 @@
-**Nov 2025**
+**Dec 2025**
 
-- Add data through Nov.
+- Add macroinvertebrate data and plot
+- Update plot arrangement and interface on baseline tab
+- Improve data downloads
+- Refactor underlying code
+- Bug fixes
 
 **Aug 2025**
 
 - Add 2025 data through early August.
-- Migrate to bslib and bootstrap 5 styles and make theme adjustments
+- Migrate to bslib and bootstrap 5 styles and make theme adjustments.
 
 **Jan 2025**
 
