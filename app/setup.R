@@ -138,7 +138,6 @@ station_list <- read_csv(data_dir("stn_list.csv"))
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 
-
 ## Baseline data ----
 
 # adds a column right after `col` with the units in it
@@ -172,15 +171,31 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 ## Macroinvertebrates ----
 
-macro_params <- read_csv(data_dir("macro_parameters.csv"))
-macro_species_counts <- read_csv(data_dir("macro_species_counts.csv"))
+macro_params <- read_csv(data_dir("macro_parameters.csv")) %>%
+  drop_na(group) %>%
+  rename(species_name = dnr_parameter_description)
+
+macro_species <- macro_params$species_name
+
+# 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
+macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
+
+macro_species_counts <- read_csv(data_dir("macro_species_counts.csv")) %>%
+  mutate(
+    species_name = factor(species_name, levels = macro_species),
+    group = factor(group, levels = macro_groups)
+  ) %>%
+  arrange(datetime, species_name)
 
 
 ## Nutrient data ----
 
+phoslimit <- 0.075 # mg/L or ppm
+
 nutrient_data <- read_csv(data_dir("tp_data.csv")) %>%
   rename(fieldwork_seq_no = fsn) %>%
-  arrange(station_id, date)
+  arrange(station_id, date) %>%
+  mutate(exceeds_limit = tp > phoslimit, .after = tp)
 nutrient_coverage <- get_coverage(nutrient_data)
 nutrient_stn_years <- nutrient_data %>% distinct(station_id, year)
 nutrient_years <- unique(nutrient_stn_years$year)

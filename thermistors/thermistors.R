@@ -441,6 +441,11 @@ therm_inventory <- read_csv("combined-hobo-inventory.csv") %>%
       select(station_id, station_name, latitude, longitude)
   })
 
+# should be no duplicates
+therm_inventory %>%
+  filter(n() > 2, .by = c(year, logger_sn))
+
+
 
 #' File format expectations:
 #' - Row 1 may be skipped, often contained 'plot title' or other heading.
@@ -459,6 +464,7 @@ hobos_in_2024 <- read_hobos("hobo/2024", 2024)
 # these two hobos were found, having been deployed for multiple years
 hobos_in_2024_extra <- read_hobos("hobo/2024_extra", 2024)
 hobos_in_2024_mrk <- read_hobos("hobo/2024_mrk", 2024)
+hobos_in_2025 <- read_hobos("hobo/2025", 2025)
 
 # clean the hobo data using the deployment dates in the inventory
 hobos_2020 <- clean_hobos(hobos_in_2020)
@@ -469,6 +475,7 @@ hobos_2023_mrk <- clean_hobos(hobos_in_2023_mrk)
 hobos_2024_wav <- clean_hobos(hobos_in_2024)
 hobos_2024_extra <- clean_hobos(hobos_in_2024_extra)
 hobos_2024_mrk <- clean_hobos(hobos_in_2024_mrk)
+hobos_2025 <- clean_hobos(hobos_in_2025)
 
 
 # generate interactive charts to inspect the data and compare to air temperatures
@@ -483,6 +490,8 @@ inspect_hobos(hobos_2023_mrk)
 inspect_hobos(hobos_2024_wav, 20361490)
 inspect_hobos(hobos_2024_extra)
 inspect_hobos(hobos_2024_mrk)
+inspect_hobos(hobos_2025)
+inspect_hobos(hobos_2025, 10706426)
 
 # merge sets, exclude logger(s) with very dubious data
 hobos_2023 <- bind_rows(hobos_2023_wav, hobos_2023_mrk) %>% filter(!(logger_sn %in% c(20820405)))
@@ -494,6 +503,7 @@ hobos_2021 %>% write_csv("cleaned/hobos-cleaned-2021.csv.gz")
 hobos_2022 %>% write_csv("cleaned/hobos-cleaned-2022.csv.gz")
 hobos_2023 %>% write_csv("cleaned/hobos-cleaned-2023.csv.gz")
 hobos_2024 %>% write_csv("cleaned/hobos-cleaned-2024.csv.gz")
+hobos_2025 %>% write_csv("cleaned/hobos-cleaned-2025.csv.gz")
 
 # export individual CSVs, indicate output year folder
 export_hobos(hobos_2020, 2020)
@@ -511,7 +521,8 @@ hobo_data <-
     hobos_2021,
     hobos_2022,
     hobos_2023,
-    hobos_2024
+    hobos_2024,
+    hobos_2025
   ) %>%
   filter(!is.na(station_id), !is.na(date_time))
 

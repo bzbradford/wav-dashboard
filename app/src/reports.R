@@ -140,7 +140,7 @@ build_report_fieldwork_comments <- function(baseline) {
       names = group_desc,
       wx = weather_conditions,
       rec_wx = weather_last_2_days,
-      com1 = fieldwork_comments,
+      com1 = fieldwork_comment,
       com2 = additional_comments
     ) %>%
     mutate(across(where(is.character), xtable::sanitize)) %>%
@@ -157,6 +157,13 @@ build_report_fieldwork_comments <- function(baseline) {
     pull(fieldwork_desc) %>%
     gsub("..", ".", ., fixed = T)
 }
+
+if (F) {
+  baseline_data %>%
+    rnd_stn() %>%
+    build_report_fieldwork_comments()
+}
+
 
 
 # Map --------------------------------------------------------------------------
@@ -883,7 +890,7 @@ report_plot_nutrient <- function(df) {
     mutate(label = ifelse(tp == 0, "< LOD", signif(tp, 3)))
   x_lims <- c(dates[1] - 15, eoy_date + 15)
   y_lims <- set_axis_limits(df$tp, 0, .1)
-  est <- getPhosEstimate(df$tp)
+  est <- get_phos_estimate(df$tp)
   est_labels <- tribble(
     ~value, ~label,
     est$lower, "Lower 80% CI",

@@ -26,14 +26,13 @@ baselineDataServer <- function(main_rv) {
         # controls rendering of the interface
         ready = FALSE,
 
-        # all station data
+        # set station data on station change
         stn_data = NULL,
-
-        # years available
+        stn_macro_data = NULL,
         stn_years = NULL,
 
         # filtered by selected year
-        annual_data_yr = NULL,
+        annual_data_year = NULL,
         annual_data = NULL,
 
         # min/mean/max by param for the summary table
@@ -57,6 +56,8 @@ baselineDataServer <- function(main_rv) {
         }
         rv$stn_data <- stn_data
         rv$stn_years <- sort(unique(stn_data$year))
+        rv$stn_macro_data <- macro_species_counts %>%
+          filter(station_id == stn$station_id)
       })
 
       ## set rv$annual_data ----
@@ -88,16 +89,19 @@ baselineDataServer <- function(main_rv) {
         get_baseline_param_choices(stn_data)
       })
 
+      ## has_macro_data ----
+      has_macro_data <- reactive({
+        "biotic_index_score" %in% parameter_choices()
+      })
+
+      ## plot_type_choices ----
       plot_type_choices <- reactive({
-        choices <- list(
-          "Annual" = "annual",
-          "Long-term" = "trend",
-          "Macroinvertebrate" = "macro",
-          "Heatmap" = "ribbon"
+        c(
+          list("Annual" = "annual"),
+          list("Long-term" = "trend"),
+          if (has_macro_data()) list("Macroinvertebrate" = "macro"),
+          list("Heatmap" = "ribbon")
         )
-        if (!("biotic_index_score" %in% parameter_choices()))
-          choices[["Macroinvertebrate"]] <- NULL
-        choices
       })
 
 
@@ -173,10 +177,10 @@ baselineDataServer <- function(main_rv) {
               div(class = "plot-caption", "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations.")
             ),
             div(class = "plot-caption", htmlOutput(ns("plot_caption_text"))),
-            div(
-              style = "display: flex; flex-direction: row-reverse;",
-              uiOutput(ns("plot_dl_btn"))
-            )
+          ),
+          div(
+            style = "display: flex; flex-direction: row-reverse;",
+            uiOutput(ns("plot_dl_btn"))
           ),
           accordion(
             accordion_panel(
@@ -285,8 +289,8 @@ baselineDataServer <- function(main_rv) {
       output$macro_type_ui <- renderUI({
         id <- "macro_type"
         choices <- list(
-          "Date" = "all",
-          "Year" = "annual"
+          "Year" = "annual",
+          "Date" = "all"
         )
 
         radioGroupButtons(
@@ -389,6 +393,7 @@ baselineDataServer <- function(main_rv) {
         stn <- cur_stn()
         yrs <- req(rv$stn_years)
         yr_choices <- if (length(yrs) > 1) c(yrs, "All years") else yrs
+
         tagList(
           p(
             strong("Station ID:"), stn$station_id, br(),
@@ -418,33 +423,45 @@ baselineDataServer <- function(main_rv) {
                   size = "sm",
                   choices = c("Columns", "Rows")
                 )
-              )
+              ),
+              # div(
+              #   class = "flex-row align-center",
+              #   materialSwitch(
+              #     inputId = ns("dt_hide"),
+              #     label = strong("Hide empty?"),
+              #     inline = TRUE,
+              #     value = TRUE
+              #   )
+              # )
             )
           ),
           p(
             downloadButton(ns("dl_cur_data"), "Download this data"),
-            downloadButton(ns("dl_all_data"), "Download entire baseline dataset")
+            downloadButton(ns("dl_all_baseline"), "Download all baseline data"),
           ),
           dataTableOutput(ns("dt"))
         )
       })
 
       ## stn_dt_data ----
-      stn_dl_data <- reactive({
-        stn_data <- req(rv$stn_data)
-        transpose <- req(input$dt_transpose) == "Columns"
+      stn_dt_data <- reactive({
         yr <- req(input$dt_year)
-        df <- if (yr == "All years") {
-          stn_data
-        } else {
-          stn_data %>% filter(year == yr)
+        transpose <- req(input$dt_transpose) == "Columns"
+        # req(!is.null(input$dt_hide))
+        # hide <- input$dt_hide
+
+        df <- req(rv$stn_data)
+
+        if (yr != "All years") {
+          df <- filter(df, year == yr)
         }
-        build_formatted_data(df, transpose)
+
+        format_data(df, transpose)
       })
 
       ## dt ----
       output$dt <- renderDataTable(
-        stn_dl_data(),
+        stn_dt_data(),
         selection = "none",
         rownames = FALSE,
         options = list(
@@ -457,20 +474,27 @@ baselineDataServer <- function(main_rv) {
 
       ## dl_cur_yr ----
       output$dl_cur_data <- downloadHandler(
-        sprintf("WAV Stn %s Baseline Data (%s).csv", cur_stn()$station_id, req(input$dt_year)),
-        function(file) {
-          write_csv(stn_dl_data(), file, na = "")
+        filename = function() {
+          stn <- cur_stn()
+          yr <- req(input$dt_year)
+          paste0(
+            "WAV Stn ", stn$station_id, " Baseline Data",
+            ifelse(yr == "All years", "", str_glue(" ({yr})")),
+            ".csv"
+          )
+        },
+        content = function(file) {
+          write_csv(stn_dt_data(), file, na = "")
         }
       )
 
       ## dl_all_baseline ----
-      output$dl_all_data <- downloadHandler(
-        "WAV Baseline Data.csv",
-        function(file) {
+      output$dl_all_baseline <- downloadHandler(
+        filename = "WAV Baseline Data.csv",
+        content = function(file) {
           write_csv(baseline_data, file, na = "")
         }
       )
-
     }
   )
 }

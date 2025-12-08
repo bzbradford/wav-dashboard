@@ -205,7 +205,7 @@ server <- function(input, output, session) {
     avail_stns <- rv$avail_stns
     cur_stn <- rv$cur_stn
     avail_pts <- filter(all_pts, station_id %in% avail_stns$station_id)
-    stns_east <- filter(avail_pts, longitude < cur_stn$longitude)
+    stns_west <- filter(avail_pts, longitude < cur_stn$longitude)
 
     if (nrow(stns_west) == 0) {
       # circle back around

@@ -444,11 +444,6 @@ hex2rgba <- function(hex, alpha = 1) {
   paste0("rgba(", rgb[1], ",", rgb[2], ",", rgb[3], ",", alpha, ")")
 }
 
-macro_species <- drop_na(macro_params, group)$dnr_parameter_description
-
-# 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
-macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
-
 macro_colortable <- tibble(
   group = macro_groups,
   base_color = c("#2196F3", "#4CAF50", "#FF9800", "#F44336", "#9C27B0"),

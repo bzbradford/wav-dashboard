@@ -158,7 +158,7 @@ nutrientDataServer <- function(main_rv) {
         )
       })
 
-      ## Data downloads ----
+      # Data downloads ----
 
       ## stn_data_ui ----
       output$stn_data_ui <- renderUI({
@@ -207,15 +207,13 @@ nutrientDataServer <- function(main_rv) {
 
       ## stn_dt_data ----
       stn_dl_data <- reactive({
-        stn_data <- req(rv$stn_data)
+        df <- req(rv$stn_data)
         transpose <- req(input$dt_transpose) == "Columns"
         yr <- req(input$dt_year)
-        df <- if (yr == "All years") {
-          stn_data
-        } else {
-          stn_data %>% filter(year == yr)
-        }
-        build_formatted_data(df, transpose)
+
+        if (yr != "All years") df <- filter(df, year == yr)
+
+        format_data(df, transpose)
       })
 
       ## dt ----

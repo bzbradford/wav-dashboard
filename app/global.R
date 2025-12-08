@@ -145,6 +145,12 @@ new_date <- function(y, m, d) {
   as.Date(paste(y, m, d, sep = "-"))
 }
 
+rnd_stn <- function(df) {
+  stns <- unique(df$station_id)
+  df %>%
+    filter(station_id == stns[sample(seq_along(stns), 1)])
+}
+
 
 ## UI ----
 
@@ -302,25 +308,29 @@ if (F) {
 
 
 # for baseline and nutrient data downloads
-build_formatted_data <- function(df, transpose = TRUE) {
+format_data <- function(df, transpose = TRUE, hide_empty = FALSE) {
+  df <- df %>% arrange(desc(date))
+
+  if (hide_empty) {
+    df <- select(df, where(~!all(is.na(.x))))
+  }
+
   df <- df %>%
-    arrange(date) %>%
     clean_names(
       case = "title",
-      abbreviations = c("ID", "WBIC", "DO", "pH", "TP"),
+      abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
       replace = c("d_o" = "DO", "tp" = "Total Phosphorus")
     )
 
   if (transpose) {
     df <- df %>%
-      mutate(label = format(Date, "%b %d, %Y")) %>%
-      mutate(obs_per_date = n(), .by = Date) %>%
-      mutate(label = if_else(
-        obs_per_date > 1,
-        paste0(label, " (", row_number(), ")"),
-        label
-      )) %>%
-      select(-obs_per_date) %>%
+      mutate(date_n = n(), .by = Date) %>%
+      mutate(
+        label = format(Date, "%b %d, %Y"),
+        label = if_else(date_n > 1, paste0(label, " (", row_number(), ")"), label),
+        .by = Date
+      ) %>%
+      select(-date_n) %>%
       mutate(across(everything(), as.character)) %>%
       pivot_longer(cols = -label, names_to = "Parameter") %>%
       pivot_wider(names_from = label)
@@ -330,27 +340,12 @@ build_formatted_data <- function(df, transpose = TRUE) {
 }
 
 if (F) {
+  baseline_data %>% rnd_stn() %>% format_data()
+  baseline_data %>% rnd_stn() %>% format_data(FALSE)
   baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = FALSE)
-
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = TRUE)
-
-  nutrient_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = TRUE)
-
-  nutrient_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = FALSE)
-
-  baseline_data %>%
-    filter(station_id == 10030403) %>%
-    build_formatted_data(transpose = TRUE)
+    filter(station_id == 10040926) %>%
+    format_data()
 }
-
 
 # data structure for plotly background annotation rectangles
 PlotAnnotOpts <- function(
@@ -461,8 +456,6 @@ baseline_plot_annot <- lst(
 
 
 # Nutrient tab -----------------------------------------------------------------
-
-phoslimit <- 0.075 # mg/L or ppm
 
 #' @param vals vector of phosphorus readings
 get_phos_estimate <- function(vals) {
