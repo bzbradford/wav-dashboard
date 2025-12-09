@@ -3,6 +3,10 @@
 library(sf) # spatial
 
 suppressPackageStartupMessages({
+  # dev
+  require(watcher)
+  require(styler)
+
   # core
   library(rlang) # walrus operator
   library(markdown) # includeMarkdown
@@ -316,6 +320,7 @@ format_data <- function(df, transpose = TRUE, hide_empty = FALSE) {
   }
 
   df <- df %>%
+    mutate(across(any_of(c("latitude", "longitude")), ~round(.x, 6))) %>%
     clean_names(
       case = "title",
       abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
@@ -523,13 +528,13 @@ build_therm_daily <- function(df, units, stn) {
       max = max(!!sym(temp_col)),
       mean = round(mean(!!sym(temp_col)), 2),
       units = units,
-      lat = latitude[1],
-      long = longitude[1]
+      latitude = latitude[1],
+      longitude = longitude[1]
     ) %>%
     mutate(
       station_id = stn$station_id,
       station_name = stn$station_name,
-      .before = lat
+      .before = latitude
     )
 }
 

@@ -15,10 +15,10 @@ ui <- fluidPage(
     tags$meta(name = "description", content = "An online data dashboard for viewing stream monitoring data collected by volunteers across Wisconsin"),
     tags$meta(name = "keywords", content = "wav, water action volunteers, wisconsin, water, data, dashboard, uw"),
     tags$link(rel = "shortcut icon", href = "favicon.ico"),
-    tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css"),
     includeHTML("google-analytics.html"),
     tags$script(src = "html2canvas.min.js"),
-    tags$script(src = "saveAs.js"),
+    tags$script(src = "scripts.js"),
     useShinyjs(),
   ),
 

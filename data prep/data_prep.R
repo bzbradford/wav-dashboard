@@ -986,12 +986,17 @@ if (F) {
 }
 
 ## Merge data ----
+baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
+  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
+
 tp_data <-
   bind_rows(
     tp_data_wav_clean,
     tp_data_mrk,
     tp_data_twa
   ) %>%
+  # merge any duplicates from the different sources
+  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn) %>%
   mutate(
     across(collector_name, str_to_title),
     date = as_date(datetime),
@@ -1001,13 +1006,9 @@ tp_data <-
     .after = datetime
   ) %>%
   filter(year >= 2015) %>%
-  distinct(station_id, datetime, tp, .keep_all = TRUE) %>%
-  # mutate(annual_obs = sum(!is.na(tp)), .by = c(year, station_id)) %>%
   filter(month %in% 5:10) %>%
   left_join_at(stn_list, "station_id") %>%
   drop_na(latitude, longitude, tp)
-
-hist(tp_data$month)
 
 
 ## Data check ----

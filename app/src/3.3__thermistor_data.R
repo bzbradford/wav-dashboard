@@ -84,7 +84,6 @@ thermistorDataServer <- function(main_rv) {
       })
 
 
-
       # Interface ---------------------------------------------------------------
 
       ## ui ----
@@ -288,37 +287,6 @@ thermistorDataServer <- function(main_rv) {
         dates <- unique(data$date)
         date_span <- as.numeric(max(dates) - min(dates)) + 1
 
-        monthly_dt <- summary_data() %>%
-          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
-          renderDataTable(
-            rownames = FALSE,
-            extensions = "Buttons",
-            options = list(
-              dom = "Bt",
-              buttons = c("copy"),
-              columnDefs = list(
-                list(targets = 0:5, className = "dt-center")
-              ),
-              scrollX = TRUE
-            )
-          )
-
-        daily_dt <- daily_data() %>%
-          clean_names("big_camel") %>%
-          renderDataTable(
-            options = list(
-              scrollX = TRUE
-            )
-          )
-
-        hourly_dt <- selected_data() %>%
-          clean_names("big_camel") %>%
-          renderDataTable(
-            options = list(
-              scrollX = TRUE
-            )
-          )
-
         tagList(
           p(
             strong("Station ID:"), stn$station_id, br(),
@@ -348,24 +316,72 @@ thermistorDataServer <- function(main_rv) {
               title = "Monthly temperature data",
               class = "data-tab",
               p(paste0("To limit the influence of hourly temperature fluctuations, daily average temperatures are used to generate these monthly summaries. Temperatures are shown in units of °", input$units, ", option to change units is above the plot.")),
-              monthly_dt,
+              dataTableOutput(ns("monthly_dt")),
             ),
             tabPanel(
               title = "Daily temperature data",
               class = "data-tab",
               p(downloadButton(ns("dl_daily"), "Download this data")),
-              daily_dt
+              dataTableOutput(ns("daily_dt"))
             ),
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
               p("The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."),
               p(downloadButton(ns("dl_hourly"), "Download this data")),
-              hourly_dt
+              dataTableOutput(ns("hourly_dt"))
             )
           )
         )
       })
+
+      ## monthly_dt ----
+      output$monthly_dt <- renderDataTable({
+        summary_data() %>%
+          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
+          datatable(
+            selection = "none",
+            rownames = FALSE,
+            extensions = "Buttons",
+            options = list(
+              dom = "Bt",
+              buttons = c("copy"),
+              columnDefs = list(
+                list(targets = 0:5, className = "dt-center")
+              ),
+              scrollX = TRUE,
+              scrollCollapse = TRUE
+            )
+          )
+      }, server = FALSE)
+
+      ## daily_dt ----
+      output$daily_dt <- renderDataTable({
+        daily_data() %>%
+          clean_names("big_camel", abbreviations = c("ID", "SN")) %>%
+          datatable(
+            selection = "none",
+            options = list(
+              scrollX = TRUE,
+              scrollCollapse = TRUE
+            )
+          ) %>%
+          formatRound(columns = c("Latitude", "Longitude"), digits = 6)
+      }, server = TRUE)
+
+      ## hourly_dt ----
+      output$hourly_dt <- renderDataTable({
+        selected_data() %>%
+          clean_names("big_camel", abbreviations = c("ID", "SN")) %>%
+          datatable(
+            selection = "none",
+            options = list(
+              scrollX = TRUE,
+              scrollCollapse = TRUE
+            )
+          ) %>%
+          formatRound(columns = c("Latitude", "Longitude"), digits = 6)
+      }, server = TRUE)
 
       ## dl_daily ----
       output$dl_daily <- downloadHandler(
@@ -382,7 +398,6 @@ thermistorDataServer <- function(main_rv) {
           write_csv(selected_data(), file, na = "")
         }
       )
-
     }
   )
 }

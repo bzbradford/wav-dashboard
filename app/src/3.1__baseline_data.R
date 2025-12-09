@@ -22,22 +22,14 @@ baselineDataServer <- function(main_rv) {
 
       ## rv ----
       rv <- reactiveValues(
-
         # controls rendering of the interface
         ready = FALSE,
 
-        # set station data on station change
+        # baseline data for this station, if it exists
         stn_data = NULL,
-        stn_macro_data = NULL,
-        stn_years = NULL,
-
-        # filtered by selected year
-        annual_data_year = NULL,
-        annual_data = NULL,
 
         # min/mean/max by param for the summary table
-        stn_summary_data = NULL,
-
+        stn_summary_data = NULL
       )
 
       ## cur_stn ----
@@ -45,39 +37,46 @@ baselineDataServer <- function(main_rv) {
         req(main_rv$cur_stn)
       })
 
-      ## set station data and mark as ready or not ----
+      ## set rv$stn_data ----
       observe({
         stn <- cur_stn()
-        stn_data <- baseline_data %>%
+        data <- baseline_data %>%
           filter(station_id == stn$station_id)
-        ready <- nrow(stn_data) > 0
-        if (!identical(rv$ready, ready)) {
-          rv$ready <- ready
+        if (nrow(data) == 0) {
+          if (rv$ready) rv$ready <- FALSE
+          rv$stn_data <- NULL
+        } else {
+          if (!rv$ready) rv$ready <- TRUE
+          rv$stn_data <- data
         }
-        rv$stn_data <- stn_data
-        rv$stn_years <- sort(unique(stn_data$year))
-        rv$stn_macro_data <- macro_species_counts %>%
-          filter(station_id == stn$station_id)
       })
 
-      ## set rv$annual_data ----
-      observe({
+      ## annual_stn_data ----
+      # for when the annual plot type is selected. Used for plot and summary tbl
+      annual_stn_data <- reactive({
         yr <- req(input$plot_year)
-        stn_data <- req(rv$stn_data)
-        if (!identical(rv$annual_data_year, yr)) {
-          rv$annual_data_year <- yr
-          rv$annual_data <- stn_data %>% filter(year == yr)
-        }
+        df <- req(rv$stn_data) %>%
+          filter(year == yr)
+        req(nrow(df) > 0)
+        df
+      })
+
+      ## stn_years ----
+      stn_years <- reactive({
+        df <- req(rv$stn_data)
+        sort(unique(df$year))
       })
 
       ## set rv$stn_summary_data ----
       observe({
         df <- if (req(input$plot_type) == "annual") {
-          req(rv$annual_data)
+          annual_stn_data()
         } else {
           req(rv$stn_data)
         }
+
         df <- build_baseline_summary(df)
+
         if (!identical(rv$stn_summary_data, df)) {
           rv$stn_summary_data <- df
         }
@@ -85,13 +84,8 @@ baselineDataServer <- function(main_rv) {
 
       ## parameter_choices ----
       parameter_choices <- reactive({
-        stn_data <- req(rv$stn_data)
-        get_baseline_param_choices(stn_data)
-      })
-
-      ## has_macro_data ----
-      has_macro_data <- reactive({
-        "biotic_index_score" %in% parameter_choices()
+        df <- req(rv$stn_data)
+        get_baseline_param_choices(df)
       })
 
       ## plot_type_choices ----
@@ -99,7 +93,8 @@ baselineDataServer <- function(main_rv) {
         c(
           list("Annual" = "annual"),
           list("Long-term" = "trend"),
-          if (has_macro_data()) list("Macroinvertebrate" = "macro"),
+          if ("biotic_index_score" %in% parameter_choices())
+            list("Macroinvertebrate" = "macro"),
           list("Heatmap" = "ribbon")
         )
       })
@@ -113,7 +108,7 @@ baselineDataServer <- function(main_rv) {
         if (rv$ready) {
           uiOutput(ns("main_ui"))
         } else {
-          div(class = "well", "This station has no baseline data. Choose another station or view the thermistor or nutrient data associated with this station.")
+          div(class = "well", "This station has no baseline data. Choose another station or view the nutrient or thermistor data associated with this station.")
         }
       })
 
@@ -238,7 +233,8 @@ baselineDataServer <- function(main_rv) {
       ## plot_year_ui ----
       output$plot_year_ui <- renderUI({
         id <- "plot_year"
-        choices <- req(rv$stn_years)
+        # choices <- req(rv$stn_years)
+        choices <- stn_years()
         selected <- first_truthy(
           intersect(isolate(input[[id]]), choices),
           last(choices)
@@ -317,22 +313,24 @@ baselineDataServer <- function(main_rv) {
 
       ## annual_plot ----
       output$annual_plot <- renderPlotly({
-        data <- req(rv$annual_data)
-        plotly_baseline(data)
+        df <- annual_stn_data()
+        plotly_baseline(df)
       })
 
       ## trend_plot ----
       output$trend_plot <- renderPlotly({
-        stn_data <- req(rv$stn_data)
         value_col <- req(input$trend_param)
         type <- req(input$trend_type)
-        plotly_baseline_trend(stn_data, value_col, type)
+        df <- req(rv$stn_data)
+
+        plotly_baseline_trend(df, value_col, type)
       })
 
       ## macro_plot ----
       output$macro_plot <- renderPlotly({
         stn <- cur_stn()
         type <- req(input$macro_type)
+
         plotly_macros(stn$station_id, type)
       })
 
@@ -340,13 +338,15 @@ baselineDataServer <- function(main_rv) {
       # height of the ribbon plot changes based on number of params
       output$ribbon_plot_ui <- renderUI({
         params <- parameter_choices()
+
         plotlyOutput(ns("ribbon_plot"), height = 50 + 20 * length(params))
       })
 
       ## ribbon_plot ----
       output$ribbon_plot <- renderPlotly({
-        stn_data <- req(rv$stn_data)
-        plotly_baseline_ribbon(stn_data)
+        df <- req(rv$stn_data)
+
+        plotly_baseline_ribbon(df)
       })
 
 
@@ -391,7 +391,8 @@ baselineDataServer <- function(main_rv) {
       ## stn_data_ui ----
       output$stn_data_ui <- renderUI({
         stn <- cur_stn()
-        yrs <- req(rv$stn_years)
+        # yrs <- req(rv$stn_years)
+        yrs <- stn_years()
         yr_choices <- if (length(yrs) > 1) c(yrs, "All years") else yrs
 
         tagList(
@@ -447,9 +448,6 @@ baselineDataServer <- function(main_rv) {
       stn_dt_data <- reactive({
         yr <- req(input$dt_year)
         transpose <- req(input$dt_transpose) == "Columns"
-        # req(!is.null(input$dt_hide))
-        # hide <- input$dt_hide
-
         df <- req(rv$stn_data)
 
         if (yr != "All years") {
@@ -460,17 +458,21 @@ baselineDataServer <- function(main_rv) {
       })
 
       ## dt ----
-      output$dt <- renderDataTable(
-        stn_dt_data(),
-        selection = "none",
-        rownames = FALSE,
-        options = list(
-          paging = FALSE,
-          scrollX = TRUE,
-          scrollCollapse = TRUE
-        ),
-        server = FALSE
-      )
+      output$dt <- renderDataTable({
+        stn_dt_data() %>%
+          datatable(
+            selection = "none",
+            rownames = FALSE,
+            extensions = "FixedColumns",
+            options = list(
+              paging = FALSE,
+              scrollX = TRUE,
+              scrollCollapse = TRUE,
+              fixedColumns = list(leftColumns = 1)
+            ),
+            callback = JS("addTopScroll(table);")
+          )
+      }, server = FALSE)
 
       ## dl_cur_yr ----
       output$dl_cur_data <- downloadHandler(

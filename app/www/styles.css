@@ -10,6 +10,19 @@
 
 /*--- Bootstrap mods ---*/
 
+.pagination {
+  --bs-pagination-color: var(--bs-body-color);
+  --bs-pagination-hover-color: var(--bs-body-color);
+  --bs-pagination-focus-color: var(--bs-body-color);
+  --bs-pagination-active-color: var(--bs-body-color);
+  --bs-pagination-disabled-color: var(--bs-body-color);
+  --bs-pagination-bg: var(--bs-body-bg);
+  --bs-pagination-hover-bg: var(--bs-gray-200);
+  --bs-pagination-focus-bg: var(--bs-gray-200);
+  --bs-pagination-active-bg: var(--bs-gray-200);
+  --bs-pagination-disabled-bg: var(--bs-gray-100);
+}
+
 .table {
   --bs-table-bg: rgba(0, 0, 0, 0);
 }
@@ -138,11 +151,11 @@ h3 {
 }
 
 /* make links green except buttons or icons */
-a:not(.btn):not(.fas),
+/*a:not(.btn):not(.fas),
 a:hover:focus :not(.btn):not(.fas),
 a:focus :not(.btn):not(.fas) {
   color: #48a67b;
-}
+}*/
 
 /* --- Tab appearance --- */
 
