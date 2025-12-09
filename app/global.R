@@ -3,10 +3,6 @@
 library(sf) # spatial
 
 suppressPackageStartupMessages({
-  # dev
-  require(watcher)
-  require(styler)
-
   # core
   library(rlang) # walrus operator
   library(markdown) # includeMarkdown
