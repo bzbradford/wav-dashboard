@@ -472,7 +472,7 @@ baseline_obs <- baseline_xl %>%
     air_temp = ambient_air_temp,
     water_temp,
     d_o = do_mg,
-    d_o_percent_saturation = do_pct,
+    d_o_saturation = do_pct,
     ph,
     specific_cond,
     transparency = transparency_avg,
@@ -488,7 +488,7 @@ baseline_obs <- baseline_xl %>%
   mutate(datetime = with_tz(datetime, "America/Chicago")) %>%
   mutate(date = as_date(datetime), .after = datetime) %>%
   mutate(suppressWarnings(across(c(fsn, station_id), as.integer))) %>%
-  mutate(suppressWarnings(across(c(air_temp, water_temp, d_o, d_o_percent_saturation, ph, specific_cond, transparency, transparency_tube_length), as.numeric))) %>%
+  mutate(suppressWarnings(across(c(air_temp, water_temp, d_o, d_o_saturation, ph, specific_cond, transparency, transparency_tube_length), as.numeric))) %>%
   distinct(fsn, station_id, date, .keep_all = T) %>%
   filter(date >= "2015-1-1")
 
@@ -521,16 +521,20 @@ flow_obs <- flow_xl %>%
     fsn = fieldwork_seq_no,
     datetime = start_date_time,
     station_id,
+    flow_method_used,
+    current_stream_conditions,
     stream_width,
     average_stream_depth,
+    cross_sectional_area,
+    length_assessed,
     average_surface_velocity,
-    entered_streamflow = stream_flow_cfs,
+    velocity_correction_factor,
+    corrected_surface_velocity,
     calculated_streamflow = calculated_streamflow_cfs,
     corrected_streamflow = calculated_corrected_streamflow_cfs,
-    flow_method_used,
+    entered_streamflow = stream_flow_cfs,
     weather_conditions,
     weather_last_2_days = weather_past_two_days,
-    current_stream_condition = current_stream_conditions,
     group_seq_no,
     group_desc,
     fieldwork_comment
@@ -538,13 +542,13 @@ flow_obs <- flow_xl %>%
   mutate(datetime = with_tz(datetime, "America/Chicago")) %>%
   mutate(date = as_date(datetime), .after = datetime) %>%
   mutate(across(c(fsn, station_id), as.integer)) %>%
-  mutate(suppressWarnings(across(stream_width:corrected_streamflow, as.numeric))) %>%
-  # fix the few cases of infinity/nan for streamflow
-  mutate(across(
-    c(average_surface_velocity, calculated_streamflow, corrected_streamflow),
-    ~if_else(is.infinite(.x) | is.nan(.x), 0, .x))
+  mutate(suppressWarnings(across(stream_width:entered_streamflow, as.numeric))) %>%
+  # need to turn NaNs into Inf so they don't get treated as NA
+  mutate(across(where(is.numeric), ~if_else(is.nan(.x), Inf, .x))) %>%
+  mutate(
+    streamflow = coalesce(entered_streamflow, corrected_streamflow),
+    .after = entered_streamflow
   ) %>%
-  mutate(streamflow = coalesce(entered_streamflow, corrected_streamflow, calculated_streamflow), .before = entered_streamflow) %>%
   distinct(fsn, station_id, date, .keep_all = T) %>%
   filter(date >= "2015-1-1")
 
@@ -556,7 +560,12 @@ compare_fieldwork(baseline_obs, flow_obs)
 # test
 if (F) {
   # check for infinity
-  flow_obs %>% filter(if_any(where(is.numeric), is.infinite))
+  flow_obs %>% filter(is.infinite(streamflow))
+  flow_obs %>% filter(is.nan(streamflow))
+  flow_obs %>% filter(if_any(where(is.numeric), is.infinite)) %>% view()
+  flow_obs %>% filter(if_any(where(is.numeric), is.nan)) %>% view()
+
+  flow_obs %>% filter(station_id == 10059011) %>% view()
 
   # shows need to set timezone correctly
   tz(flow_obs$datetime)
@@ -664,8 +673,17 @@ if (F) {
 ## Combine datasets ----
 
 # combine datasets and merge. takes a little bit
-baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
-  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
+# baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
+#   summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
+
+baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) |>
+  data.table::setDT() |>
+  _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = fsn] |>
+  as_tibble()
+
+# na.omit(c(Inf, NaN, NA, 1))
+# x <- c(Inf, NaN, NA, 1)
+# x[!is.na(x)]
 
 # finalize baseline data
 baseline_data <- baseline_merged %>%
@@ -711,8 +729,8 @@ if (F) {
   validate(bd$water_temp) # convert some from F to C
   validate(bd$d_o)
   validate(bd$d_o, 0, 25)
-  validate(bd$d_o_percent_saturation)
-  validate(bd$d_o_percent_saturation, 0, 150)
+  validate(bd$d_o_saturation)
+  validate(bd$d_o_saturation, 0, 150)
   validate(bd$ph)
   validate(bd$ph, 4, 10)
   validate(bd$specific_cond)
@@ -754,17 +772,17 @@ validation_actions <- tribble(
   "air_temp", -40, 40, "f_to_c",
   "water_temp", -40, 40, "f_to_c",
   "d_o", 0, 25, "remove",
-  "d_o_percent_saturation", 0, 150, "remove",
+  "d_o_saturation", 0, 150, "remove",
   "ph", 4, 10, "remove",
   "specific_cond", 5, 5000, "keep",
   "transparency", 0, 120, "cap",
-  "stream_width", 1, 150, "keep",
+  "stream_width", 0, 150, "keep",
   "average_stream_depth", 0, 20, "keep",
   "average_surface_velocity", 0, 6, "keep",
-  "streamflow", 0, 300, "keep",
   "entered_streamflow", 0, 2000, "keep",
-  "calculated_streamflow", 0, 300, "keep",
+  # "calculated_streamflow", 0, 300, "keep",
   "corrected_streamflow", 0, 250, "keep",
+  "streamflow", 0, 300, "keep",
   "biotic_index_total_animals", 1, 22, "keep",
   "biotic_index_score", 1, 4, "keep"
 )
@@ -775,9 +793,14 @@ baseline_validation <- baseline_data %>%
   pivot_longer(cols = -fsn, names_to = "measure") %>%
   left_join(validation_actions) %>%
   mutate(
-    valid = between(value, min, max),
+    valid = if_else(
+      min == 0,
+      value > 0 & value <= max,
+      between(value, min, max)
+    ),
     new_value = case_when(
       valid ~ value,
+      is.infinite(value) ~ NA,
       # convert specific_cond when likely using incorrect units
       measure == "specific_cond" ~ case_when(
         value == 0 ~ NA,
@@ -792,18 +815,22 @@ baseline_validation <- baseline_data %>%
     msg = case_when(
       valid ~ NA,
       is.na(value) ~ NA,
+      is.infinite(value) ~ "Inf or NaN",
       action == "f_to_c" ~ str_glue("converted from {value} to {new_value}"),
       measure == "specific_cond" ~ case_when(
         value == 0 ~ "bad value 0 removed",
         value < 5 ~ str_glue("value {value} converted to {new_value}"),
-        !valid ~ str_glue("value {value} out of range")
+        !valid ~ str_glue("value {value} suspect")
       ),
       action == "cap" ~ str_glue("value {value} clamped to {new_value}"),
       action == "remove" ~ str_glue("bad value {value} removed"),
-      action == "keep" ~ str_glue("value {value} out of range")
+      action == "keep" ~ str_glue("value {value} suspect")
     ),
     msg = if_else(is.na(msg), NA, paste(measure, msg))
   )
+
+baseline_validation %>%
+  filter(str_detect(msg, "NaN"))
 
 # put it back together and swap in validated values
 baseline_clean <- baseline_data %>%

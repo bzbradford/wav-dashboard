@@ -50,8 +50,10 @@ stnReportServer <- function(main_rv) {
         df <- stn_data()
         baseline_obs <- df$baseline %>%
           summarize(
-            `Baseline<br>temperature` = sum(!is.na(air_temp) | !is.na(water_temp)),
-            `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_percent_saturation)),
+            `Baseline<br>temperature` = sum(
+              !is.na(air_temp) | !is.na(water_temp)
+            ),
+            `Baseline<br>DO` = sum(!is.na(d_o) | !is.na(d_o_saturation)),
             `Baseline<br>pH` = sum(!is.na(ph)),
             `Baseline<br>conductivity` = sum(!is.na(specific_cond)),
             `Baseline<br>transparency` = sum(!is.na(transparency)),
@@ -63,7 +65,11 @@ stnReportServer <- function(main_rv) {
         therm_obs <- df$thermistor %>%
           count(year, date) %>%
           count(year, name = "Continuous<br>temp. days")
-        years <- sort(unique(c(baseline_obs$year, nutrient_obs$year, therm_obs$year)))
+        years <- sort(unique(c(
+          baseline_obs$year,
+          nutrient_obs$year,
+          therm_obs$year
+        )))
 
         tibble(year = years) %>%
           left_join(baseline_obs, join_by(year)) %>%
@@ -72,17 +78,23 @@ stnReportServer <- function(main_rv) {
           rename(Year = year) %>%
           mutate(Year = as.character(Year)) %>%
           mutate(across(where(is.numeric), ~ ifelse(.x == 0, NA, .x))) %>%
-          mutate(`Download<br>report` = lapply(Year, function(yr) {
-            tags$button(
-              HTML("<i class='fas fa-download'></i>"),
-              "Download PDF",
-              id = paste0("report-btn-", yr),
-              class = "btn btn-default btn-sm",
-              onclick = sprintf("Shiny.setInputValue('%s', %s, {priority: 'event'});", ns("year"), yr)
-            ) %>% as.character()
-          }))
+          mutate(
+            `Download<br>report` = lapply(Year, function(yr) {
+              tags$button(
+                HTML("<i class='fas fa-download'></i>"),
+                "Download PDF",
+                id = paste0("report-btn-", yr),
+                class = "btn btn-default btn-sm",
+                onclick = sprintf(
+                  "Shiny.setInputValue('%s', %s, {priority: 'event'});",
+                  ns("year"),
+                  yr
+                )
+              ) %>%
+                as.character()
+            })
+          )
       })
-
 
       # UI components ----
 
@@ -113,25 +125,38 @@ stnReportServer <- function(main_rv) {
             div(id = "report-msg")
           ),
           br(),
-          div(class = "note", "These station reports are a new feature currently in development. We encourage any feedback! Please email WAV staff at", a("wav@extension.wisc.edu", href = "mailto:wav@extension.wisc.edu"), "with any questions or comments."),
+          div(
+            class = "note",
+            "These station reports are a new feature currently in development. We encourage any feedback! Please email WAV staff at",
+            a("wav@extension.wisc.edu", href = "mailto:wav@extension.wisc.edu"),
+            "with any questions or comments."
+          ),
         )
       })
 
       ## avail_reports_tbl ----
       output$avail_reports_tbl <- renderDataTable(
         avail_reports(),
-        selection = "none", rownames = F, filter = "none",
+        selection = "none",
+        rownames = F,
+        filter = "none",
         extensions = "FixedColumns",
         options = list(
-          paging = F, searching = F, info = F, sort = F,
+          paging = F,
+          searching = F,
+          info = F,
+          sort = F,
           fixedColumns = list(leftColumns = 1, rightColumns = 1),
           columnDefs = list(
-            list(targets = "_all", className = "dt-center", defaultContent = "-")
+            list(
+              targets = "_all",
+              className = "dt-center",
+              defaultContent = "-"
+            )
           )
         ),
         escape = F
       )
-
 
       # Handle downloads ----
 
@@ -141,8 +166,17 @@ stnReportServer <- function(main_rv) {
         stn <- cur_stn()
         stndata <- stn_data()
 
-        safe_name <- str_squish(substr(gsub("[^A-Za-z0-9 ]", "", stn$station_name), 1, 30))
-        report$filename <- sprintf("WAV %s Report for %s %s.pdf", yr, stn$station_id, safe_name)
+        safe_name <- str_squish(substr(
+          gsub("[^A-Za-z0-9 ]", "", stn$station_name),
+          1,
+          30
+        ))
+        report$filename <- sprintf(
+          "WAV %s Report for %s %s.pdf",
+          yr,
+          stn$station_id,
+          safe_name
+        )
         report$stn <- stn
         report$data <- sapply(stndata, function(df) filter(df, year == yr))
 
@@ -161,11 +195,18 @@ stnReportServer <- function(main_rv) {
       createReport <- function(file) {
         yr <- input$year
         temp_out <- file.path(temp_dir, paste0(hash(report$filename), ".pdf"))
-        runjs("document.querySelector('#report-msg-container').style.display = 'none';")
-        runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})")
+        runjs(
+          "document.querySelector('#report-msg-container').style.display = 'none';"
+        )
+        runjs(
+          "document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})"
+        )
         tryCatch(
           {
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';", yr))
+            runjs(sprintf(
+              "document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';",
+              yr
+            ))
             temp_rmd <- file.path(temp_dir, "report.Rmd")
             file.copy("report/station_report.Rmd", temp_rmd, overwrite = T)
             file.copy("report/header.png", temp_dir, overwrite = T)
@@ -182,15 +223,30 @@ stnReportServer <- function(main_rv) {
               )
             )
             file.copy(temp_out, file)
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';", yr))
+            runjs(sprintf(
+              "document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';",
+              yr
+            ))
           },
           error = function(e) {
-            runjs(sprintf("document.querySelector('#report-btn-%s').innerHTML = 'Error';", yr))
-            runjs(sprintf("document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s';", yr, report$stn$label, e$message))
-            runjs("document.querySelector('#report-msg-container').style.display = null;")
+            runjs(sprintf(
+              "document.querySelector('#report-btn-%s').innerHTML = 'Error';",
+              yr
+            ))
+            runjs(sprintf(
+              "document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s';",
+              yr,
+              report$stn$label,
+              e$message
+            ))
+            runjs(
+              "document.querySelector('#report-msg-container').style.display = null;"
+            )
           }
         )
-        runjs("document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = false;});")
+        runjs(
+          "document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = false;});"
+        )
       }
     } # end server
   )

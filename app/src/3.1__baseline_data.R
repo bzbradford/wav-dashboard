@@ -444,17 +444,20 @@ baselineDataServer <- function(main_rv) {
         )
       })
 
+      ## stn_dl_data ----
+      stn_dl_data <- reactive({
+        df <- req(rv$stn_data)
+        yr <- req(input$dt_year)
+        if (yr != "All years") df <- filter(df, year == yr)
+        df
+      })
+
       ## stn_dt_data ----
       stn_dt_data <- reactive({
-        yr <- req(input$dt_year)
         transpose <- req(input$dt_transpose) == "Columns"
-        df <- req(rv$stn_data)
-
-        if (yr != "All years") {
-          df <- filter(df, year == yr)
-        }
-
-        format_data(df, transpose)
+        stn_dl_data() %>%
+          merge_unit_cols() %>%
+          format_for_dt(transpose)
       })
 
       ## dt ----
@@ -486,7 +489,10 @@ baselineDataServer <- function(main_rv) {
           )
         },
         content = function(file) {
-          write_csv(stn_dt_data(), file, na = "")
+          transpose <- req(input$dt_transpose) == "Columns"
+          stn_dl_data() %>%
+            format_for_dt(transpose) %>%
+            write_csv(file, na = "")
         }
       )
 

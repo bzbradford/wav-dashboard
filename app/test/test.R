@@ -31,7 +31,6 @@ baseline_data %>%
 names(df) <- paste("Obs", ncol(df))
 
 
-
 # Some leaflet maps ----
 
 station_pts %>%
@@ -40,7 +39,9 @@ station_pts %>%
   addTiles() %>%
   addCircleMarkers(
     label = ~label,
-    radius = 1, opacity = 1, fill = FALSE
+    radius = 1,
+    opacity = 1,
+    fill = FALSE
   ) %>%
   addMarkers(
     label = ~label,
@@ -57,7 +58,6 @@ baseline_data %>%
   pivot_wider(names_from = label) %>%
   mutate(Parameter = gsub("D o", "D.O.", Parameter)) %>%
   mutate(Parameter = gsub("P h", "pH", Parameter))
-
 
 
 # Dissolved oxygen plot ----
@@ -94,7 +94,12 @@ do_color <- function(do) {
 }
 
 do_color_pal <- c(
-  "red", "orange", "darksalmon", "lightblue", "blue", "darkblue"
+  "red",
+  "orange",
+  "darksalmon",
+  "lightblue",
+  "blue",
+  "darkblue"
 )
 
 do_color(3)
@@ -103,7 +108,6 @@ colfunc <- colorRampPalette(c("red", "white", "blue"))(12)
 pal <- colfunc(max(df$z))[df$z]
 
 colfunc(12)
-
 
 
 # Baseline plotly test ----
@@ -130,7 +134,7 @@ cur_baseline_data %>%
   ) %>%
   add_trace(
     x = ~date,
-    y = ~d_o_percent_saturation,
+    y = ~d_o_saturation,
     mode = "lines+markers",
     type = "scatter",
     yaxis = "y2",
@@ -156,7 +160,7 @@ cur_baseline_data %>%
       title = "D.O. saturation",
       overlaying = "y",
       side = "right",
-      range = ~ c(0, max(100, d_o_percent_saturation) + 10),
+      range = ~ c(0, max(100, d_o_saturation) + 10),
       ticksuffix = "%",
       showgrid = F,
       fixedrange = T
@@ -167,7 +171,6 @@ cur_baseline_data %>%
       r = 50
     )
   )
-
 
 
 # Temperature plotly test ----
@@ -215,7 +218,6 @@ cur_baseline_data %>%
   )
 
 
-
 # Combined plot test ----
 
 df <- cur_baseline_data %>%
@@ -223,7 +225,7 @@ df <- cur_baseline_data %>%
   rowwise() %>%
   mutate(do_color = brewer.pal(11, "RdBu")[floor(min(d_o, 11))])
 
-do_data <- df %>% filter(!(is.na(d_o) & is.na(d_o_percent_saturation)))
+do_data <- df %>% filter(!(is.na(d_o) & is.na(d_o_saturation)))
 temp_data <- df %>% filter(!(is.na(water_temperature) & is.na(air_temp_field)))
 trans_data <- df %>% filter(!is.na(transparency))
 flow_data <- df %>% filter(!is.na(stream_flow_cfs))
@@ -236,7 +238,7 @@ df %>%
     name = "D.O.",
     x = ~date,
     y = ~d_o,
-    text = ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat"),
+    text = ~ paste0(d_o, " mg/L<br>", d_o_saturation, "% sat"),
     marker = list(
       color = ~do_color,
       line = list(color = "black", width = 0.5)
@@ -362,7 +364,6 @@ df %>%
   )
 
 
-
 # Baseline summaries ----
 
 baseline_data %>%
@@ -395,7 +396,6 @@ var <- "d_o"
 varname <- "Dissolved oxygen (mg/L)"
 
 
-
 tibble(
   name = varname,
   max_val = df[which.max(df[[var]]), ][[var]],
@@ -415,19 +415,19 @@ make_min_max <- function(df, var) {
 }
 
 summary_vars <- tribble(
-  ~var, ~name, ~units,
-  "d_o", "Dissolved oxygen", "mg/L",
-  "water_temperature", "Water temperature", "°C",
-  "air_temp", "Air temperature", "°C",
-  "transparency", "Transparency", "cm",
-  "stream_flow_cfs", "Stream flow", "cfs"
-) %>% rowwise()
+  ~var                , ~name               , ~units ,
+  "d_o"               , "Dissolved oxygen"  , "mg/L" ,
+  "water_temperature" , "Water temperature" , "°C"  ,
+  "air_temp"          , "Air temperature"   , "°C"  ,
+  "transparency"      , "Transparency"      , "cm"   ,
+  "stream_flow_cfs"   , "Stream flow"       , "cfs"
+) %>%
+  rowwise()
 
 summary_vars %>%
   summarize(cur_data(), make_min_max(df, var)) %>%
   mutate(across(c(min_val, max_val), ~ paste(.x, units))) %>%
   mutate(across(c(min_date, max_date), ~ format(.x, "%b %d, %Y")))
-
 
 
 # Thermistor summary ----
@@ -451,7 +451,6 @@ therm_data %>%
   )
 
 
-
 # Map => Color by variable ----
 
 #' color map by
@@ -464,7 +463,10 @@ therm_data %>%
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
-    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+    summarize(
+      n_fieldwork = n_distinct(fieldwork_seq_no),
+      .by = c(station_id, year)
+    ),
   nutrient_data %>%
     summarize(n_fieldwork = n(), .by = c(station_id, year)),
   therm_data %>%
@@ -512,14 +514,14 @@ stn_attr_totals <- stn_fieldwork_counts %>%
 summary(stn_attr_totals)
 
 stn_color_opts <- tribble(
-  ~label, ~value, ~domain, ~reverse, ~pal,
-  "Years of data", "n_years", c(0, 10), F, "viridis",
-  "Fieldwork events", "n_fieldwork", c(0, 100), F, "viridis",
-  "Max water temp", "max_water_temp", c(15, 30), T, "RdYlBu",
-  "Dissolved oxygen", "mean_d_o", c(3, 12), F, "RdYlBu",
-  "Transparency", "avg_transparency", c(0, 120), F, "BrBG",
-  "Streamflow", "avg_streamflow", c(0, 50), T, "RdBu",
-  "Total phosphorus", "mean_tp", c(0, .25), T, "Spectral",
+  ~label             , ~value             , ~domain   , ~reverse , ~pal       ,
+  "Years of data"    , "n_years"          , c(0, 10)  , F        , "viridis"  ,
+  "Fieldwork events" , "n_fieldwork"      , c(0, 100) , F        , "viridis"  ,
+  "Max water temp"   , "max_water_temp"   , c(15, 30) , T        , "RdYlBu"   ,
+  "Dissolved oxygen" , "mean_d_o"         , c(3, 12)  , F        , "RdYlBu"   ,
+  "Transparency"     , "avg_transparency" , c(0, 120) , F        , "BrBG"     ,
+  "Streamflow"       , "avg_streamflow"   , c(0, 50)  , T        , "RdBu"     ,
+  "Total phosphorus" , "mean_tp"          , c(0, .25) , T        , "Spectral" ,
 )
 stn_color_choices <- append(
   list("Station type" = "stn_type"),
@@ -527,10 +529,7 @@ stn_color_choices <- append(
 )
 
 
-
-
 # Station report ----------------------------------------------------------
-
 
 stn <- slice_sample(all_stns, n = 1)
 baseline_coverage %>% filter(station_id == stn$station_id)
@@ -562,8 +561,6 @@ rows <- sapply(selected_data, function(df) nrow(df))
 rows[rows > 0]
 
 ## Station data summary ----
-
-
 
 # temperature
 #' Pages:
@@ -623,14 +620,17 @@ df %>%
   ) +
   geom_text(aes(y = d_o, label = paste(d_o, "mg/L")), vjust = -.5) +
   geom_line(
-    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    aes(y = d_o_saturation / 10, color = "DO % Sat"),
     linewidth = 2
   ) +
   geom_point(
-    aes(y = d_o_percent_saturation / 10, color = "DO % Sat"),
+    aes(y = d_o_saturation / 10, color = "DO % Sat"),
     size = 3
   ) +
-  geom_text_repel(aes(y = d_o_percent_saturation / 10, label = paste0(d_o_percent_saturation, "%"))) +
+  geom_text_repel(aes(
+    y = d_o_saturation / 10,
+    label = paste0(d_o_saturation, "%")
+  )) +
   scale_x_date(
     breaks = df$date,
     date_labels = "%b %d\n%Y"
@@ -658,8 +658,6 @@ df %>%
 view(df)
 
 
-
-
 # Thermistor plot ---------------------------------------------------------
 
 test_therm <- therm_data %>%
@@ -674,12 +672,10 @@ test_therm %>%
   bind_rows(tibble(date = gap_starts$date + gap_starts$dateskip / 2))
 
 
-
-
-
 # New baseline plot -------------------------------------------------------
 
-cur_baseline_data <- baseline_data %>% filter(station_id == sample(station_id, 1))
+cur_baseline_data <- baseline_data %>%
+  filter(station_id == sample(station_id, 1))
 cur_baseline_data <- baseline_data %>% filter(station_id == 10040742)
 cur_baseline_data <- baseline_data %>% filter(station_id == 10037514)
 
@@ -747,7 +743,6 @@ df %>%
 # %>%
 #   layout(yaxis = list(scaleanchor = "x"))
 
-
 # Baseline ribbon plot
 
 makeBaselineRibbonPlot <- function(.data) {
@@ -774,7 +769,11 @@ makeBaselineRibbonPlot <- function(.data) {
       x = ~date,
       y = ~name,
       z = ~scaled,
-      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), unit)),
+      text = ~ if_else(
+        is.na(value),
+        "Not measured",
+        paste(signif(value), unit)
+      ),
       showscale = F,
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>"
     ) %>%
@@ -797,7 +796,6 @@ makeBaselineRibbonPlot <- function(.data) {
 }
 
 
-
 df %>%
   mutate(
     year = factor(year, levels = 2015:year(Sys.Date())),
@@ -815,11 +813,15 @@ df %>%
   filter(!all(is.na(value)), .by = measure) %>%
   left_join(baseline_plot_opts, join_by(measure == col)) %>%
   mutate(
-    scaled = scales::rescale(value, from = c(min(c(value, range_min), na.rm = T), max(c(value, range_max), na.rm = T))),
+    scaled = scales::rescale(
+      value,
+      from = c(
+        min(c(value, range_min), na.rm = T),
+        max(c(value, range_max), na.rm = T)
+      )
+    ),
     .by = measure
   )
-
-
 
 
 month.abb
@@ -854,7 +856,6 @@ makeBaselineMonthlyPlot <- function(.data, col) {
 
 plotly_monthly(df, "air_temp")
 plotly_monthly(df, "transparency")
-
 
 
 makeBaselineScatterplot <- function(.data, col) {
@@ -936,7 +937,9 @@ makeBaselineMonthlyPlot <- function(.data, col) {
   df <- .data %>%
     select(year, month, all_of(c(value = col))) %>%
     drop_na(value) %>%
-    mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
+    mutate(
+      month_name = factor(month.abb[month], levels = month.abb, ordered = T)
+    ) %>%
     mutate(x = month_name)
   opts <- baseline_plot_opts %>% filter(col == !!col)
   makeBaselineBoxplot(df, opts)
@@ -1014,12 +1017,13 @@ makeBaselineMonthlyPlot(df, "transparency")
 makeBaselineMonthlyPlot(df, "streamflow")
 
 
-
 makeBaselineAnnualPlot <- function(.data, col) {
   df <- .data %>%
     select(year, month, all_of(c(value = col))) %>%
     drop_na(value) %>%
-    mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
+    mutate(
+      month_name = factor(month.abb[month], levels = month.abb, ordered = T)
+    ) %>%
     mutate(x = factor(year, ordered = T))
   opts <- baseline_plot_opts %>% filter(col == !!col)
   makeBaselineBoxplot(df, opts)
@@ -1038,22 +1042,32 @@ cur_baseline_data %>%
   left_join(baseline_plot_opts, join_by(col))
 
 
-
-
-
-
 df %>%
   select(month, value = air_temp) %>%
   drop_na(value) %>%
   mutate(mean = mean(value), .by = month) %>%
   mutate(color = colorNumeric("viridis", mean, reverse = T)(mean)) %>%
-  mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T)) %>%
-  plot_ly(x = ~month_name, y = ~value, type = "box", boxpoints = "all", jitter = 0, pointpos = 0) %>%
+  mutate(
+    month_name = factor(month.abb[month], levels = month.abb, ordered = T)
+  ) %>%
+  plot_ly(
+    x = ~month_name,
+    y = ~value,
+    type = "box",
+    boxpoints = "all",
+    jitter = 0,
+    pointpos = 0
+  ) %>%
   layout(hovermode = "x unified")
 
 
-
-fig <- plot_ly(ggplot2::diamonds, x = ~cut, y = ~price, color = ~clarity, type = "box")
+fig <- plot_ly(
+  ggplot2::diamonds,
+  x = ~cut,
+  y = ~price,
+  color = ~clarity,
+  type = "box"
+)
 fig <- fig %>% layout(boxmode = "group")
 str(ggplot2::diamonds)
 fig
@@ -1066,7 +1080,6 @@ plot_ly(type = "box") %>%
   add_trace(data = filter(df, month == 8), name = "Aug", y = ~water_temp) %>%
   add_trace(data = filter(df, month == 9), name = "Sep", y = ~water_temp) %>%
   add_trace(data = filter(df, month == 10), name = "Oct", y = ~water_temp)
-
 
 
 baseline_plot_opts$col
@@ -1116,14 +1129,15 @@ df %>%
   config(displayModeBar = F)
 
 
-
 # modify and remove empties for each var
 do_data <- df %>%
   filter(!is.na(d_o)) %>%
-  mutate(label = case_when(
-    is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
-    T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")
-  )) %>%
+  mutate(
+    label = case_when(
+      is.na(d_o_saturation) ~ paste0(d_o, " mg/L"),
+      T ~ paste0(d_o, " mg/L<br>", d_o_saturation, "% sat")
+    )
+  ) %>%
   rowwise() %>%
   mutate(do_color = do_color(d_o))
 temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
@@ -1154,7 +1168,9 @@ if (years > 3) {
   date_tick <- "M3"
   marker_opacity <- 0
 }
-if (years > 6) date_tick <- "M6"
+if (years > 6) {
+  date_tick <- "M6"
+}
 
 # create plot
 plot_ly() %>%
@@ -1298,23 +1314,22 @@ plot_ly() %>%
   config(displayModeBar = F)
 
 
-
-
-
 plot_ly(
   x = c("giraffes", "orangutans", "monkeys"),
   y = c(20, 14, 23),
   name = "SF Zoo",
   type = "bar"
 ) %>%
-  layout(xaxis = list(
-    categoryorder = "array",
-    categoryarray = c(
-      "giraffes",
-      "orangutans",
-      "monkeys"
+  layout(
+    xaxis = list(
+      categoryorder = "array",
+      categoryarray = c(
+        "giraffes",
+        "orangutans",
+        "monkeys"
+      )
     )
-  ))
+  )
 
 OPTS$baseline_plot_opts$name
 

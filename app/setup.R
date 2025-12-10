@@ -151,10 +151,19 @@ baseline_data <- read_csv(data_dir("baseline_data.csv")) %>%
   add_units("water_temp", "C") %>%
   add_units("air_temp", "C") %>%
   add_units("d_o", "mg/L") %>%
+  add_units("d_o_saturation", "%") %>%
   add_units("transparency", "cm") %>%
+  add_units("transparency_tube_length", "cm") %>%
+  add_units("specific_cond", "μS/cm") %>%
   add_units("stream_width", "ft") %>%
   add_units("average_stream_depth", "ft") %>%
+  add_units("cross_sectional_area", "sq ft") %>%
+  add_units("length_assessed", "ft") %>%
   add_units("average_surface_velocity", "ft/s") %>%
+  add_units("corrected_surface_velocity", "ft/s") %>%
+  add_units("calculated_streamflow", "cfs") %>%
+  add_units("corrected_streamflow", "cfs") %>%
+  add_units("entered_streamflow", "cfs") %>%
   add_units("streamflow", "cfs")
 
 baseline_coverage <- get_coverage(baseline_data)

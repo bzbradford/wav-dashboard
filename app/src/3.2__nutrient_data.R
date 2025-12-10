@@ -218,7 +218,7 @@ nutrientDataServer <- function(main_rv) {
 
         if (yr != "All years") df <- filter(df, year == yr)
 
-        format_data(df, transpose)
+        format_for_dt(df, transpose)
       })
 
       ## dt ----

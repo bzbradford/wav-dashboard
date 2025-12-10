@@ -308,8 +308,8 @@ if (F) {
 
 
 # for baseline and nutrient data downloads
-format_data <- function(df, transpose = TRUE, hide_empty = FALSE) {
-  df <- df %>% arrange(desc(date))
+format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
+  df <- df %>% arrange(date)
 
   if (hide_empty) {
     df <- select(df, where(~!all(is.na(.x))))
@@ -345,8 +345,32 @@ if (F) {
   baseline_data %>% rnd_stn() %>% format_data(FALSE)
   baseline_data %>%
     filter(station_id == 10040926) %>%
-    format_data()
+    format_for_dt() %>%
+    print(n = 50)
 }
+
+# used before formatting for display
+merge_unit_cols <- function(df, units_suffix = "_units") {
+  units_cols <- names(df)[grepl(paste0(units_suffix, "$"), names(df))]
+  data_cols <- sub(paste0(units_suffix, "$"), "", units_cols)
+
+  valid_pairs <- data_cols %in% names(df)
+  units_cols <- units_cols[valid_pairs]
+  data_cols <- data_cols[valid_pairs]
+
+  for (i in seq_along(data_cols)) {
+    df[[data_cols[i]]] <- paste(df[[data_cols[i]]], df[[units_cols[i]]])
+    df[[data_cols[i]]][df[[data_cols[i]]] == "NA NA"] <- NA_character_
+  }
+
+  df[, !(names(df) %in% units_cols), drop = FALSE]
+}
+
+# baseline_data %>%
+#   rnd_stn() %>%
+#   merge_unit_cols() %>%
+#   format_for_dt() %>% view()
+
 
 # data structure for plotly background annotation rectangles
 PlotAnnotOpts <- function(
