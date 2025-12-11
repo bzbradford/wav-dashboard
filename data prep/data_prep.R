@@ -36,6 +36,29 @@ left_join_at <- function(x, y, after = NULL, ...) {
   df
 }
 
+merge_by <- function(df, by) {
+  df |>
+    data.table::setDT() |>
+    _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = df[[by]]] |>
+    as_tibble()
+}
+
+clamp <- function(x, lower = x, upper = x, na.rm = F) {
+  pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
+}
+
+trim <- function(x, low = NULL, high = NULL, msg = FALSE) {
+  if (!is.null(low)) x[x < low] <- NA
+  if (!is.null(high)) x[x > high] <- NA
+  x
+}
+
+f_to_c <- function(x, digits = 1) {
+  round((x - 32) * (5 / 9), digits)
+}
+
+
+
 
 # SHAPEFILES ===================================================================
 
@@ -318,6 +341,8 @@ stn_xl <- load_xl("2_wav_all_stns.xlsx")
 
 names(stn_xl)
 
+# stn_xl %>% filter(!is.finite(as.numeric(station_id)))
+
 stns_in <- stn_xl %>%
   select(
     station_id,
@@ -329,21 +354,33 @@ stns_in <- stn_xl %>%
     station_type = station_type_code,
     county_name
   ) %>%
+  mutate(station_id = as.integer(station_id)) %>%
+  drop_na(station_id) %>%
   distinct(station_id, .keep_all = T) %>%
-  arrange(station_id) %>%
-  mutate(across(c(latitude, longitude), ~if_else(.x == 0, NA, .x)))
+  arrange(station_id)
+
+stn_corrections <- tribble(
+  ~station_id, ~latitude, ~longitude,
+  10055326, 44.048073, -88.688243,
+  10060233, 45.998043, -89.404756,
+  10060454, 45.823530, -92.012559
+)
 
 
 ## Validation ----
 
-stn_master_list <- validate_stns(stns_in)
-invalid_stns <- validate_stns(stns_in, F)
+stns_valid <- stns_in %>%
+  bind_rows(stn_corrections) %>%
+  merge_by("station_id") %>%
+  validate_stns()
+
+stns_invalid <- validate_stns(stns_in, F)
 
 # optionally export invalid station lists
 if (F) {
-  for (nm in names(invalid_stns)) {
+  for (nm in names(stns_invalid)) {
     local({
-      df <- invalid_stns[[nm]]$data
+      df <- stns_invalid[[nm]]$data
       print(nm)
       print(df)
       if (nrow(df) > 0) {
@@ -355,7 +392,7 @@ if (F) {
 
 # leaflet
 if (F) {
-  stn_master_list %>%
+  valid_stns %>%
     leaflet() %>%
     addTiles() %>%
     addCircleMarkers(
@@ -367,17 +404,23 @@ if (F) {
 
 ## Join shapefile data ----
 
-stn_list.sf <- stn_master_list %>%
+stn_list.sf <- stns_valid %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F) %>%
-  st_join(select(counties, DnrRegion)) %>%
-  st_join(select(huc12, -Area)) %>%
-  st_join(select(dnr_watersheds, DnrWatershedCode, DnrWatershedName)) %>%
+  select(-county_name) %>%
+  # some sites are outside the strict state boundaries so we just join by nearest county
+  st_join(counties %>% select(CountyName, DnrRegion), join = st_nearest_feature) %>%
+  st_join(huc12 %>% select(-Area)) %>%
+  st_join(dnr_watersheds %>% select(DnrWatershedCode, DnrWatershedName)) %>%
   select(
-    station_id, station_name,
-    latitude, longitude,
-    county_name,
+    station_id,
+    station_name,
+    latitude,
+    longitude,
+    wbic,
+    waterbody,
+    station_type,
+    county_name = CountyName,
     dnr_region = DnrRegion,
-    wbic, waterbody,
     huc12 = Huc12Code,
     sub_watershed = Huc12Name,
     huc10 = Huc10Code,
@@ -392,6 +435,9 @@ stn_list.sf <- stn_master_list %>%
   distinct(station_id, .keep_all = T)
 
 stn_list <- stn_list.sf %>% st_set_geometry(NULL)
+
+stn_list %>% filter(is.na(station_name))
+stn_list %>% filter(is.na(county_name))
 
 
 ## Export full station list ----
@@ -420,44 +466,6 @@ compare_fieldwork <- function(df1, df2) {
   message("Only in ", deparse(substitute(df1)), ": ", sum(!(df1$fsn %in% df2$fsn)))
   message("Only in ", deparse(substitute(df2)), ": ", sum(!(df2$fsn %in% df1$fsn)))
 }
-
-validate <- function(x, low = NULL, high = NULL) {
-  len <- length(x)
-  nas <- sum(is.na(x))
-  vals <- len - nas
-  message("Values: ", len)
-  message("NA: ", nas, sprintf(" (%.1f%%)", 100 * nas / len ))
-  message("Numeric: ", vals, sprintf(" (%.1f%%)", 100 * vals / len))
-  message(
-    "Quantiles:\n  ",
-    quantile(x, c(0, .01, .05, .5, .95, .99, .995, .999, 1), TRUE) %>%
-      paste(names(.), ., sep = ": ", collapse = "\n  ")
-  )
-  if (!is.null(low)) message("x < ", low, ": ", sum(x < low, na.rm = T))
-  if (!is.null(high)) message("x > ", high, ": ", sum(x > high, na.rm = T))
-  x <- trim(x, low, high)
-  hist(x)
-  invisible(x)
-}
-
-# clamp <- function(x, lower = x, upper = x, na.rm = F) {
-#   pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
-# }
-
-clamp <- function(x, lower = x, upper = x, na.rm = F) {
-  pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
-}
-
-trim <- function(x, low = NULL, high = NULL, msg = FALSE) {
-  if (!is.null(low)) x[x < low] <- NA
-  if (!is.null(high)) x[x > high] <- NA
-  x
-}
-
-f_to_c <- function(x, digits = 1) {
-  round((x - 32) * (5 / 9), digits)
-}
-
 
 ## Load baseline ----
 
@@ -493,10 +501,8 @@ baseline_obs <- baseline_xl %>%
   filter(date >= "2015-1-1")
 
 # data check
-baseline_obs %>% count(year(datetime))
-
+baseline_obs %>% count(year(date))
 max(baseline_obs$date)
-
 
 # test
 if (F) {
@@ -657,6 +663,7 @@ macro_species_counts <- macro_xl %>%
   mutate(species_name = factor(species_name, levels = macro_species)) %>%
   arrange(datetime, species_name)
 
+macro_species_counts %>% write_csv(data_dir("macro_species_counts.csv"), na = "")
 
 # data check
 if (F) {
@@ -672,18 +679,8 @@ if (F) {
 
 ## Combine datasets ----
 
-# combine datasets and merge. takes a little bit
-# baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
-#   summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
-
-baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) |>
-  data.table::setDT() |>
-  _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = fsn] |>
-  as_tibble()
-
-# na.omit(c(Inf, NaN, NA, 1))
-# x <- c(Inf, NaN, NA, 1)
-# x[!is.na(x)]
+baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
+  merge_by("fsn")
 
 # finalize baseline data
 baseline_data <- baseline_merged %>%
@@ -716,6 +713,25 @@ baseline_data <- baseline_merged %>%
 
 
 ## Data validation ----
+
+validate <- function(x, low = NULL, high = NULL) {
+  len <- length(x)
+  nas <- sum(is.na(x))
+  vals <- len - nas
+  message("Values: ", len)
+  message("NA: ", nas, sprintf(" (%.1f%%)", 100 * nas / len ))
+  message("Numeric: ", vals, sprintf(" (%.1f%%)", 100 * vals / len))
+  message(
+    "Quantiles:\n  ",
+    quantile(x, c(0, .01, .05, .5, .95, .99, .995, .999, 1), TRUE) %>%
+      paste(names(.), ., sep = ": ", collapse = "\n  ")
+  )
+  if (!is.null(low)) message("x < ", low, ": ", sum(x < low, na.rm = T))
+  if (!is.null(high)) message("x > ", high, ": ", sum(x > high, na.rm = T))
+  x <- trim(x, low, high)
+  hist(x)
+  invisible(x)
+}
 
 # look at histograms of each parameter to determine appropriate ranges
 if (F) {
@@ -829,9 +845,6 @@ baseline_validation <- baseline_data %>%
     msg = if_else(is.na(msg), NA, paste(measure, msg))
   )
 
-baseline_validation %>%
-  filter(str_detect(msg, "NaN"))
-
 # put it back together and swap in validated values
 baseline_clean <- baseline_data %>%
   select(-all_of(validation_actions$measure)) %>%
@@ -849,6 +862,9 @@ baseline_clean <- baseline_data %>%
 
 # test
 if (F) {
+  baseline_validation %>%
+    filter(str_detect(msg, "NaN"))
+
   baseline_clean %>%
     filter(str_detect(data_validation, "specific_cond")) %>%
     pull(data_validation)
@@ -863,11 +879,7 @@ if (F) {
 # any missing lat/lng?
 baseline_clean %>%
   distinct(station_id, .keep_all = TRUE) %>%
-  filter(is.na(latitude) | is.na(longitude) | latitude == 0 | longitude == 0)
-
-stns_in %>%
-  filter(station_id == 10055326)
-
+  filter(is.na(latitude) | is.na(longitude))
 
 # find stations where all FSNs in a year have no baseline data and drop them
 has_key_baseline_data <- baseline_clean %>%
@@ -898,10 +910,9 @@ baseline_final <- baseline_clean %>%
   arrange(station_id, date) %>%
   filter(fsn %in% valid_fsn) %>%
   drop_na(latitude, longitude)
-names(baseline_final)
 
 baseline_final %>% write_csv(data_dir("baseline_data.csv"), na = "")
-macro_species_counts %>% write_csv(data_dir("macro_species_counts.csv"), na = "")
+
 
 
 
@@ -1013,8 +1024,6 @@ if (F) {
 }
 
 ## Merge data ----
-baseline_merged <- bind_rows(baseline_obs, flow_obs, macro_obs) %>%
-  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn)
 
 tp_data <-
   bind_rows(
@@ -1022,8 +1031,7 @@ tp_data <-
     tp_data_mrk,
     tp_data_twa
   ) %>%
-  # merge any duplicates from the different sources
-  summarize(across(everything(), ~first(na.omit(.x))), .by = fsn) %>%
+  merge_by("fsn") %>%
   mutate(
     across(collector_name, str_to_title),
     date = as_date(datetime),
@@ -1081,7 +1089,7 @@ hobo_data <- read_csv(data_dir("therm_data.csv.gz"))
 
 # must be TRUE
 all(unique(hobo_data$station_id) %in% therm_inventory$station_id)
-all(unique(hobo_data$station_id) %in% stn_master_list$station_id)
+all(unique(hobo_data$station_id) %in% stn_list$station_id)
 
 
 
@@ -1097,6 +1105,9 @@ stn_ids <- sort(unique(c(
 stn_list_keep <- stn_list %>%
   filter(station_id %in% stn_ids) %>%
   mutate(station_name = str_squish(str_replace_all(station_name, "[^[:alnum:][:punct:] ]", "")))
+
+stn_list_keep %>%
+  filter(is.na(station_name))
 
 stn_list_keep %>% validate_stns()
 
@@ -1163,7 +1174,7 @@ stn_list_keep %>% write_csv(data_dir("stn_list.csv"), na = "")
 ## data exploration ----
 
 macro_obs %>%
-  ggplot(aes(x = index_score)) +
+  ggplot(aes(x = biotic_index_score)) +
   geom_histogram() +
   facet_grid(year(datetime)~.)
 

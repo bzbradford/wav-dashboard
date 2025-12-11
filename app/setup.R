@@ -71,6 +71,10 @@ data_dir <- function(f) {
   file.path("../data", f)
 }
 
+load_csv <- function(fname) {
+  read_csv(data_dir(fname), show_col_types = F)
+}
+
 
 ## Shapefiles ----
 
@@ -134,7 +138,7 @@ huc12 <- data_dir("shp/huc12.rds") %>%
 
 ## Station lists ----
 
-station_list <- read_csv(data_dir("stn_list.csv"))
+station_list <- load_csv("stn_list.csv")
 station_pts <- station_list %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
 
@@ -145,7 +149,7 @@ add_units <- function(.data, col, units) {
   mutate(.data, "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units), .after = {{ col }})
 }
 
-baseline_data <- read_csv(data_dir("baseline_data.csv")) %>%
+baseline_data <- load_csv("baseline_data.csv") %>%
   arrange(station_id, date) %>%
   rename(fieldwork_seq_no = fsn) %>%
   add_units("water_temp", "C") %>%
@@ -180,7 +184,7 @@ check_missing_stns(baseline_data, baseline_pts, "baseline")
 
 ## Macroinvertebrates ----
 
-macro_params <- read_csv(data_dir("macro_parameters.csv")) %>%
+macro_params <- load_csv("macro_parameters.csv") %>%
   drop_na(group) %>%
   rename(species_name = dnr_parameter_description)
 
@@ -189,7 +193,7 @@ macro_species <- macro_params$species_name
 # 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
 macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
 
-macro_species_counts <- read_csv(data_dir("macro_species_counts.csv")) %>%
+macro_species_counts <- load_csv("macro_species_counts.csv") %>%
   mutate(
     species_name = factor(species_name, levels = macro_species),
     group = factor(group, levels = macro_groups)
@@ -201,7 +205,7 @@ macro_species_counts <- read_csv(data_dir("macro_species_counts.csv")) %>%
 
 phoslimit <- 0.075 # mg/L or ppm
 
-nutrient_data <- read_csv(data_dir("tp_data.csv")) %>%
+nutrient_data <- load_csv("tp_data.csv") %>%
   rename(fieldwork_seq_no = fsn) %>%
   arrange(station_id, date) %>%
   mutate(exceeds_limit = tp > phoslimit, .after = tp)
@@ -218,8 +222,8 @@ check_missing_stns(nutrient_data, nutrient_pts, "nutrient")
 
 ## Thermistor data ----
 
-therm_data <- read_csv(data_dir("therm_data.csv.gz"))
-therm_info <- read_csv(data_dir("therm_inventory.csv"))
+therm_data <- load_csv("therm_data.csv.gz")
+therm_info <- load_csv("therm_inventory.csv")
 therm_coverage <- get_coverage(therm_data)
 therm_stn_years <- therm_data %>% distinct(station_id, year)
 therm_years <- unique(therm_stn_years$year)
@@ -378,7 +382,7 @@ stn_fieldwork_counts <- bind_rows(
   )
 
 # names, plot, and map settings for baseline and nutrient data
-data_opts <- read_csv("column_options.csv") %>%
+data_opts <- read_csv("column_options.csv", show_col_types = F) %>%
   mutate(label = if_else(is.na(units), name, str_glue("{name} ({units})")), .after = name) %>%
   replace_na(list(units = ""))
 
@@ -410,8 +414,8 @@ map_color_data <- stn_fieldwork_counts %>%
 
 # Landscape data ----
 
-landcover_classes <- read_csv(data_dir("nlcd_classes.csv"))
-landscape_data <- read_csv(data_dir("nlcd_landcover.csv")) %>%
+landcover_classes <- load_csv("nlcd_classes.csv")
+landscape_data <- load_csv("nlcd_landcover.csv") %>%
   left_join(landcover_classes) %>%
   group_by(across(-c(class, area, pct_area))) %>%
   summarize(across(c(area, pct_area), sum), .groups = "drop")
