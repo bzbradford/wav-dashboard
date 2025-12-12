@@ -390,31 +390,14 @@ baselineDataServer <- function(main_rv) {
 
       ## stn_data_ui ----
       output$stn_data_ui <- renderUI({
-        stn <- cur_stn()
-        # yrs <- req(rv$stn_years)
-        yrs <- stn_years()
-        yr_choices <- if (length(yrs) > 1) c(yrs, "All years") else yrs
 
         tagList(
-          p(
-            strong("Station ID:"), stn$station_id, br(),
-            strong("Station Name:"), stn$station_name, br(),
-            strong("Waterbody:"), stn$waterbody
-          ),
+          uiOutput(ns("dt_stn_info_ui")),
           wellPanel(
             div(
               class = "flex-row align-center",
-              div(
-                class = "flex-row align-center",
-                div(class = "control-label", "Show data for:"),
-                radioGroupButtons(
-                  inputId = ns("dt_year"),
-                  label = NULL,
-                  size = "sm",
-                  choices = yr_choices,
-                  selected = last(yr_choices)
-                )
-              ),
+              uiOutput(ns("dt_year_ui")),
+              uiOutput(ns("dt_transpose_ui")),
               div(
                 class = "flex-row align-center",
                 div(class = "control-label", "Show observations in:"),
@@ -424,16 +407,7 @@ baselineDataServer <- function(main_rv) {
                   size = "sm",
                   choices = c("Columns", "Rows")
                 )
-              ),
-              # div(
-              #   class = "flex-row align-center",
-              #   materialSwitch(
-              #     inputId = ns("dt_hide"),
-              #     label = strong("Hide empty?"),
-              #     inline = TRUE,
-              #     value = TRUE
-              #   )
-              # )
+              )
             )
           ),
           p(
@@ -441,6 +415,39 @@ baselineDataServer <- function(main_rv) {
             downloadButton(ns("dl_all_baseline"), "Download all baseline data"),
           ),
           dataTableOutput(ns("dt"))
+        )
+      })
+
+      ## dt_stn_info_ui ----
+      output$dt_stn_info_ui <- renderUI({
+        stn <- cur_stn()
+        p(
+          strong("Station ID:"), stn$station_id, br(),
+          strong("Station Name:"), stn$station_name, br(),
+          strong("Waterbody:"), stn$waterbody
+        )
+      })
+
+      ## dt_year_ui ----
+      output$dt_year_ui <- renderUI({
+        plot_type <- req(input$plot_type)
+        yrs <- stn_years()
+        yr_choices <- if (length(yrs) > 1) c(yrs, "All years") else yrs
+        selected <- if (plot_type == "annual") {
+          req(input$plot_year)
+        } else {
+          last(yr_choices)
+        }
+        div(
+          class = "flex-row align-center",
+          div(class = "control-label", "Show data for:"),
+          radioGroupButtons(
+            inputId = ns("dt_year"),
+            label = NULL,
+            size = "sm",
+            choices = yr_choices,
+            selected = selected
+          )
         )
       })
 

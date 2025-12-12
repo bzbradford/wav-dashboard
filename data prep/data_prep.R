@@ -27,6 +27,7 @@ load_xl <- function(fname, clean = TRUE) {
   df
 }
 
+# a left join but places all joined columns after the join column
 left_join_at <- function(x, y, after = NULL, ...) {
   df <- left_join(x, y, ...)
   if (!is.null(after)) {
@@ -36,23 +37,29 @@ left_join_at <- function(x, y, after = NULL, ...) {
   df
 }
 
+#' coalesce values within columns, grouping by a common variable like the fieldwork
+#' sequence number. Used when merging data from different sources that may have partial
+#' or overlapping data. Will retain the first row in each column by group that has a
+#' valid value
 merge_by <- function(df, by) {
-  df |>
-    data.table::setDT() |>
-    _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = df[[by]]] |>
+  data.table::setDT(df) |>
+    _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = by] |>
     as_tibble()
 }
 
+# restrict a value to a given range
 clamp <- function(x, lower = x, upper = x, na.rm = F) {
   pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
 }
 
+# replaces out of range values with NA
 trim <- function(x, low = NULL, high = NULL, msg = FALSE) {
   if (!is.null(low)) x[x < low] <- NA
   if (!is.null(high)) x[x > high] <- NA
   x
 }
 
+# convert temperature
 f_to_c <- function(x, digits = 1) {
   round((x - 32) * (5 / 9), digits)
 }
@@ -919,11 +926,13 @@ baseline_final %>% write_csv(data_dir("baseline_data.csv"), na = "")
 # NUTRIENT =====================================================================
 
 ## SWIMS ----
+# apparently this query doesn't select dnr parameter code = 665???
 nutrient_xl <- load_xl("5_wav_nutrient_fw.xlsx")
 names(nutrient_xl)
 
 # tp data in units of mg/L = ppm
 tp_data_wav <- nutrient_xl %>%
+  filter(dnr_parameter_code == 665) %>%
   select(
     fsn = fieldwork_seq_no,
     station_id,
@@ -947,6 +956,12 @@ tp_data_wav %>% count(year(datetime))
 
 # test
 if (F) {
+  tp_data_wav %>% count(plan_id, sort = T)
+  tp_data_wav %>% count(fsn, sort = T)
+  tp_data_wav %>% filter(fsn == 358886153)
+  tp_data_wav %>%
+    filter(n() > 1, .by = c(fsn, datetime))
+
   tp_data_wav %>% filter(is.na(tp))
   hist(tp_data_wav$tp)
   hist(hour(tp_data_wav$datetime))
@@ -959,11 +974,10 @@ if (F) {
 # whitelist specific data collectors for non-CBSM projects
 tp_data_wav_clean <- tp_data_wav %>%
   filter(
-    grepl("CBSM-", plan_id) |
-      ((plan_id == "West_06_CMP25") & (collector_name %in% c("RETTA ISAACSON", "HEATHER WOOD", "HEATHER WOOD_0"))) |
-      ((plan_id == "Ashipun River_South_TWA_1_2025") & (collector_name == "DALE CIRA")) |
-      plan_id == "North_01_CMP23"
+    !(plan_id == "West_06_CMP25" & !(collector_name %in% c("RETTA ISAACSON", "HEATHER WOOD", "HEATHER WOOD_0"))),
+    !(plan_id == "Ashipun River_South_TWA_1_2025" & !(collector_name == "DALE CIRA"))
   )
+message(nrow(tp_data_wav) - nrow(tp_data_wav_clean), " rows removed due to filter")
 
 
 ## MRK & TWA ----
@@ -1109,7 +1123,9 @@ stn_list_keep <- stn_list %>%
 stn_list_keep %>%
   filter(is.na(station_name))
 
-stn_list_keep %>% validate_stns()
+if (F) {
+  stn_list_keep %>% validate_stns()
+}
 
 
 ## Check baseline ----
@@ -1133,16 +1149,13 @@ hobo_data %>%
   filter(!(station_id %in% stn_list$station_id))
 
 
-## Create station SF ----
-
-stn_list_keep %>%
-  count(county_name, sort = T) %>%
-  print(n = 100)
-
-
 ## Plot stations on a map ----
 
 if (F) {
+  stn_list_keep %>%
+    count(county_name, sort = T) %>%
+    print(n = 100)
+
   stn_list_keep %>%
     mutate(label = paste0("[", station_id, "] ", station_name)) %>%
     leaflet() %>%
