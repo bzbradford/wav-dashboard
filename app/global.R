@@ -47,7 +47,7 @@ suppressPackageStartupMessages({
 
 # reproject spatial data?
 # print(sf::sf_extSoftVersion())
-# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") %>%
+# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") |>
 #   lapply(function(var) {
 #     shape <- eval(parse(text = var))
 #     message("TEST >> ", var, " crs: ", st_crs(shape)$proj4string)
@@ -96,9 +96,9 @@ map_color_choices <- list(
   "Measured value:" = "measure"
 )
 
-map_measure_choices <- data_opts %>%
-  filter(map_color_menu == TRUE) %>%
-  select(name, col) %>%
+map_measure_choices <- data_opts |>
+  filter(map_color_menu == TRUE) |>
+  select(name, col) |>
   deframe()
 
 
@@ -147,7 +147,7 @@ new_date <- function(y, m, d) {
 
 rnd_stn <- function(df) {
   stns <- unique(df$station_id)
-  df %>%
+  df |>
     filter(station_id == stns[sample(seq_along(stns), 1)])
 }
 
@@ -255,12 +255,12 @@ do_color <- function(do) {
 get_baseline_param_choices <- function(df) {
   opts <- data_opts
 
-  df %>%
-    pivot_longer(any_of(opts$col), names_to = "col") %>%
-    summarize(n = sum(!is.na(value)), .by = col) %>%
-    filter(n > 0) %>%
-    left_join(opts, join_by(col)) %>%
-    select(name, col) %>%
+  df |>
+    pivot_longer(any_of(opts$col), names_to = "col") |>
+    summarize(n = sum(!is.na(value)), .by = col) |>
+    filter(n > 0) |>
+    left_join(opts, join_by(col)) |>
+    select(name, col) |>
     deframe()
 }
 
@@ -281,42 +281,42 @@ stn_summary_min_max <- function(df, var) {
 }
 
 if (F) {
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
+  baseline_data |>
+    slice_sample(n = 1, by = station_id) |>
     stn_summary_min_max("water_temp")
 }
 
 # creates the summary table for the baseline tab
 build_baseline_summary <- function(df) {
   date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
-  data_opts %>%
-    filter(source == "baseline") %>%
-    select(col, name, units) %>%
-    rowwise() %>%
-    reframe(pick(everything()), stn_summary_min_max(df, col)) %>%
-    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) %>%
-    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) %>%
-    select(-c(col, units)) %>%
+  data_opts |>
+    filter(source == "baseline") |>
+    select(col, name, units) |>
+    rowwise() |>
+    reframe(pick(everything()), stn_summary_min_max(df, col)) |>
+    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) |>
+    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) |>
+    select(-c(col, units)) |>
     clean_names("title")
 }
 
 if (F) {
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
+  baseline_data |>
+    slice_sample(n = 1, by = station_id) |>
     build_baseline_summary()
 }
 
 
 # for baseline and nutrient data downloads
 format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
-  df <- df %>% arrange(date)
+  df <- df |> arrange(date)
 
   if (hide_empty) {
     df <- select(df, where(~!all(is.na(.x))))
   }
 
-  df <- df %>%
-    mutate(across(any_of(c("latitude", "longitude")), ~round(.x, 6))) %>%
+  df <- df |>
+    mutate(across(any_of(c("latitude", "longitude")), ~round(.x, 6))) |>
     clean_names(
       case = "title",
       abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
@@ -324,16 +324,16 @@ format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
     )
 
   if (transpose) {
-    df <- df %>%
-      mutate(date_n = n(), .by = Date) %>%
+    df <- df |>
+      mutate(date_n = n(), .by = Date) |>
       mutate(
         label = format(Date, "%b %d, %Y"),
         label = if_else(date_n > 1, paste0(label, " (", row_number(), ")"), label),
         .by = Date
-      ) %>%
-      select(-date_n) %>%
-      mutate(across(everything(), as.character)) %>%
-      pivot_longer(cols = -label, names_to = "Parameter") %>%
+      ) |>
+      select(-date_n) |>
+      mutate(across(everything(), as.character)) |>
+      pivot_longer(cols = -label, names_to = "Parameter") |>
       pivot_wider(names_from = label)
   }
 
@@ -341,11 +341,11 @@ format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
 }
 
 if (F) {
-  baseline_data %>% rnd_stn() %>% format_data()
-  baseline_data %>% rnd_stn() %>% format_data(FALSE)
-  baseline_data %>%
-    filter(station_id == 10040926) %>%
-    format_for_dt() %>%
+  baseline_data |> rnd_stn() |> format_data()
+  baseline_data |> rnd_stn() |> format_data(FALSE)
+  baseline_data |>
+    filter(station_id == 10040926) |>
+    format_for_dt() |>
     print(n = 50)
 }
 
@@ -366,10 +366,10 @@ merge_unit_cols <- function(df, units_suffix = "_units") {
   df[, !(names(df) %in% units_cols), drop = FALSE]
 }
 
-# baseline_data %>%
-#   rnd_stn() %>%
-#   merge_unit_cols() %>%
-#   format_for_dt() %>% view()
+# baseline_data |>
+#   rnd_stn() |>
+#   merge_unit_cols() |>
+#   format_for_dt() |> view()
 
 
 # data structure for plotly background annotation rectangles
@@ -473,8 +473,8 @@ baseline_plot_annot <- lst(
 
 
 
-# baseline_data %>%
-#   slice_sample(n = 1, by = station_id) %>%
+# baseline_data |>
+#   slice_sample(n = 1, by = station_id) |>
 #   get_baseline_param_choices()
 
 
@@ -497,8 +497,8 @@ get_phos_estimate <- function(vals) {
     median = median(log_vals),
     lower = log_mean - tval * se,
     upper = log_mean + tval * se
-  ) %>%
-    lapply(exp) %>%
+  ) |>
+    lapply(exp) |>
     lapply(signif, 3)
   params$n <- n
   params$limit <- phoslimit
@@ -540,8 +540,8 @@ get_phos_exceedance_text <- function(vals, limit = phoslimit) {
 build_therm_daily <- function(df, units, stn) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
-  df %>%
-    group_by(date) %>%
+  df |>
+    group_by(date) |>
     summarise(
       hours = n(),
       min = min(!!sym(temp_col)),
@@ -550,7 +550,7 @@ build_therm_daily <- function(df, units, stn) {
       units = units,
       latitude = latitude[1],
       longitude = longitude[1]
-    ) %>%
+    ) |>
     mutate(
       station_id = stn$station_id,
       station_name = stn$station_name,
@@ -561,31 +561,31 @@ build_therm_daily <- function(df, units, stn) {
 build_therm_summary <- function(df, units) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
-  daily <- df %>%
-    mutate(temp = !!sym(temp_col)) %>%
-    drop_na(temp) %>%
-    arrange(date) %>%
+  daily <- df |>
+    mutate(temp = !!sym(temp_col)) |>
+    drop_na(temp) |>
+    arrange(date) |>
     summarize(temp = mean(temp), .by = c(date, month))
 
-  monthly <- daily %>%
-    mutate(name = fct_inorder(format(date, "%B"))) %>%
+  monthly <- daily |>
+    mutate(name = fct_inorder(format(date, "%B"))) |>
     summarize(
       days = n_distinct(date),
       min = round(min(temp), 1),
       mean = round(mean(temp), 1),
       max = round(max(temp), 1),
       .by = c(month, name)
-    ) %>%
+    ) |>
     clean_names("title")
 
-  total <- daily %>%
+  total <- daily |>
     summarize(
       name = "Total",
       days = n_distinct(date),
       min = round(min(temp), 1),
       mean = round(mean(temp), 1),
       max = round(max(temp), 1)
-    ) %>%
+    ) |>
     clean_names("title")
 
   bind_rows(monthly, total)

@@ -5,13 +5,13 @@ server <- function(input, output, session) {
   # Defs ----
 
   # stations with data from most recent year
-  initial_avail_stns <- all_stns %>%
+  initial_avail_stns <- all_stns |>
     filter(max_fw_year == max(data_years))
 
   # picks a baseline station from the most recent year
-  initial_stn <- initial_avail_stns %>%
-    filter(baseline_stn == TRUE) %>%
-    slice_sample() %>%
+  initial_stn <- initial_avail_stns |>
+    filter(baseline_stn == TRUE) |>
+    slice_sample() |>
     pull(station_id)
 
 
@@ -134,7 +134,7 @@ server <- function(input, output, session) {
       # last_pt <- last_valid_stn()
       if (!is.null(cur_stn)) {
         # find geographically nearest station
-        avail_pts <- all_pts %>% filter(station_id %in% stations)
+        avail_pts <- all_pts |> filter(station_id %in% stations)
         selected <- avail_pts[st_nearest_feature(cur_stn, avail_pts), ]$station_id
       } else {
         selected <- stations[sample(seq_along(stations), 1)]
@@ -183,13 +183,13 @@ server <- function(input, output, session) {
 
     if (nrow(stns_east) == 0) {
       # circle back around
-      selected <- avail_pts %>%
-        filter(longitude == min(longitude)) %>%
+      selected <- avail_pts |>
+        filter(longitude == min(longitude)) |>
         pull(station_id)
     } else {
       # pick the next easterly station
-      selected <- stns_east %>%
-        slice(st_nearest_feature(cur_stn, stns_east)) %>%
+      selected <- stns_east |>
+        slice(st_nearest_feature(cur_stn, stns_east)) |>
         pull(station_id)
     }
 
@@ -209,12 +209,12 @@ server <- function(input, output, session) {
 
     if (nrow(stns_west) == 0) {
       # circle back around
-      selected <- avail_pts %>%
-        filter(longitude == max(longitude)) %>%
+      selected <- avail_pts |>
+        filter(longitude == max(longitude)) |>
         pull(station_id)
     } else {
-      selected <- stns_west %>%
-        slice(st_nearest_feature(cur_stn, stns_west)) %>%
+      selected <- stns_west |>
+        slice(st_nearest_feature(cur_stn, stns_west)) |>
         pull(station_id)
     }
 
@@ -242,7 +242,7 @@ server <- function(input, output, session) {
   # modify map selections to ensure the station shows up in the available stations
   observeEvent(input$recent_stn, {
     id <- input$recent_stn
-    stn <- all_stns %>% filter(station_id == id)
+    stn <- all_stns |> filter(station_id == id)
 
     if (!(id %in% rv$stn_list)) {
       # desired station not in list, need to remove restrictions
@@ -256,7 +256,7 @@ server <- function(input, output, session) {
       updateRadioButtons(inputId = "map-year_exact_match", selected = FALSE)
     }
     updateSelectInput(inputId = "station", selected = id)
-    leafletProxy("map-map") %>%
+    leafletProxy("map-map") |>
       setView(
         lat = stn$latitude,
         lng = stn$longitude,

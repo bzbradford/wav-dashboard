@@ -32,12 +32,12 @@ p <- function(content) cat("\n\n", content, "\n\n", sep = "")
 pg <- function() p("\\newpage")
 
 stn <- params$stn
-safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) %>%
+safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) |>
   str_to_title()
 
 # convert temperatures from C to F
-baseline <- params$data$baseline %>%
-  mutate(formatted_date = format(date, "%b %d")) %>% # nbsp = alt+255
+baseline <- params$data$baseline |>
+  mutate(formatted_date = format(date, "%b %d")) |> # nbsp = alt+255
   mutate(across(where(is.character), ~ gsub("\\\\r\\\\n", " ", .x)))
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
@@ -270,24 +270,24 @@ Here are a few important points to keep in mind as you explore this stream’s d
 
 if (has$baseline) {
   p("# Baseline Monitoring Summary")
-  build_report_baseline_table(baseline) %>%
-    kable(caption = "Baseline stream monitoring measurements") %>%
+  build_report_baseline_table(baseline) |>
+    kable(caption = "Baseline stream monitoring measurements") |>
     print()
 
   if (has$streamflow) {
-    build_report_streamflow_table(baseline) %>%
-      kable(caption = "Streamflow details") %>%
+    build_report_streamflow_table(baseline) |>
+      kable(caption = "Streamflow details") |>
       print()
   }
 
-  baseline %>%
-    summarize_report_cols(c(report_baseline_cols, report_streamflow_cols)) %>%
-    kable(caption = "Baseline stream monitoring summary statistics") %>%
+  baseline |>
+    summarize_report_cols(c(report_baseline_cols, report_streamflow_cols)) |>
+    kable(caption = "Baseline stream monitoring summary statistics") |>
     print()
 
   p("## Additional fieldwork details")
-  build_report_fieldwork_comments(baseline) %>%
-    paste(collapse = "\n\n") %>%
+  build_report_fieldwork_comments(baseline) |>
+    paste(collapse = "\n\n") |>
     cat()
 }
 
@@ -297,16 +297,16 @@ if (has$baseline) {
 if (has$air_temp || has$water_temp) {
   pg()
   p("# Baseline Temperature Measurements")
-  baseline %>%
-    build_report_plot("temp") %>%
+  baseline |>
+    build_report_plot("temp") |>
     print()
-  baseline %>%
-    mutate(across(c(air_temp, water_temp), c_to_f)) %>%
+  baseline |>
+    mutate(across(c(air_temp, water_temp), c_to_f)) |>
     summarize_report_cols(c(
       `Air temp (°F)` = "air_temp",
       `Water temp (°F)` = "water_temp"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure water temperature?")
   p(
@@ -320,8 +320,8 @@ if (has$air_temp || has$water_temp) {
 if (has$thermistor) {
   pg()
   p("# Hourly Temperature Logger Measurements")
-  thermistor %>%
-    build_report_plot(type = "thermistor") %>%
+  thermistor |>
+    build_report_plot(type = "thermistor") |>
     print()
   p(
     "_On the chart above, Natural Community temperature classifications are shown as shaded bands._"
@@ -341,15 +341,15 @@ if (has$thermistor) {
 if (has$d_o) {
   pg()
   p("# Baseline Dissolved Oxygen Measurements")
-  baseline %>%
-    build_report_plot(type = "d_o") %>%
+  baseline |>
+    build_report_plot(type = "d_o") |>
     print()
-  baseline %>%
+  baseline |>
     summarize_report_cols(c(
       `DO (mg/L)` = "d_o",
       `DO (% sat.)` = "d_o_saturation"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure dissolved oxygen?")
   p(
@@ -364,14 +364,14 @@ if (has$d_o) {
 if (has$ph) {
   pg()
   p("# Baseline pH Measurements")
-  baseline %>%
-    build_report_plot(type = "ph") %>%
+  baseline |>
+    build_report_plot(type = "ph") |>
     print()
-  baseline %>%
+  baseline |>
     summarize_report_cols(c(
       `pH` = "ph"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure pH?")
   p(
@@ -392,14 +392,14 @@ if (has$ph) {
 if (has$specific_cond) {
   pg()
   p("# Baseline Conductivity Measurements")
-  baseline %>%
-    build_report_plot(type = "cond") %>%
+  baseline |>
+    build_report_plot(type = "cond") |>
     print()
-  baseline %>%
+  baseline |>
     summarize_report_cols(c(
       `Specific conductance (μS/cm)` = "specific_cond"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure conductivity?")
   p(
@@ -414,14 +414,14 @@ if (has$specific_cond) {
 if (has$transparency) {
   pg()
   p("# Baseline Transparency / Water Clarity Measurements")
-  baseline %>%
-    build_report_plot(type = "trans") %>%
+  baseline |>
+    build_report_plot(type = "trans") |>
     print()
-  baseline %>%
+  baseline |>
     summarize_report_cols(c(
       `Transparency (cm)` = "transparency"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure water transparency?")
   p(
@@ -438,14 +438,14 @@ if (has$transparency) {
 if (has$streamflow) {
   pg()
   p("# Baseline Streamflow Measurements")
-  baseline %>%
-    build_report_plot(type = "flow") %>%
+  baseline |>
+    build_report_plot(type = "flow") |>
     print()
-  baseline %>%
+  baseline |>
     summarize_report_cols(c(
       `Streamflow (cfs)` = "streamflow"
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure streamflow?")
   p(
@@ -466,18 +466,18 @@ if (has$nutrient) {
 
   pg()
   p("# Total Phosphorus Measurements")
-  nutrient %>%
-    build_report_plot(type = "nutrient") %>%
+  nutrient |>
+    build_report_plot(type = "nutrient") |>
     print()
-  nutrient %>%
+  nutrient |>
     summarize_report_cols(c(
       `Total phosphorus (mg/L)` = "tp"
-    )) %>%
+    )) |>
     bind_cols(tibble(
       `Lower CI` = phos_estimate$lower,
       `Upper CI` = phos_estimate$upper
-    )) %>%
-    kable() %>%
+    )) |>
+    kable() |>
     print()
   p("## Why measure total phosphorus?")
   p(

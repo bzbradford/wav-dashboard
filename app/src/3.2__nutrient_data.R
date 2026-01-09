@@ -5,7 +5,7 @@ nutrientDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("main_ui_wrapper")) %>% with_spinner(),
+    uiOutput(ns("main_ui_wrapper")) |> with_spinner(),
   )
 }
 
@@ -37,7 +37,7 @@ nutrientDataServer <- function(main_rv) {
       ## set rv$stn_data ----
       observe({
         stn <- cur_stn()
-        data <- nutrient_data %>%
+        data <- nutrient_data |>
           filter(station_id == stn$station_id)
         if (nrow(data) == 0) {
           if (rv$ready) rv$ready <- FALSE
@@ -140,7 +140,7 @@ nutrientDataServer <- function(main_rv) {
 
       ## plot_caption_ui ----
       output$phos_text <- renderText({
-        phos_estimate() %>%
+        phos_estimate() |>
           get_phos_exceedance_text()
       })
 
@@ -223,7 +223,7 @@ nutrientDataServer <- function(main_rv) {
 
       ## dt ----
       output$dt <- renderDataTable({
-        stn_dt_data() %>%
+        stn_dt_data() |>
           datatable(
             selection = "none",
             rownames = FALSE,

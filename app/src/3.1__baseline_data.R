@@ -5,7 +5,7 @@ baselineDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("main_ui_wrapper")) %>% with_spinner(),
+    uiOutput(ns("main_ui_wrapper")) |> with_spinner(),
   )
 }
 
@@ -40,7 +40,7 @@ baselineDataServer <- function(main_rv) {
       ## set rv$stn_data ----
       observe({
         stn <- cur_stn()
-        data <- baseline_data %>%
+        data <- baseline_data |>
           filter(station_id == stn$station_id)
         if (nrow(data) == 0) {
           if (rv$ready) rv$ready <- FALSE
@@ -55,7 +55,7 @@ baselineDataServer <- function(main_rv) {
       # for when the annual plot type is selected. Used for plot and summary tbl
       annual_stn_data <- reactive({
         yr <- req(input$plot_year)
-        df <- req(rv$stn_data) %>%
+        df <- req(rv$stn_data) |>
           filter(year == yr)
         req(nrow(df) > 0)
         df
@@ -462,14 +462,14 @@ baselineDataServer <- function(main_rv) {
       ## stn_dt_data ----
       stn_dt_data <- reactive({
         transpose <- req(input$dt_transpose) == "Columns"
-        stn_dl_data() %>%
-          merge_unit_cols() %>%
+        stn_dl_data() |>
+          merge_unit_cols() |>
           format_for_dt(transpose)
       })
 
       ## dt ----
       output$dt <- renderDataTable({
-        stn_dt_data() %>%
+        stn_dt_data() |>
           datatable(
             selection = "none",
             rownames = FALSE,
@@ -497,8 +497,8 @@ baselineDataServer <- function(main_rv) {
         },
         content = function(file) {
           transpose <- req(input$dt_transpose) == "Columns"
-          stn_dl_data() %>%
-            format_for_dt(transpose) %>%
+          stn_dl_data() |>
+            format_for_dt(transpose) |>
             write_csv(file, na = "")
         }
       )

@@ -72,13 +72,13 @@ recentStationsServer <- function(main_rv) {
         ids <- rv$recent_stns
         stn <- cur_stn()
 
-        tibble(station_id = ids) %>%
-          left_join(all_stns, join_by(station_id)) %>%
+        tibble(station_id = ids) |>
+          left_join(all_stns, join_by(station_id)) |>
           mutate(
             arrow = if_else(station_id == stn$station_id, "\u27a4", ""),
             action = btn_for_stn(station_id),
             across(c(baseline_stn, nutrient_stn, therm_stn), ~if_else(.x, "\u2705", "\u274c")),
-          ) %>%
+          ) |>
           select(
             ` ` = arrow,
             Action = action,

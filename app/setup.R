@@ -2,14 +2,12 @@
 
 # resets Rdata and generates variables for the app that take a little time to compute
 
-
 # Load packages ----
 
 library(tidyverse)
 library(janitor)
 library(shiny)
 library(sf)
-
 
 
 # Clear environment ----
@@ -33,7 +31,8 @@ create_popups <- function(df) {
       }) %>%
       paste0(collapse = "<br>")
     paste0(title, details)
-  }) %>% paste0()
+  }) %>%
+    paste0()
 }
 
 
@@ -60,7 +59,15 @@ check_missing_stns <- function(data, pts, type) {
     arrange(station_id)
 
   if (nrow(missing) > 0) {
-    warning(nrow(missing), "/", nrow(pts) + nrow(missing), " ", type, " stations are missing from the station list!", call. = F)
+    warning(
+      nrow(missing),
+      "/",
+      nrow(pts) + nrow(missing),
+      " ",
+      type,
+      " stations are missing from the station list!",
+      call. = F
+    )
   }
 }
 
@@ -98,42 +105,72 @@ waterbodies <- data_dir("shp/waterbodies.rds") %>%
 flowlines <- data_dir("shp/flowlines.rds") %>%
   read_rds()
 nkes <- data_dir("shp/nkes.rds") %>%
-read_rds() %>%
-  mutate(Label = paste0(
-    "<b>", PlanName, "</b>",
-    "<br>Ends: ", EndDate,
-    "<br>Objective: ", Objective
-  ))
+  read_rds() %>%
+  mutate(
+    Label = paste0(
+      "<b>",
+      PlanName,
+      "</b>",
+      "<br>Ends: ",
+      EndDate,
+      "<br>Objective: ",
+      Objective
+    )
+  )
 huc8 <- data_dir("shp/huc8.rds") %>%
   read_rds() %>%
-  mutate(Label = paste0(
-    "<b>", Huc8Name, " Subbasin</b>",
-    "<br>Area: ", fmt_area(Area),
-    "<br>HUC8 Code: ", Huc8Code,
-    "<br>HUC6 basin: ", MajorBasin
-  ))
+  mutate(
+    Label = paste0(
+      "<b>",
+      Huc8Name,
+      " Subbasin</b>",
+      "<br>Area: ",
+      fmt_area(Area),
+      "<br>HUC8 Code: ",
+      Huc8Code,
+      "<br>HUC6 basin: ",
+      MajorBasin
+    )
+  )
 huc10 <- data_dir("shp/huc10.rds") %>%
   read_rds() %>%
-  mutate(Label = paste0(
-    "<b>", Huc10Name, " Watershed</b>",
-    "<br>Area: ", fmt_area(Area),
-    "<br>HUC10 Code: ", Huc10Code,
-    "<br>HUC8 subbasin: ", Huc8Name,
-    "<br>HUC6 basin: ", MajorBasin
-  ))
+  mutate(
+    Label = paste0(
+      "<b>",
+      Huc10Name,
+      " Watershed</b>",
+      "<br>Area: ",
+      fmt_area(Area),
+      "<br>HUC10 Code: ",
+      Huc10Code,
+      "<br>HUC8 subbasin: ",
+      Huc8Name,
+      "<br>HUC6 basin: ",
+      MajorBasin
+    )
+  )
 suppressWarnings({
   huc10_centroids <- st_centroid(huc10)
 })
 huc12 <- data_dir("shp/huc12.rds") %>%
   read_rds() %>%
-  mutate(Label = paste0(
-    "<b>", Huc12Name, " Subwatershed</b>",
-    "<br>Area: ", fmt_area(Area),
-    "<br>HUC12 Code: ", Huc12Code,
-    "<br>HUC10 watershed: ", Huc10Name,
-    "<br>HUC8 subbasin: ", Huc8Name,
-    "<br>HUC6 basin: ", MajorBasin
-  ))
+  mutate(
+    Label = paste0(
+      "<b>",
+      Huc12Name,
+      " Subwatershed</b>",
+      "<br>Area: ",
+      fmt_area(Area),
+      "<br>HUC12 Code: ",
+      Huc12Code,
+      "<br>HUC10 watershed: ",
+      Huc10Name,
+      "<br>HUC8 subbasin: ",
+      Huc8Name,
+      "<br>HUC6 basin: ",
+      MajorBasin
+    )
+  )
 
 
 ## Station lists ----
@@ -146,7 +183,11 @@ station_pts <- station_list %>%
 
 # adds a column right after `col` with the units in it
 add_units <- function(.data, col, units) {
-  mutate(.data, "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units), .after = {{ col }})
+  mutate(
+    .data,
+    "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units),
+    .after = {{ col }}
+  )
 }
 
 baseline_data <- load_csv("baseline_data.csv") %>%
@@ -255,8 +296,14 @@ all_coverage <- bind_rows(
     data_years = paste(data_year_list, collapse = ", ")
   ) %>%
   ungroup() %>%
-  left_join(count(baseline_data, station_id, name = "baseline_data_obs"), by = "station_id") %>%
-  left_join(count(nutrient_data, station_id, name = "nutrient_data_obs"), by = "station_id") %>%
+  left_join(
+    count(baseline_data, station_id, name = "baseline_data_obs"),
+    by = "station_id"
+  ) %>%
+  left_join(
+    count(nutrient_data, station_id, name = "nutrient_data_obs"),
+    by = "station_id"
+  ) %>%
   left_join(
     {
       therm_data %>%
@@ -309,14 +356,16 @@ all_stn_data <- all_stn_years %>%
   left_join(nutrient_tallies, by = c("station_id", "year")) %>%
   left_join(therm_tallies, by = c("station_id", "year")) %>%
   mutate(across(where(is.numeric), as.character)) %>%
-  replace_na(list(baseline = "\u274c", nutrient = "\u274c", thermistor = "\u274c"))
+  replace_na(list(
+    baseline = "\u274c",
+    nutrient = "\u274c",
+    thermistor = "\u274c"
+  ))
 
 # all_stn_data %>%
 #   mutate(across(everything(), ~gsub("\u2705 ", "", .x))) %>%
 #   mutate(across(everything(), ~gsub("\u274c", "", .x))) %>%
 #   write_csv("station data coverage.csv")
-
-
 
 # Finalize sites lists ----
 
@@ -332,12 +381,17 @@ all_pts <- station_pts %>%
   mutate(
     station_id = as.numeric(station_id),
     label = paste(station_id, station_name, sep = ": "),
-    map_label = lapply(str_glue("
+    map_label = lapply(
+      str_glue(
+        "
       <b>{data_sources} Monitoring Station</b><br>
       Station ID: {station_id}<br>
       Name: {str_trunc(station_name, 50)}<br>
       Most recent data: {format(as.Date(max_fw_date), '%b %d, %Y')}
-    "), shiny::HTML)
+    "
+      ),
+      shiny::HTML
+    )
   )
 
 all_stns <- all_pts %>%
@@ -348,7 +402,9 @@ all_labels <- setNames(all_pts$label, as.character(all_pts$station_id))
 
 all_popups <- all_pts %>%
   st_set_geometry(NULL) %>%
-  select(-c(baseline_stn, therm_stn, nutrient_stn, data_year_list, label, map_label)) %>%
+  select(
+    -c(baseline_stn, therm_stn, nutrient_stn, data_year_list, label, map_label)
+  ) %>%
   clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
   create_popups() %>%
   setNames(all_pts$station_id)
@@ -369,9 +425,15 @@ all_stn_list <- all_pts %>%
 
 stn_fieldwork_counts <- bind_rows(
   baseline_data %>%
-    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+    summarize(
+      n_fieldwork = n_distinct(fieldwork_seq_no),
+      .by = c(station_id, year)
+    ),
   nutrient_data %>%
-    summarize(n_fieldwork = n_distinct(fieldwork_seq_no), .by = c(station_id, year)),
+    summarize(
+      n_fieldwork = n_distinct(fieldwork_seq_no),
+      .by = c(station_id, year)
+    ),
   therm_data %>%
     summarize(n_fieldwork = 2, .by = c(station_id, year))
 ) %>%
@@ -382,25 +444,32 @@ stn_fieldwork_counts <- bind_rows(
   )
 
 # names, plot, and map settings for baseline and nutrient data
-data_opts <- read_csv("column_options.csv", show_col_types = F) %>%
-  mutate(label = if_else(is.na(units), name, str_glue("{name} ({units})")), .after = name) %>%
+data_opts <- read_csv("options.csv", show_col_types = F) %>%
+  mutate(
+    label = if_else(is.na(units), name, str_glue("{name} ({units})")),
+    .after = name
+  ) %>%
   replace_na(list(units = ""))
 
 stn_measure_stats <- bind_rows(
-    baseline_data %>%
-      pivot_longer(
-        cols = any_of(data_opts$col),
-        names_to = "measure"
-      ) %>%
-      select(station_id, date, measure, value),
-    nutrient_data %>%
-      pivot_longer(tp, names_to = "measure") %>%
-      select(station_id, date, measure, value)
-  ) %>%
+  baseline_data %>%
+    pivot_longer(
+      cols = any_of(data_opts$col),
+      names_to = "measure"
+    ) %>%
+    select(station_id, date, measure, value),
+  nutrient_data %>%
+    pivot_longer(tp, names_to = "measure") %>%
+    select(station_id, date, measure, value)
+) %>%
   drop_na(value) %>%
   summarize(
     n = n(),
-    across(value, c(mean = mean, median = median, min = min, max = max), .names = "{.fn}"),
+    across(
+      value,
+      c(mean = mean, median = median, min = min, max = max),
+      .names = "{.fn}"
+    ),
     .by = c(station_id, measure)
   )
 

@@ -5,7 +5,7 @@ thermistorDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("ui")) %>% with_spinner(),
+    uiOutput(ns("ui")) |> with_spinner(),
   )
 }
 
@@ -37,7 +37,7 @@ thermistorDataServer <- function(main_rv) {
 
       ## stn_data ----
       stn_data <- reactive({
-        therm_data %>%
+        therm_data |>
           filter(station_id == cur_stn()$station_id)
       })
 
@@ -52,15 +52,15 @@ thermistorDataServer <- function(main_rv) {
 
       ## logger_serials ----
       logger_serials <- reactive({
-        loggers <- selected_data() %>%
+        loggers <- selected_data() |>
           count(year, logger_sn)
 
         if (nrow(loggers) == 1) {
           loggers$logger_sn
         } else {
-          loggers %>%
-            mutate(label = paste(year, logger_sn, sep = ": ")) %>%
-            pull(label) %>%
+          loggers |>
+            mutate(label = paste(year, logger_sn, sep = ": ")) |>
+            pull(label) |>
             paste(collapse = " | ")
         }
       })
@@ -103,7 +103,7 @@ thermistorDataServer <- function(main_rv) {
           div(
             id = "therm-plot-container",
             h3(textOutput(ns("stn_title")), align = "center"),
-            plotlyOutput(ns("plot")) %>% with_spinner(hide.ui = FALSE),
+            plotlyOutput(ns("plot")) |> with_spinner(hide.ui = FALSE),
             uiOutput(ns("plot_caption_ui")),
             uiOutput(ns("natural_community_ui"))
           ),
@@ -126,7 +126,9 @@ thermistorDataServer <- function(main_rv) {
 
       ## Year selector ----
       output$year_select_ui <- renderUI({
-        yrs <- sort(unique(stn_data()$year))
+        df <- stn_data()
+        req(nrow(df) > 0)
+        yrs <- sort(unique(df$year))
         div(
           class = "well flex-row year-btns",
           div(class = "year-btn-text", em("Choose year:")),
@@ -190,20 +192,20 @@ thermistorDataServer <- function(main_rv) {
         # insert rows to break plotly lines across years
         # ribbon can't handle NA values to min/max are pinched to = mean
         if (input$year == "All") {
-          df_daily <- df_daily %>%
-            mutate(days_to_next = as.numeric(lead(date) - date)) %>%
+          df_daily <- df_daily |>
+            mutate(days_to_next = as.numeric(lead(date) - date)) |>
             mutate(days_since_last = as.numeric(date - lag(date)))
-          gap_starts <- df_daily %>%
-            filter(days_to_next > 7) %>%
+          gap_starts <- df_daily |>
+            filter(days_to_next > 7) |>
             mutate(date = date + 1, min = mean, max = mean, mean = NA)
-          gap_ends <- df_daily %>%
-            filter(days_since_last > 7) %>%
+          gap_ends <- df_daily |>
+            filter(days_since_last > 7) |>
             mutate(date = date - 1, min = mean, max = mean, mean = NA)
-          df_daily <- df_daily %>%
-            bind_rows(gap_starts, gap_ends) %>%
+          df_daily <- df_daily |>
+            bind_rows(gap_starts, gap_ends) |>
             arrange(date)
-          df_hourly <- df_hourly %>%
-            bind_rows(gap_starts, gap_ends) %>%
+          df_hourly <- df_hourly |>
+            bind_rows(gap_starts, gap_ends) |>
             arrange(date)
         }
 
@@ -337,8 +339,8 @@ thermistorDataServer <- function(main_rv) {
 
       ## monthly_dt ----
       output$monthly_dt <- renderDataTable({
-        summary_data() %>%
-          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
+        summary_data() |>
+          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) |>
           datatable(
             selection = "none",
             rownames = FALSE,
@@ -357,29 +359,29 @@ thermistorDataServer <- function(main_rv) {
 
       ## daily_dt ----
       output$daily_dt <- renderDataTable({
-        daily_data() %>%
-          clean_names("big_camel", abbreviations = c("ID", "SN")) %>%
+        daily_data() |>
+          clean_names("big_camel", abbreviations = c("ID", "SN")) |>
           datatable(
             selection = "none",
             options = list(
               scrollX = TRUE,
               scrollCollapse = TRUE
             )
-          ) %>%
+          ) |>
           formatRound(columns = c("Latitude", "Longitude"), digits = 6)
       }, server = TRUE)
 
       ## hourly_dt ----
       output$hourly_dt <- renderDataTable({
-        selected_data() %>%
-          clean_names("big_camel", abbreviations = c("ID", "SN")) %>%
+        selected_data() |>
+          clean_names("big_camel", abbreviations = c("ID", "SN")) |>
           datatable(
             selection = "none",
             options = list(
               scrollX = TRUE,
               scrollCollapse = TRUE
             )
-          ) %>%
+          ) |>
           formatRound(columns = c("Latitude", "Longitude"), digits = 6)
       }, server = TRUE)
 

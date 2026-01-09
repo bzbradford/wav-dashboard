@@ -32,25 +32,25 @@ stationInfoServer <- function(main_rv) {
 
       # Station details table
       output$details_tbl <- renderTable({
-        cur_stn() %>%
-          select(station_id:geometry) %>%
-          st_set_geometry(NULL) %>%
-          mutate(across(everything(), as.character)) %>%
-          clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) %>%
+        cur_stn() |>
+          select(station_id:geometry) |>
+          st_set_geometry(NULL) |>
+          mutate(across(everything(), as.character)) |>
+          clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) |>
           pivot_longer(
             cols = everything(),
             names_to = "Property",
             values_to = "Value"
-          ) %>%
+          ) |>
           na.omit()
       })
 
       # Station data coverage table
       output$coverage_tbl <- renderTable({
-        all_stn_data %>%
-          filter(station_id == cur_stn()$station_id) %>%
-          select(-station_id) %>%
-          arrange(desc(year)) %>%
+        all_stn_data |>
+          filter(station_id == cur_stn()$station_id) |>
+          select(-station_id) |>
+          arrange(desc(year)) |>
           clean_names(case = "title")
       })
     }

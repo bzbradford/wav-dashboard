@@ -6,7 +6,7 @@ stnReportUI <- function() {
   tagList(
     div(
       class = "data-tab",
-      uiOutput(ns("main_ui")) %>% with_spinner()
+      uiOutput(ns("main_ui")) |> with_spinner()
     )
   )
 }
@@ -48,7 +48,7 @@ stnReportServer <- function(main_rv) {
       ## avail_reports ----
       avail_reports <- reactive({
         df <- stn_data()
-        baseline_obs <- df$baseline %>%
+        baseline_obs <- df$baseline |>
           summarize(
             `Baseline<br>temperature` = sum(
               !is.na(air_temp) | !is.na(water_temp)
@@ -60,10 +60,10 @@ stnReportServer <- function(main_rv) {
             `Baseline<br>streamflow` = sum(!is.na(streamflow)),
             .by = year
           )
-        nutrient_obs <- df$nutrient %>%
+        nutrient_obs <- df$nutrient |>
           count(year, name = "Total<br>phosphorus")
-        therm_obs <- df$thermistor %>%
-          count(year, date) %>%
+        therm_obs <- df$thermistor |>
+          count(year, date) |>
           count(year, name = "Continuous<br>temp. days")
         years <- sort(unique(c(
           baseline_obs$year,
@@ -71,13 +71,13 @@ stnReportServer <- function(main_rv) {
           therm_obs$year
         )))
 
-        tibble(year = years) %>%
-          left_join(baseline_obs, join_by(year)) %>%
-          left_join(nutrient_obs, join_by(year)) %>%
-          left_join(therm_obs, join_by(year)) %>%
-          rename(Year = year) %>%
-          mutate(Year = as.character(Year)) %>%
-          mutate(across(where(is.numeric), ~ ifelse(.x == 0, NA, .x))) %>%
+        tibble(year = years) |>
+          left_join(baseline_obs, join_by(year)) |>
+          left_join(nutrient_obs, join_by(year)) |>
+          left_join(therm_obs, join_by(year)) |>
+          rename(Year = year) |>
+          mutate(Year = as.character(Year)) |>
+          mutate(across(where(is.numeric), ~ ifelse(.x == 0, NA, .x))) |>
           mutate(
             `Download<br>report` = lapply(Year, function(yr) {
               tags$button(
@@ -90,7 +90,7 @@ stnReportServer <- function(main_rv) {
                   ns("year"),
                   yr
                 )
-              ) %>%
+              ) |>
                 as.character()
             })
           )
@@ -107,7 +107,7 @@ stnReportServer <- function(main_rv) {
             align = "center",
             class = "report-tbl",
             style = "overflow: auto;",
-            dataTableOutput(ns("avail_reports_tbl")) %>% with_spinner(),
+            dataTableOutput(ns("avail_reports_tbl")) |> with_spinner(),
           ),
           div(
             style = "visibility: hidden; height: 0px;",
