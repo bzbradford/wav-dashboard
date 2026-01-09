@@ -20,10 +20,11 @@ data_dir <- function(f) {
 # update dir when new data
 load_xl <- function(fname, clean = TRUE) {
   f <- file.path("swims", fname)
+  f.mtime <- file.mtime(f)
   df <- read_excel(f, na = c("", "NA"))
   if (clean) df <- clean_names(df)
   str(df)
-  message("Loaded '", f, "'")
+  message("Loaded data from '", f, "' which was last modified ", f.mtime, " (", format(now() - f.mtime), " ago)")
   df
 }
 
@@ -599,7 +600,7 @@ macro_species <- macro_index %>%
   drop_na(group) %>%
   pull(dnr_parameter_description)
 
-macro_xl <- load_xl("8_wav_ibi_fw.xlsx", clean = F)
+macro_xl <- load_xl("8_wav_macros_fw.xlsx", clean = F)
 # names(macro_xl)
 
 ### Fieldwork and scores ----
