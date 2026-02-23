@@ -33,19 +33,31 @@ load(".RData")
 
 # Development ------------------------------------------------------------------
 
-# Reload/reset data
-# source("setup.R")
+if (FALSE) {
+  # load/reset data
+  source("setup.R")
 
-# renv::status()
-# renv::init()         # initiate renv if not already
-# renv::dependencies() # show project dependencies
-# renv::clean()        # remove unused packages
-# renv::update()       # update project libraries
-# renv::snapshot()     # save updated lock file to project
-# renv::restore()      # restore versions from lockfile
+  # add to renv without loading
+  library(devtools)
 
-# shiny::devmode(TRUE)
-# shiny::devmode(FALSE)
+  # this got removed from CRAN
+  devtools::install_github("trafficonese/leaflet.extras")
+
+  # RENV
+  renv::activate()
+  renv::init()
+  renv::status()
+  renv::restore()
+  renv::update()
+  renv::snapshot()
+  renv::clean()
+
+  # enable development mode
+  shiny::devmode(TRUE)
+
+  # turn warnings into errors
+  options(warn = 2)
+}
 
 # reproject spatial data?
 # print(sf::sf_extSoftVersion())
