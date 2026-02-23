@@ -28,10 +28,12 @@ stationListUI <- function() {
     div(
       id = "resize_wrapper",
       style = "margin: 1em 0px; padding: 10px; border: 1px solid grey; border-radius: 5px; background: white; min-height: 550px;",
-      dataTableOutput(ns("stn_tbl")) %>% with_spinner(proxy.height = 530)
+      dataTableOutput(ns("stn_tbl")) |> with_spinner(proxy.height = 530)
     ),
     p(uiOutput(ns("dl_btns"))),
-    em("Use the buttons at the top of this section to select which set of stations to show and download. 'Shown on map' means any stations shown on the map above; use the map options to change which stations to show, such as selecting a specific year or type of station. If a station is not shown on the map, the 'Select' action button will not be available for that station. You can also download the station lists as a CSV, as a KML for viewing in Google Earth, or as a GeoJSON for viewing in a GIS application such as QGIS.")
+    em(
+      "Use the buttons at the top of this section to select which set of stations to show and download. 'Shown on map' means any stations shown on the map above; use the map options to change which stations to show, such as selecting a specific year or type of station. If a station is not shown on the map, the 'Select' action button will not be available for that station. You can also download the station lists as a CSV, as a KML for viewing in Google Earth, or as a GeoJSON for viewing in a GIS application such as QGIS."
+    )
   )
 }
 
@@ -53,28 +55,36 @@ stationListServer <- function(main_rv) {
       cur_stns <- reactive({
         req(input$stn_set)
 
-        stns <- switch(input$stn_set,
-          "map" = all_stns %>% filter(station_id %in% stn_list()),
-          "baseline" = all_stns %>% filter(baseline_stn),
-          "nutrient" = all_stns %>% filter(nutrient_stn),
-          "therm" = all_stns %>% filter(therm_stn),
+        stns <- switch(
+          input$stn_set,
+          "map" = all_stns |> filter(station_id %in% stn_list()),
+          "baseline" = all_stns |> filter(baseline_stn),
+          "nutrient" = all_stns |> filter(nutrient_stn),
+          "therm" = all_stns |> filter(therm_stn),
           all_stns
         )
 
-        stns %>%
-          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) %>%
+        stns |>
+          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) |>
           clean_names(case = "big_camel")
       })
 
       ## dt_data() ----
       dt_data <- reactive({
         stn_list <- req
-        cur_stns() %>%
-          mutate(Action = if_else(
-            StationId %in% stn_list(),
-            sprintf("<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>", StationId),
-            ""
-          ) %>% lapply(HTML), .before = 1)
+        cur_stns() |>
+          mutate(
+            Action = if_else(
+              StationId %in% stn_list(),
+              sprintf(
+                "<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>",
+                StationId
+              ),
+              ""
+            ) |>
+              lapply(HTML),
+            .before = 1
+          )
       })
 
       ## stn_tbl // renderDataTable ----
@@ -95,12 +105,14 @@ stationListServer <- function(main_rv) {
           fixedColumns = list(leftColumns = 1),
           columnDefs = list(list(
             targets = 2:24,
-            render = JS("
+            render = JS(
+              "
               function(data, type, row, meta) {
                 return (type === 'display' && data && data.length > 30) ?
                   '<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;
               }
-            ")
+            "
+            )
           ))
         )
       )
@@ -108,17 +120,17 @@ stationListServer <- function(main_rv) {
       ## stn_tbl observer ----
       # update data table when source data changes
       observe({
-        dataTableProxy("stn_tbl") %>%
+        dataTableProxy("stn_tbl") |>
           replaceData(dt_data(), rownames = F)
       })
-
 
       # Download handlers ------------------------------------------------------
 
       ## filename() ----
       # sets file name for downloads
       filename <- reactive({
-        switch(req(input$stn_set),
+        switch(
+          req(input$stn_set),
           "map" = "WAV Selected Station List",
           "baseline" = "WAV Baseline Stations",
           "nutrient" = "WAV Nutrient Stations",
@@ -153,9 +165,13 @@ stationListServer <- function(main_rv) {
       output$dl_kml <- downloadHandler(
         paste0(filename(), ".kml"),
         function(file) {
-          cur_stns() %>%
-            mutate(Name = paste(StationId, StationName), .before = 1) %>%
-            st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%
+          cur_stns() |>
+            mutate(Name = paste(StationId, StationName), .before = 1) |>
+            st_as_sf(
+              coords = c("Longitude", "Latitude"),
+              crs = 4326,
+              remove = F
+            ) |>
             write_sf(file, layer = "")
         }
       )
@@ -164,9 +180,13 @@ stationListServer <- function(main_rv) {
       output$dl_geojson <- downloadHandler(
         paste0(filename(), ".geojson"),
         function(file) {
-          cur_stns() %>%
-            mutate(Name = paste(StationId, StationName), .before = 1) %>%
-            st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, remove = F) %>%
+          cur_stns() |>
+            mutate(Name = paste(StationId, StationName), .before = 1) |>
+            st_as_sf(
+              coords = c("Longitude", "Latitude"),
+              crs = 4326,
+              remove = F
+            ) |>
             write_sf(file)
         }
       )

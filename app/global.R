@@ -28,6 +28,8 @@ suppressPackageStartupMessages({
   library(knitr)
 })
 
+# load data created in setup.R
+load(".RData")
 
 # Development ------------------------------------------------------------------
 
@@ -47,7 +49,7 @@ suppressPackageStartupMessages({
 
 # reproject spatial data?
 # print(sf::sf_extSoftVersion())
-# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") %>%
+# c("counties", "waterbodies", "nkes", "huc8", "huc10", "huc12", "all_pts") |>
 #   lapply(function(var) {
 #     shape <- eval(parse(text = var))
 #     message("TEST >> ", var, " crs: ", st_crs(shape)$proj4string)
@@ -86,7 +88,10 @@ stn_data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 
 stn_year_choices <- append(
   setNames(stn_data_years[1:4], stn_data_years[1:4]),
-  setNames(stn_data_years[5], paste0(last(stn_data_years), "-", stn_data_years[5]))
+  setNames(
+    stn_data_years[5],
+    paste0(last(stn_data_years), "-", stn_data_years[5])
+  )
 )
 
 map_color_choices <- list(
@@ -96,9 +101,9 @@ map_color_choices <- list(
   "Measured value:" = "measure"
 )
 
-map_measure_choices <- data_opts %>%
-  filter(map_color_menu == TRUE) %>%
-  select(name, col) %>%
+map_measure_choices <- data_opts |>
+  filter(map_color_menu == TRUE) |>
+  select(name, col) |>
   deframe()
 
 
@@ -143,6 +148,12 @@ clamp <- function(x, lower = x, upper = x, na.rm = F) {
 
 new_date <- function(y, m, d) {
   as.Date(paste(y, m, d, sep = "-"))
+}
+
+rnd_stn <- function(df) {
+  stns <- unique(df$station_id)
+  df |>
+    filter(station_id == stns[sample(seq_along(stns), 1)])
 }
 
 
@@ -226,6 +237,17 @@ build_notice_ui <- function(content, type = c("ok", "error")) {
   })
 }
 
+build_link <- function(text, href, title = text, ...) {
+  a(
+    text,
+    href = href,
+    title = href,
+    .noWS = "outside",
+    target = "_blank",
+    ...
+  )
+}
+
 
 ## Plot helpers ----
 
@@ -249,12 +271,12 @@ do_color <- function(do) {
 get_baseline_param_choices <- function(df) {
   opts <- data_opts
 
-  df %>%
-    pivot_longer(any_of(opts$col), names_to = "col") %>%
-    summarize(n = sum(!is.na(value)), .by = col) %>%
-    filter(n > 0) %>%
-    left_join(opts, join_by(col)) %>%
-    select(name, col) %>%
+  df |>
+    pivot_longer(any_of(opts$col), names_to = "col") |>
+    summarize(n = sum(!is.na(value)), .by = col) |>
+    filter(n > 0) |>
+    left_join(opts, join_by(col)) |>
+    select(name, col) |>
     deframe()
 }
 
@@ -275,54 +297,66 @@ stn_summary_min_max <- function(df, var) {
 }
 
 if (F) {
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
+  baseline_data |>
+    slice_sample(n = 1, by = station_id) |>
     stn_summary_min_max("water_temp")
 }
 
 # creates the summary table for the baseline tab
 build_baseline_summary <- function(df) {
   date_fmt <- ifelse(length(unique(df$year)) > 1, "%b %e, %Y", "%b %e")
-  data_opts %>%
-    filter(source == "baseline") %>%
-    select(col, name, units) %>%
-    rowwise() %>%
-    reframe(pick(everything()), stn_summary_min_max(df, col)) %>%
-    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) %>%
-    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) %>%
-    select(-c(col, units)) %>%
+  data_opts |>
+    filter(source == "baseline") |>
+    select(col, name, units) |>
+    rowwise() |>
+    reframe(pick(everything()), stn_summary_min_max(df, col)) |>
+    mutate(across(
+      c(min, mean, max),
+      ~ if_else(is.na(units), as.character(.x), paste(.x, units))
+    )) |>
+    mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) |>
+    select(-c(col, units)) |>
     clean_names("title")
 }
 
 if (F) {
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
+  baseline_data |>
+    slice_sample(n = 1, by = station_id) |>
     build_baseline_summary()
 }
 
 
 # for baseline and nutrient data downloads
-build_formatted_data <- function(df, transpose = TRUE) {
-  df <- df %>%
-    arrange(date) %>%
+format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
+  df <- df |> arrange(date)
+
+  if (hide_empty) {
+    df <- select(df, where(~ !all(is.na(.x))))
+  }
+
+  df <- df |>
+    mutate(across(any_of(c("latitude", "longitude")), ~ round(.x, 6))) |>
     clean_names(
       case = "title",
-      abbreviations = c("ID", "WBIC", "DO", "pH", "TP"),
+      abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
       replace = c("d_o" = "DO", "tp" = "Total Phosphorus")
     )
 
   if (transpose) {
-    df <- df %>%
-      mutate(label = format(Date, "%b %d, %Y")) %>%
-      mutate(obs_per_date = n(), .by = Date) %>%
-      mutate(label = if_else(
-        obs_per_date > 1,
-        paste0(label, " (", row_number(), ")"),
-        label
-      )) %>%
-      select(-obs_per_date) %>%
-      mutate(across(everything(), as.character)) %>%
-      pivot_longer(cols = -label, names_to = "Parameter") %>%
+    df <- df |>
+      mutate(date_n = n(), .by = Date) |>
+      mutate(
+        label = format(Date, "%b %d, %Y"),
+        label = if_else(
+          date_n > 1,
+          paste0(label, " (", row_number(), ")"),
+          label
+        ),
+        .by = Date
+      ) |>
+      select(-date_n) |>
+      mutate(across(everything(), as.character)) |>
+      pivot_longer(cols = -label, names_to = "Parameter") |>
       pivot_wider(names_from = label)
   }
 
@@ -330,27 +364,35 @@ build_formatted_data <- function(df, transpose = TRUE) {
 }
 
 if (F) {
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = FALSE)
-
-  baseline_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = TRUE)
-
-  nutrient_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = TRUE)
-
-  nutrient_data %>%
-    slice_sample(n = 1, by = station_id) %>%
-    build_formatted_data(transpose = FALSE)
-
-  baseline_data %>%
-    filter(station_id == 10030403) %>%
-    build_formatted_data(transpose = TRUE)
+  baseline_data |> rnd_stn() |> format_for_dt()
+  baseline_data |> rnd_stn() |> format_for_dt(FALSE)
+  baseline_data |>
+    filter(station_id == 10040926) |>
+    format_for_dt() |>
+    print(n = 50)
 }
 
+# used before formatting for display
+merge_unit_cols <- function(df, units_suffix = "_units") {
+  units_cols <- names(df)[grepl(paste0(units_suffix, "$"), names(df))]
+  data_cols <- sub(paste0(units_suffix, "$"), "", units_cols)
+
+  valid_pairs <- data_cols %in% names(df)
+  units_cols <- units_cols[valid_pairs]
+  data_cols <- data_cols[valid_pairs]
+
+  for (i in seq_along(data_cols)) {
+    df[[data_cols[i]]] <- paste(df[[data_cols[i]]], df[[units_cols[i]]])
+    df[[data_cols[i]]][df[[data_cols[i]]] == "NA NA"] <- NA_character_
+  }
+
+  df[, !(names(df) %in% units_cols), drop = FALSE]
+}
+
+# baseline_data |>
+#   rnd_stn() |>
+#   merge_unit_cols() |>
+#   format_for_dt() |> view()
 
 # data structure for plotly background annotation rectangles
 PlotAnnotOpts <- function(
@@ -401,7 +443,14 @@ baseline_plot_annot <- lst(
       "Coldwater fish\n(>6 mg/L) ",
       "Coldwater spawning\n(>7 mg/L) "
     ),
-    colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
+    colors = c(
+      "red",
+      "orange",
+      "gold",
+      "lightblue",
+      "steelblue",
+      "cornflowerblue"
+    )
   ),
   transparency = PlotAnnotOpts(
     values = c(55, 90, 120),
@@ -452,17 +501,11 @@ baseline_plot_annot <- lst(
 )
 
 
-
-# baseline_data %>%
-#   slice_sample(n = 1, by = station_id) %>%
+# baseline_data |>
+#   slice_sample(n = 1, by = station_id) |>
 #   get_baseline_param_choices()
 
-
-
-
 # Nutrient tab -----------------------------------------------------------------
-
-phoslimit <- 0.075 # mg/L or ppm
 
 #' @param vals vector of phosphorus readings
 get_phos_estimate <- function(vals) {
@@ -479,8 +522,8 @@ get_phos_estimate <- function(vals) {
     median = median(log_vals),
     lower = log_mean - tval * se,
     upper = log_mean + tval * se
-  ) %>%
-    lapply(exp) %>%
+  ) |>
+    lapply(exp) |>
     lapply(signif, 3)
   params$n <- n
   params$limit <- phoslimit
@@ -504,15 +547,24 @@ get_phos_exceedance_text <- function(vals, limit = phoslimit) {
   }
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
-    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
+    lower >=
+      limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
+    (lower <= limit) &
+      (median >=
+        limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) &
+      (median <=
+        limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <=
+      limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
 
   if (vals$n < 6) {
-    msg <- paste(msg, "However, less than the required 6 monthly measurements were taken at this station.")
+    msg <- paste(
+      msg,
+      "However, less than the required 6 monthly measurements were taken at this station."
+    )
   }
 }
 
@@ -522,52 +574,52 @@ get_phos_exceedance_text <- function(vals, limit = phoslimit) {
 build_therm_daily <- function(df, units, stn) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
-  df %>%
-    group_by(date) %>%
+  df |>
+    group_by(date) |>
     summarise(
       hours = n(),
       min = min(!!sym(temp_col)),
       max = max(!!sym(temp_col)),
       mean = round(mean(!!sym(temp_col)), 2),
       units = units,
-      lat = latitude[1],
-      long = longitude[1]
-    ) %>%
+      latitude = latitude[1],
+      longitude = longitude[1]
+    ) |>
     mutate(
       station_id = stn$station_id,
       station_name = stn$station_name,
-      .before = lat
+      .before = latitude
     )
 }
 
 build_therm_summary <- function(df, units) {
   temp_col <- ifelse(tolower(units) == "f", "temp_f", "temp_c")
 
-  daily <- df %>%
-    mutate(temp = !!sym(temp_col)) %>%
-    drop_na(temp) %>%
-    arrange(date) %>%
+  daily <- df |>
+    mutate(temp = !!sym(temp_col)) |>
+    drop_na(temp) |>
+    arrange(date) |>
     summarize(temp = mean(temp), .by = c(date, month))
 
-  monthly <- daily %>%
-    mutate(name = fct_inorder(format(date, "%B"))) %>%
+  monthly <- daily |>
+    mutate(name = fct_inorder(format(date, "%B"))) |>
     summarize(
       days = n_distinct(date),
       min = round(min(temp), 1),
       mean = round(mean(temp), 1),
       max = round(max(temp), 1),
       .by = c(month, name)
-    ) %>%
+    ) |>
     clean_names("title")
 
-  total <- daily %>%
+  total <- daily |>
     summarize(
       name = "Total",
       days = n_distinct(date),
       min = round(min(temp), 1),
       mean = round(mean(temp), 1),
       max = round(max(temp), 1)
-    ) %>%
+    ) |>
     clean_names("title")
 
   bind_rows(monthly, total)

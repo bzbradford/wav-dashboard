@@ -5,7 +5,7 @@ thermistorDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("ui")) %>% with_spinner(),
+    uiOutput(ns("ui")) |> with_spinner(),
   )
 }
 
@@ -16,7 +16,6 @@ thermistorDataServer <- function(main_rv) {
     id = "thermistor",
     function(input, output, session) {
       ns <- session$ns
-
 
       # Reactives ---------------------------------------------------------------
 
@@ -37,7 +36,7 @@ thermistorDataServer <- function(main_rv) {
 
       ## stn_data ----
       stn_data <- reactive({
-        therm_data %>%
+        therm_data |>
           filter(station_id == cur_stn()$station_id)
       })
 
@@ -52,15 +51,15 @@ thermistorDataServer <- function(main_rv) {
 
       ## logger_serials ----
       logger_serials <- reactive({
-        loggers <- selected_data() %>%
+        loggers <- selected_data() |>
           count(year, logger_sn)
 
         if (nrow(loggers) == 1) {
           loggers$logger_sn
         } else {
-          loggers %>%
-            mutate(label = paste(year, logger_sn, sep = ": ")) %>%
-            pull(label) %>%
+          loggers |>
+            mutate(label = paste(year, logger_sn, sep = ": ")) |>
+            pull(label) |>
             paste(collapse = " | ")
         }
       })
@@ -83,8 +82,6 @@ thermistorDataServer <- function(main_rv) {
         )
       })
 
-
-
       # Interface ---------------------------------------------------------------
 
       ## ui ----
@@ -92,7 +89,10 @@ thermistorDataServer <- function(main_rv) {
         if (rv$ready) {
           uiOutput(ns("main_ui"))
         } else {
-          div(class = "well", "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station.")
+          div(
+            class = "well",
+            "This station has no thermistor data. Choose another station or view the baseline or nutrient data associated with this station."
+          )
         }
       })
 
@@ -104,7 +104,7 @@ thermistorDataServer <- function(main_rv) {
           div(
             id = "therm-plot-container",
             h3(textOutput(ns("stn_title")), align = "center"),
-            plotlyOutput(ns("plot")) %>% with_spinner(hide.ui = FALSE),
+            plotlyOutput(ns("plot")) |> with_spinner(hide.ui = FALSE),
             uiOutput(ns("plot_caption_ui")),
             uiOutput(ns("natural_community_ui"))
           ),
@@ -127,7 +127,9 @@ thermistorDataServer <- function(main_rv) {
 
       ## Year selector ----
       output$year_select_ui <- renderUI({
-        yrs <- sort(unique(stn_data()$year))
+        df <- stn_data()
+        req(nrow(df) > 0)
+        yrs <- sort(unique(df$year))
         div(
           class = "well flex-row year-btns",
           div(class = "year-btn-text", em("Choose year:")),
@@ -142,7 +144,6 @@ thermistorDataServer <- function(main_rv) {
           )
         )
       })
-
 
       # Plot -------------------------------------------------------------------
 
@@ -191,20 +192,20 @@ thermistorDataServer <- function(main_rv) {
         # insert rows to break plotly lines across years
         # ribbon can't handle NA values to min/max are pinched to = mean
         if (input$year == "All") {
-          df_daily <- df_daily %>%
-            mutate(days_to_next = as.numeric(lead(date) - date)) %>%
+          df_daily <- df_daily |>
+            mutate(days_to_next = as.numeric(lead(date) - date)) |>
             mutate(days_since_last = as.numeric(date - lag(date)))
-          gap_starts <- df_daily %>%
-            filter(days_to_next > 7) %>%
+          gap_starts <- df_daily |>
+            filter(days_to_next > 7) |>
             mutate(date = date + 1, min = mean, max = mean, mean = NA)
-          gap_ends <- df_daily %>%
-            filter(days_since_last > 7) %>%
+          gap_ends <- df_daily |>
+            filter(days_since_last > 7) |>
             mutate(date = date - 1, min = mean, max = mean, mean = NA)
-          df_daily <- df_daily %>%
-            bind_rows(gap_starts, gap_ends) %>%
+          df_daily <- df_daily |>
+            bind_rows(gap_starts, gap_ends) |>
             arrange(date)
-          df_hourly <- df_hourly %>%
-            bind_rows(gap_starts, gap_ends) %>%
+          df_hourly <- df_hourly |>
+            bind_rows(gap_starts, gap_ends) |>
             arrange(date)
         }
 
@@ -220,24 +221,47 @@ thermistorDataServer <- function(main_rv) {
 
         if (annotation == "btrout") {
           temps <- c(52, 61, 72)
-          if (units == "C") temps <- f_to_c(temps)
+          if (units == "C") {
+            temps <- f_to_c(temps)
+          }
 
           caption <- HTML(paste0(
-            "Optimal brook trout temperatures are shown shaded ", colorize("dark green", "darkgreen"),
-            " (", temps[1], "-", temps[2], unit_text, "), acceptable temperatures in ", colorize("light green", "darkseagreen"),
-            " (", temps[2], "-", temps[3], unit_text, "), too hot in ", colorize("orange", "orange"),
-            " and too cold in ", colorize("blue", "blue"), "."
+            "Optimal brook trout temperatures are shown shaded ",
+            colorize("dark green", "darkgreen"),
+            " (",
+            temps[1],
+            "-",
+            temps[2],
+            unit_text,
+            "), acceptable temperatures in ",
+            colorize("light green", "darkseagreen"),
+            " (",
+            temps[2],
+            "-",
+            temps[3],
+            unit_text,
+            "), too hot in ",
+            colorize("orange", "orange"),
+            " and too cold in ",
+            colorize("blue", "blue"),
+            "."
           ))
         } else if (annotation == "wtemp") {
           temps <- c(69.3, 72.5, 76.3)
-          if (units == "C") temps <- f_to_c(temps)
+          if (units == "C") {
+            temps <- f_to_c(temps)
+          }
 
           caption <- HTML(paste0(
             "The DNR classifies streams into four 'Natural Community' types based on their maximum daily average temperature: ",
-            colorize("coldwater", "blue"), " when below 69.3°F (20.7°C); ",
-            colorize("cool-cold", "cornflowerblue"), " when between 69.3 and 72.5°F (20.7 and 22.5°C); ",
-            colorize("cool-warm", "lightsteelblue"), " when between 72.5 and 76.3°F (22.5 and 24.6°C); and ",
-            colorize("warmwater", "darkorange"), " when above 76.3°F (24.6°C)."
+            colorize("coldwater", "blue"),
+            " when below 69.3°F (20.7°C); ",
+            colorize("cool-cold", "cornflowerblue"),
+            " when between 69.3 and 72.5°F (20.7 and 22.5°C); ",
+            colorize("cool-warm", "lightsteelblue"),
+            " when between 72.5 and 76.3°F (22.5 and 24.6°C); and ",
+            colorize("warmwater", "darkorange"),
+            " when above 76.3°F (24.6°C)."
           ))
         }
 
@@ -252,7 +276,9 @@ thermistorDataServer <- function(main_rv) {
       output$natural_community_ui <- renderUI({
         df <- daily_data()
         max_temp <- max(df$mean)
-        if (input$units == "C") max_temp <- c_to_f(max_temp)
+        if (input$units == "C") {
+          max_temp <- c_to_f(max_temp)
+        }
         temp_class <- case_when(
           max_temp < 69.3 ~ "coldwater",
           max_temp < 72.5 ~ "cool-cold",
@@ -261,8 +287,17 @@ thermistorDataServer <- function(main_rv) {
         )
 
         p(
-          class = "plot-caption", style = "font-weight: bold;",
-          paste0("Based on the maximum daily average water temperature of ", round(max_temp, 1), "°F (", round(f_to_c(max_temp), 1), "°C), this is likely to be a ", temp_class, " stream.")
+          class = "plot-caption",
+          style = "font-weight: bold;",
+          paste0(
+            "Based on the maximum daily average water temperature of ",
+            round(max_temp, 1),
+            "°F (",
+            round(f_to_c(max_temp), 1),
+            "°C), this is likely to be a ",
+            temp_class,
+            " stream."
+          )
         )
       })
 
@@ -273,10 +308,13 @@ thermistorDataServer <- function(main_rv) {
 
         build_plot_download_btn(
           id = "#therm-plot-container",
-          filename = sprintf("WAV thermistor data - Stn %s - %s.png", stn$station_id, yr)
+          filename = sprintf(
+            "WAV thermistor data - Stn %s - %s.png",
+            stn$station_id,
+            yr
+          )
         )
       })
-
 
       # View summary and raw data tables ----
 
@@ -288,48 +326,28 @@ thermistorDataServer <- function(main_rv) {
         dates <- unique(data$date)
         date_span <- as.numeric(max(dates) - min(dates)) + 1
 
-        monthly_dt <- summary_data() %>%
-          mutate(across(c(Min, Mean, Max), ~ sprintf("%.1f %s", .x, input$units))) %>%
-          renderDataTable(
-            rownames = FALSE,
-            extensions = "Buttons",
-            options = list(
-              dom = "Bt",
-              buttons = c("copy"),
-              columnDefs = list(
-                list(targets = 0:5, className = "dt-center")
-              ),
-              scrollX = TRUE
-            )
-          )
-
-        daily_dt <- daily_data() %>%
-          clean_names("big_camel") %>%
-          renderDataTable(
-            options = list(
-              scrollX = TRUE
-            )
-          )
-
-        hourly_dt <- selected_data() %>%
-          clean_names("big_camel") %>%
-          renderDataTable(
-            options = list(
-              scrollX = TRUE
-            )
-          )
-
         tagList(
           p(
-            strong("Station ID:"), stn$station_id, br(),
-            strong("Station Name:"), stn$station_name, br(),
-            strong("Waterbody:"), stn$waterbody, br(),
+            strong("Station ID:"),
+            stn$station_id,
+            br(),
+            strong("Station Name:"),
+            stn$station_name,
+            br(),
+            strong("Waterbody:"),
+            stn$waterbody,
+            br(),
             strong("Date range:"),
             paste(
               format(
                 min(dates),
-                ifelse(year(min(dates)) == year(max(dates)), "%B %d", "%B %d, %Y")
-              ), "-",
+                ifelse(
+                  year(min(dates)) == year(max(dates)),
+                  "%B %d",
+                  "%B %d, %Y"
+                )
+              ),
+              "-",
               format(max(dates), "%B %d, %Y")
             ),
             br(),
@@ -341,35 +359,106 @@ thermistorDataServer <- function(main_rv) {
               length(dates) / date_span * 100
             ),
             br(),
-            strong("Logger SN:"), logger_serials()
+            strong("Logger SN:"),
+            logger_serials()
           ),
           tabsetPanel(
             tabPanel(
               title = "Monthly temperature data",
               class = "data-tab",
-              p(paste0("To limit the influence of hourly temperature fluctuations, daily average temperatures are used to generate these monthly summaries. Temperatures are shown in units of °", input$units, ", option to change units is above the plot.")),
-              monthly_dt,
+              p(paste0(
+                "To limit the influence of hourly temperature fluctuations, daily average temperatures are used to generate these monthly summaries. Temperatures are shown in units of °",
+                input$units,
+                ", option to change units is above the plot."
+              )),
+              dataTableOutput(ns("monthly_dt")),
             ),
             tabPanel(
               title = "Daily temperature data",
               class = "data-tab",
               p(downloadButton(ns("dl_daily"), "Download this data")),
-              daily_dt
+              dataTableOutput(ns("daily_dt"))
             ),
             tabPanel(
               title = "Hourly temperature data",
               class = "data-tab",
-              p("The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."),
+              p(
+                "The DateTime associated with each hourly observation below is in UTC time, but the Hour column reflects the local time at the logger (timezone: America/Chicago)."
+              ),
               p(downloadButton(ns("dl_hourly"), "Download this data")),
-              hourly_dt
+              dataTableOutput(ns("hourly_dt"))
             )
           )
         )
       })
 
+      ## monthly_dt ----
+      output$monthly_dt <- renderDataTable(
+        {
+          summary_data() |>
+            mutate(across(
+              c(Min, Mean, Max),
+              ~ sprintf("%.1f %s", .x, input$units)
+            )) |>
+            datatable(
+              selection = "none",
+              rownames = FALSE,
+              extensions = "Buttons",
+              options = list(
+                dom = "Bt",
+                buttons = c("copy"),
+                columnDefs = list(
+                  list(targets = 0:5, className = "dt-center")
+                ),
+                scrollX = TRUE,
+                scrollCollapse = TRUE
+              )
+            )
+        },
+        server = FALSE
+      )
+
+      ## daily_dt ----
+      output$daily_dt <- renderDataTable(
+        {
+          daily_data() |>
+            clean_names("big_camel", abbreviations = c("ID", "SN")) |>
+            datatable(
+              selection = "none",
+              options = list(
+                scrollX = TRUE,
+                scrollCollapse = TRUE
+              )
+            ) |>
+            formatRound(columns = c("Latitude", "Longitude"), digits = 6)
+        },
+        server = TRUE
+      )
+
+      ## hourly_dt ----
+      output$hourly_dt <- renderDataTable(
+        {
+          selected_data() |>
+            clean_names("big_camel", abbreviations = c("ID", "SN")) |>
+            datatable(
+              selection = "none",
+              options = list(
+                scrollX = TRUE,
+                scrollCollapse = TRUE
+              )
+            ) |>
+            formatRound(columns = c("Latitude", "Longitude"), digits = 6)
+        },
+        server = TRUE
+      )
+
       ## dl_daily ----
       output$dl_daily <- downloadHandler(
-        sprintf("WAV Stn %s Daily Temperature Data (%s).csv", cur_stn()$station_id, input$year),
+        sprintf(
+          "WAV Stn %s Daily Temperature Data (%s).csv",
+          cur_stn()$station_id,
+          input$year
+        ),
         function(file) {
           write_csv(daily_data(), file, na = "")
         }
@@ -377,12 +466,15 @@ thermistorDataServer <- function(main_rv) {
 
       ## dl_hourly ----
       output$dl_hourly <- downloadHandler(
-        sprintf("WAV Stn %s Hourly Temperature Data (%s).csv", cur_stn()$station_id, input$year),
+        sprintf(
+          "WAV Stn %s Hourly Temperature Data (%s).csv",
+          cur_stn()$station_id,
+          input$year
+        ),
         function(file) {
           write_csv(selected_data(), file, na = "")
         }
       )
-
     }
   )
 }

@@ -1,3 +1,7 @@
+**Feb 2026**
+
+- Update branding per new Extension guidelines
+
 **Dec 2025**
 
 - Add macroinvertebrate data and plot

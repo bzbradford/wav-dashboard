@@ -1,6 +1,5 @@
 ## Plotly graphs and functions ##
 
-
 # Helpers ----------------------------------------------------------------------
 
 # plotly horizontal line annotation
@@ -43,7 +42,6 @@ plotly_find_max <- function(vals, min_val) {
 }
 
 
-
 # Baseline tab -----------------------------------------------------------------
 
 #' Create plotly for baseline data tab
@@ -52,17 +50,18 @@ plotly_find_max <- function(vals, min_val) {
 #' @param df baseline data for a single station
 
 plotly_baseline <- function(df) {
-
   df <- distinct(df, date, .keep_all = T)
 
   # modify and remove empties for each var
-  do_data <- df %>%
-    filter(!is.na(d_o)) %>%
-    mutate(label = case_when(
-      is.na(d_o_percent_saturation) ~ paste0(d_o, " mg/L"),
-      T ~ paste0(d_o, " mg/L<br>", d_o_percent_saturation, "% sat")
-    )) %>%
-    rowwise() %>%
+  do_data <- df |>
+    filter(!is.na(d_o)) |>
+    mutate(
+      label = case_when(
+        is.na(d_o_saturation) ~ paste0(d_o, " mg/L"),
+        T ~ paste0(d_o, " mg/L<br>", d_o_saturation, "% sat")
+      )
+    ) |>
+    rowwise() |>
     mutate(do_color = do_color(d_o))
   temp_data <- filter(df, !(is.na(water_temp) & is.na(air_temp)))
   trans_data <- filter(df, !is.na(transparency))
@@ -90,10 +89,12 @@ plotly_baseline <- function(df) {
     date_tick <- "M3"
     marker_opacity <- 0
   }
-  if (years > 6) date_tick <- "M6"
+  if (years > 6) {
+    date_tick <- "M6"
+  }
 
   # create plot
-  plot_ly() %>%
+  plot_ly() |>
     add_trace(
       data = do_data,
       name = "D.O.",
@@ -107,7 +108,7 @@ plotly_baseline <- function(df) {
       type = "bar",
       width = 15 * (1000 * 60 * 60 * 24), # milliseconds per day
       hovertemplate = "%{y}"
-    ) %>%
+    ) |>
     add_trace(
       data = temp_data,
       name = "Water temp",
@@ -126,7 +127,7 @@ plotly_baseline <- function(df) {
         color = "lightblue",
         width = 3
       )
-    ) %>%
+    ) |>
     add_trace(
       data = temp_data,
       name = "Air temp",
@@ -142,7 +143,7 @@ plotly_baseline <- function(df) {
         opacity = marker_opacity
       ),
       line = list(color = "orange", width = 3)
-    ) %>%
+    ) |>
     add_trace(
       data = trans_data,
       name = "Transparency",
@@ -159,7 +160,7 @@ plotly_baseline <- function(df) {
         opacity = marker_opacity
       ),
       line = list(color = "brown", width = 3)
-    ) %>%
+    ) |>
     add_trace(
       data = flow_data,
       name = "Stream flow",
@@ -176,7 +177,7 @@ plotly_baseline <- function(df) {
         opacity = marker_opacity
       ),
       line = list(color = "#48a67b", width = 3)
-    ) %>%
+    ) |>
     layout(
       title = "Baseline Measurements",
       hovermode = "x unified",
@@ -234,7 +235,7 @@ plotly_baseline <- function(df) {
         fixedrange = T,
         automargin = T
       )
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 }
 
@@ -245,21 +246,28 @@ plotly_baseline <- function(df) {
 #' @param col name of the column to plot
 #' @param type determines plot type
 
-plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year")) {
+plotly_baseline_trend <- function(
+  df,
+  col,
+  type = c("scatter", "month", "year")
+) {
   type <- match.arg(type)
 
-  opts <- data_opts %>%
+  opts <- data_opts |>
     filter(col == !!col)
 
-  df <- df %>%
-    select(year, month, date, all_of(c(value = col))) %>%
-    drop_na(value) %>%
-    mutate(month_name = factor(month.abb[month], levels = month.abb, ordered = T))
+  df <- df |>
+    select(year, month, date, all_of(c(value = col))) |>
+    drop_na(value) |>
+    mutate(
+      month_name = factor(month.abb[month], levels = month.abb, ordered = T)
+    )
 
   req(nrow(df) > 0)
 
   # set x variable
-  df <- switch(type,
+  df <- switch(
+    type,
     scatter = mutate(df, x = date),
     month = mutate(df, x = month_name),
     year = mutate(df, x = factor(year, ordered = T))
@@ -268,10 +276,12 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
   # set y axis range
   yrange <- c(min(df$value, opts$plot_min), max(df$value, opts$plot_max))
   yrange <- yrange + abs(yrange[2] - yrange[1]) * c(-.1, .1)
-  if (min(df$value) >= 0 && yrange[1] < 0) yrange[1] <- 0
+  if (min(df$value) >= 0 && yrange[1] < 0) {
+    yrange[1] <- 0
+  }
 
-  plt <- plot_ly(df) %>%
-    config(displayModeBar = F) %>%
+  plt <- plot_ly(df) |>
+    config(displayModeBar = F) |>
     layout(
       title = list(text = opts$name),
       showlegend = F,
@@ -292,17 +302,18 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
     )
 
   plt <- if (type == "scatter") {
-    plt %>%
+    plt |>
       add_trace(
         name = "Observation",
-        type = "scatter", mode = "lines+markers",
+        type = "scatter",
+        mode = "lines+markers",
         x = ~date,
         y = ~value,
         text = ~ paste(signif(value), opts$units),
         hovertemplate = paste("%{x}: %{y:.2f}", opts$units)
       )
   } else {
-    plt %>%
+    plt |>
       add_trace(
         x = ~x,
         y = ~value,
@@ -311,7 +322,7 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
         boxpoints = F,
         boxmean = T,
         hoverinfo = list(extras = "none")
-      ) %>%
+      ) |>
       add_trace(
         x = ~x,
         y = ~value,
@@ -333,7 +344,7 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
     })
     plt <- layout(plt, shapes = shapes)
     for (i in seq_along(annot$values)) {
-      plt <- plt %>%
+      plt <- plt |>
         add_trace(
           type = "scatter",
           mode = "lines",
@@ -350,48 +361,57 @@ plotly_baseline_trend <- function(df, col, type = c("scatter", "month", "year"))
 }
 
 
-
 #' Shows heatmap of observations and measured values over time
 #' @requires `data_opts`
 #' @param df data frame derived from `baseline_data`
 
 plotly_baseline_ribbon <- function(df) {
-  opts <- data_opts %>%
+  opts <- data_opts |>
     filter(col %in% names(df))
 
-  df <- df %>%
+  df <- df |>
     mutate(
       year = factor(year, levels = 2015:year(Sys.Date())),
       month = factor(month, levels = 1:12)
-    ) %>%
-    complete(year, month) %>%
-    pivot_longer(all_of(opts$col), names_to = "measure") %>%
-    select(year, month, measure, value) %>%
-    mutate(date = as_date(paste(year, month, 1, sep = "-"))) %>%
-    filter(date < today()) %>%
-    summarize(value = mean(value, na.rm = T), .by = c(date, measure)) %>%
-    filter(!all(is.na(value)), .by = measure) %>%
-    left_join(opts, join_by(measure == col)) %>%
+    ) |>
+    complete(year, month) |>
+    pivot_longer(all_of(opts$col), names_to = "measure") |>
+    select(year, month, measure, value) |>
+    mutate(date = as_date(paste(year, month, 1, sep = "-"))) |>
+    filter(date < today()) |>
+    summarize(value = mean(value, na.rm = T), .by = c(date, measure)) |>
+    filter(!all(is.na(value)), .by = measure) |>
+    left_join(opts, join_by(measure == col)) |>
     mutate(
-      scaled = scales::rescale(value, from = c(min(c(value, plot_min), na.rm = T), max(c(value, plot_max), na.rm = T))),
+      scaled = scales::rescale(
+        value,
+        from = c(
+          min(c(value, plot_min), na.rm = T),
+          max(c(value, plot_max), na.rm = T)
+        )
+      ),
       .by = measure
     )
 
   # param order for y axis
   yorder <- rev(intersect(opts$name, unique(df$name)))
 
-  plot_ly(df) %>%
+  plot_ly(df) |>
     add_trace(
       type = "heatmap",
       x = ~date,
       y = ~name,
       z = ~scaled,
-      text = ~ if_else(is.na(value), "Not measured", paste(signif(value), units)),
+      text = ~ if_else(
+        is.na(value),
+        "Not measured",
+        paste(signif(value), units)
+      ),
       colors = "Blues",
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>",
       ygap = 1,
       showscale = F
-    ) %>%
+    ) |>
     # colorbar(
     #   title = list(text = NA),
     #   len = 1,
@@ -402,7 +422,7 @@ plotly_baseline_ribbon <- function(df) {
     #   tickmode = "array",
     #   tickvals = c(0, 1),
     #   ticktext = c("Low", "High")
-    # ) %>%
+    # ) |>
     layout(
       title = "Baseline monitoring record and observation heatmap",
       showlegend = F,
@@ -424,17 +444,16 @@ plotly_baseline_ribbon <- function(df) {
         fixedrange = T,
         dtick = "M12"
       )
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 }
 
 if (F) {
-  baseline_data %>%
-    filter(station_id == sample(station_id, 1)) %>%
-    filter(year == sample(year, 1)) %>%
+  baseline_data |>
+    filter(station_id == sample(station_id, 1)) |>
+    filter(year == sample(year, 1)) |>
     plotly_baseline_ribbon()
 }
-
 
 
 # Macroinvertebrate plot --------------------------------------------------
@@ -443,11 +462,6 @@ hex2rgba <- function(hex, alpha = 1) {
   rgb <- col2rgb(hex)
   paste0("rgba(", rgb[1], ",", rgb[2], ",", rgb[3], ",", alpha, ")")
 }
-
-macro_species <- drop_na(macro_params, group)$dnr_parameter_description
-
-# 1=Sensitive (Blue), 4=Tolerant (Red), Invasive (Purple)
-macro_groups <- c("Group 1", "Group 2", "Group 3", "Group 4", "Invasive")
 
 macro_colortable <- tibble(
   group = macro_groups,
@@ -459,8 +473,8 @@ macro_colortable <- tibble(
     "Group 4 (Tolerant)",
     "Invasive"
   )
-) %>%
-  expand_grid(present = c(T, F)) %>%
+) |>
+  expand_grid(present = c(T, F)) |>
   mutate(
     z = (1:10 - .5) / 10,
     alpha = if_else(present, 1, .1),
@@ -470,7 +484,9 @@ macro_colortable <- tibble(
 # build plotly heatmap colorscale
 macro_colorscale <- local({
   for (i in 1:10) {
-    if (i == 1) scale <- list()
+    if (i == 1) {
+      scale <- list()
+    }
     row <- slice(macro_colortable, i)
     scale <- c(
       scale,
@@ -490,15 +506,15 @@ macro_colorscale <- local({
 macro_add_missing_years <- function(df) {
   missing_yrs <- setdiff(2015:2025, unique(df$year))
   if (length(missing_yrs) > 0) {
-    df <- df %>%
+    df <- df |>
       bind_rows(tibble(
         year = missing_yrs,
         date = as_date(paste(year, "-1-1")),
         date_label = paste("(", year, ")")
       ))
   }
-  df %>%
-    arrange(date) %>%
+  df |>
+    arrange(date) |>
     mutate(date_label = fct_inorder(date_label))
 }
 
@@ -506,16 +522,16 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
   plot_type <- match.arg(plot_type)
 
   # select a station
-  df <- macro_species_counts %>%
-    filter(station_id == stn_id) %>%
+  df <- macro_species_counts |>
+    filter(station_id == stn_id) |>
     mutate(date_label = format(date, "%b %d, %Y"))
 
   req(nrow(df) > 0)
 
   # summarize by year
   if (plot_type == "annual") {
-    df <- df %>%
-      summarize(present = any(present), .by = c(year, group, species_name)) %>%
+    df <- df |>
+      summarize(present = any(present), .by = c(year, group, species_name)) |>
       mutate(
         date = as_date(paste0(year, "-1-2")),
         date_label = as.character(year)
@@ -523,48 +539,54 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
   }
 
   # get overall presence/absence
-  df_total <- df %>%
+  df_total <- df |>
     summarize(
       present = any(present),
-      .by = c(group, species_name)) %>%
+      .by = c(group, species_name)
+    ) |>
     mutate(
       date = today() + 1,
       date_label = "<b>All time</b>"
     )
 
   # injects e.g. (2015) when no sample from 2015
-  plot_data <- df %>%
-    bind_rows(df_total) %>%
-    left_join(macro_colortable, join_by(group, present)) %>%
+  plot_data <- df |>
+    bind_rows(df_total) |>
+    left_join(macro_colortable, join_by(group, present)) |>
     mutate(
       species_name = factor(species_name, macro_species),
       group = factor(group, macro_groups),
       status = if_else(present, "Present", "Absent"),
-      tooltip_text = str_glue("
+      tooltip_text = str_glue(
+        "
         <b>{species_name}</b>
         {description}
         {date_label}
         {status}
-      ")) %>%
-    macro_add_missing_years() %>%
-    complete(date_label, species_name) %>%
+      "
+      )
+    ) |>
+    macro_add_missing_years() |>
+    complete(date_label, species_name) |>
     replace_na(list(z = 0))
 
   # plot it
-  plot_ly() %>%
+  plot_ly() |>
     add_trace(
       data = plot_data,
       type = "heatmap",
       x = ~date_label,
       y = ~species_name,
       z = ~z,
-      zmin = 0, zmax = 1,
+      zmin = 0,
+      zmax = 1,
       text = ~tooltip_text,
       hoverinfo = "text",
       colorscale = macro_colorscale,
       showscale = F,
-      xgap = 1, ygap = 1
-    ) %>%
+      xgap = 1,
+      ygap = 1
+    ) |>
     layout(
       title = "Macroinvertebrate Presence/Absence",
       xaxis = list(
@@ -592,7 +614,7 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
       ),
       plot_bgcolor = "white",
       margin = list(t = 50, r = 10, b = 10, l = 10)
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 }
 
@@ -605,7 +627,6 @@ if (F) {
 }
 
 
-
 # Nutrient tab -----------------------------------------------------------------
 
 #' @requires
@@ -615,28 +636,33 @@ if (F) {
 #' @param phos_estimate list with `n` observations and `lower` `upper` and `median` confidence interval values
 
 plotly_nutrient <- function(df, phoslimit, phos_estimate) {
-
   if (nrow(df) == 0) {
     return()
   }
 
-  df <- df %>%
-    summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) %>%
+  df <- df |>
+    summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) |>
     mutate(
       exceedance = factor(
-        ifelse(is.na(tp), "No data", ifelse(tp >= phoslimit, "TP High", "TP OK")),
+        ifelse(
+          is.na(tp),
+          "No data",
+          ifelse(tp >= phoslimit, "TP High", "TP OK")
+        ),
         levels = c("TP OK", "TP High", "No data")
       ),
       phoslimit = phoslimit
-    ) %>%
+    ) |>
     # determine column width, constrained to between 7 and 28 days
-    arrange(date) %>%
+    arrange(date) |>
     mutate(
       days_since_last = as.integer(date - lag(date)),
       days_to_next = as.integer(lead(date) - date)
-    ) %>%
-    rowwise() %>%
-    mutate(bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))) %>%
+    ) |>
+    rowwise() |>
+    mutate(
+      bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))
+    ) |>
     replace_na(list(bar_width = 28))
 
   min_year <- min(df$year)
@@ -648,7 +674,10 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
   )
   outer_months <- date_range + c(-15, 15)
   all_dates <- sort(unique(c(outer_months, data_dates)))
-  yrange <- suppressWarnings(c(0, max(phoslimit * 1.2, max(df$tp, na.rm = T) * 1.2)))
+  yrange <- suppressWarnings(c(
+    0,
+    max(phoslimit * 1.2, max(df$tp, na.rm = T) * 1.2)
+  ))
 
   phos_params <- tibble(
     date = all_dates,
@@ -661,28 +690,28 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
   if (phos_estimate$n > 1) {
     ci_color <- ifelse(phos_estimate$lower >= phoslimit, "red", "teal")
 
-    plt <- plot_ly(phos_params) %>%
+    plt <- plot_ly(phos_params) |>
       add_lines(
         x = ~date,
         y = ~phoslimit,
         name = "TP criteria",
         opacity = 0.75,
         line = list(color = "red", width = 2)
-      ) %>%
+      ) |>
       add_lines(
         x = ~date,
         y = ~lower,
         name = "Lower 90% CI",
         opacity = 0.5,
         line = list(color = ci_color, width = 0.5)
-      ) %>%
+      ) |>
       add_lines(
         x = ~date,
         y = ~median,
         name = "Median",
         opacity = 0.5,
         line = list(color = "black", dash = "dash", width = 1.5)
-      ) %>%
+      ) |>
       add_lines(
         x = ~date,
         y = ~upper,
@@ -699,14 +728,14 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
     shapes <- list()
   }
 
-  plt <- plt %>%
+  plt <- plt |>
     add_trace(
       data = df,
       x = ~date,
       y = ~tp,
       type = "bar",
-      text = ~signif(tp, 3),
-      textposition = "auto",
+      text = ~ if_else(tp == 0, "ND", as.character(signif(tp, 3))),
+      textposition = "outside",
       color = ~exceedance,
       colors = "Set2",
       width = ~ 0.75 * 1000 * 60 * 60 * 24 * bar_width, # time in milliseconds
@@ -718,7 +747,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       ),
       textfont = list(color = "black"),
       hovertemplate = "Measured TP: %{y:.3f} mg/L<extra></extra>"
-    ) %>%
+    ) |>
     layout(
       title = "Total Phosphorus",
       xaxis = list(
@@ -739,17 +768,17 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       legend = list(
         traceorder = "reversed",
         orientation = "h",
-        x = 0.25, y = 1
+        x = 0.25,
+        y = 1
       ),
       hovermode = "x unified",
       margin = list(t = 50),
       shapes = shapes
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 
   plt
 }
-
 
 
 # Thermistor tab ---------------------------------------------------------------
@@ -763,9 +792,8 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
 #' @param annotations may be 'None', 'btrout', or 'wtemp' to add behind plot
 
 plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
-
   # make sure daily values time is aligned to noon
-  df_daily <- df_daily %>%
+  df_daily <- df_daily |>
     mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
 
   # handle units
@@ -781,7 +809,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
     ceiling(max(default_yrange[2], data_yrange[2]))
   )
 
-  plt <- plot_ly() %>%
+  plt <- plot_ly() |>
     add_ribbons(
       data = df_daily,
       x = ~date_time,
@@ -798,7 +826,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
       connectgaps = FALSE,
       fill = "tozeroy",
       hovertemplate = "Daily Range<extra></extra>"
-    ) %>%
+    ) |>
     add_lines(
       data = df_daily,
       x = ~date_time,
@@ -810,7 +838,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
       ),
       name = "Daily Min",
       showlegend = FALSE
-    ) %>%
+    ) |>
     add_lines(
       data = df_daily,
       x = ~date_time,
@@ -822,7 +850,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
       ),
       name = "Daily Max",
       showlegend = FALSE
-    ) %>%
+    ) |>
     add_trace(
       x = df_hourly$date_time,
       y = df_hourly[[temp_col]],
@@ -834,7 +862,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
         width = 0.5,
         opacity = 0.8
       )
-    ) %>%
+    ) |>
     add_trace(
       data = df_daily,
       x = ~date_time,
@@ -845,7 +873,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
       line = list(
         color = "orange"
       )
-    ) %>%
+    ) |>
     layout(
       title = list(
         text = "Stream Temperature",
@@ -867,22 +895,26 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
         y = 1
       ),
       margin = list(t = 50)
-    ) %>%
+    ) |>
     config(displayModeBar = FALSE)
 
   # add annotation color bands
   if (annotations != "none") {
     if (annotations == "btrout") {
       temps <- c(32, 52, 61, 72, 100) # F
-      if (units == "C") temps <- f_to_c(temps)
+      if (units == "C") {
+        temps <- f_to_c(temps)
+      }
       colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
     } else if (annotations == "wtemp") {
       temps <- c(-40, 69.3, 72.5, 76.3, 150) # F
-      if (units == "C") temps <- f_to_c(temps)
+      if (units == "C") {
+        temps <- f_to_c(temps)
+      }
       colors <- c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
     }
 
-    plt <- plt %>%
+    plt <- plt |>
       layout(
         shapes = lapply(seq_along(colors), function(i) {
           plotly_rect(temps[i], temps[i + 1], colors[i])
@@ -894,14 +926,13 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
 }
 
 
-
 # Watershed tab ----------------------------------------------------------------
 
 #' @param landscape landscape data for current watershed
 
 plotly_landscape_pie <- function(landscape) {
-  landscape %>%
-    plot_ly() %>%
+  landscape |>
+    plot_ly() |>
     add_trace(
       type = "pie",
       labels = ~class_name,
@@ -914,43 +945,48 @@ plotly_landscape_pie <- function(landscape) {
       texttemplate = "<b>%{label}</b><br>%{percent}",
       hovertemplate = "<b>%{label}</b><br>%{percent}<extra></extra>",
       sort = F
-    ) %>%
+    ) |>
     layout(
       showlegend = F,
       margin = list(l = 0, r = 0, t = 0, b = 0),
       paper_bgcolor = "rgba(0, 0, 0, 0)"
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 }
-
 
 
 #' @param landscape1 first landscape, against which to compare
 #' @param landscape2 gets compared against first by percent of each class
 
 plotly_landscape_diff <- function(landscape1, landscape2) {
-
-  df <- landscape1 %>%
-    left_join(select(landscape2, class_name, pct_area2 = pct_area), by = "class_name") %>%
-    replace_na(list(pct_area2 = 0)) %>%
-    mutate(diff = pct_area2 - pct_area) %>%
-    mutate(label = scales::percent(diff, .1)) %>%
-    mutate(label = if_else(substr(label, 1, 1) == "-", label, paste0("+", label))) %>%
-    mutate(label_pos = -1 * sign(diff) * .00001) %>%
-    mutate(hovertext = paste0(
-      "Current watershed: ",
-      scales::label_percent(.1)(pct_area2),
-      "<br>State average: ",
-      scales::label_percent(.1)(pct_area),
-      "<br>Difference: ",
-      label
-    )) %>%
+  df <- landscape1 |>
+    left_join(
+      select(landscape2, class_name, pct_area2 = pct_area),
+      by = "class_name"
+    ) |>
+    replace_na(list(pct_area2 = 0)) |>
+    mutate(diff = pct_area2 - pct_area) |>
+    mutate(label = scales::percent(diff, .1)) |>
+    mutate(
+      label = if_else(substr(label, 1, 1) == "-", label, paste0("+", label))
+    ) |>
+    mutate(label_pos = -1 * sign(diff) * .00001) |>
+    mutate(
+      hovertext = paste0(
+        "Current watershed: ",
+        scales::label_percent(.1)(pct_area2),
+        "<br>State average: ",
+        scales::label_percent(.1)(pct_area),
+        "<br>Difference: ",
+        label
+      )
+    ) |>
     droplevels()
 
   xrange <- with(df, c(min(diff) * 1.2, max(diff) * 1.2))
 
-  df %>%
-    plot_ly() %>%
+  df |>
+    plot_ly() |>
     add_bars(
       y = ~class_name,
       x = ~label_pos,
@@ -961,7 +997,7 @@ plotly_landscape_diff <- function(landscape1, landscape2) {
       textposition = "outside",
       texttemplate = "<b>%{text}</b>",
       hoverinfo = "none"
-    ) %>%
+    ) |>
     add_bars(
       y = ~class_name,
       x = ~diff,
@@ -971,7 +1007,7 @@ plotly_landscape_diff <- function(landscape1, landscape2) {
       ),
       textposition = "outside",
       texttemplate = "<b>%{text}</b>"
-    ) %>%
+    ) |>
     add_bars(
       y = ~class_name,
       x = ~diff,
@@ -982,7 +1018,7 @@ plotly_landscape_diff <- function(landscape1, landscape2) {
       ),
       textposition = "none",
       hovertemplate = "<b>%{y}<br></b>%{text}<extra></extra>"
-    ) %>%
+    ) |>
     layout(
       barmode = "overlay",
       xaxis = list(
@@ -1001,7 +1037,6 @@ plotly_landscape_diff <- function(landscape1, landscape2) {
       margin = list(l = 10, r = 10),
       plot_bgcolor = "rgba(0, 0, 0, 0)",
       paper_bgcolor = "rgba(0, 0, 0, 0)"
-    ) %>%
+    ) |>
     config(displayModeBar = F)
 }
-

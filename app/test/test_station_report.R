@@ -2,7 +2,6 @@
 library(tidyverse)
 
 
-
 # Report summary ----------------------------------------------------------
 
 stn <- slice_sample(all_stns, n = 1)
@@ -31,7 +30,13 @@ baseline %>%
   pivot_longer(everything()) %>%
   summarize(count = sum(!is.na(value)), .by = name) %>%
   left_join(enframe(baseline_count_cols), join_by(name)) %>%
-  mutate(text = paste(count, value, if_else(count == 1, "measurement", "measurements"))) %>%
+  mutate(
+    text = paste(
+      count,
+      value,
+      if_else(count == 1, "measurement", "measurements")
+    )
+  ) %>%
   filter(count != 0) %>%
   arrange(desc(count))
 
@@ -56,13 +61,11 @@ baseline_data %>%
   buildReportFieldworkComments()
 
 
-
 # Station map -------------------------------------------------------------
 
 all_pts %>%
   slice_sample(n = 1) %>%
   makeReportMap()
-
 
 
 # Baseline data -----------------------------------------------------------
@@ -119,9 +122,6 @@ test_baseline <- baseline_data %>%
 makeReportPlots(test_baseline, "flow")
 
 
-
-
-
 # specific cond
 
 test_baseline_cond <- baseline_data %>%
@@ -140,7 +140,6 @@ baseline_data %>%
   filter(specific_cond < 3000) %>%
   ggplot(aes(specific_cond)) +
   geom_histogram()
-
 
 
 # Nutrient data -----------------------------------------------------------
@@ -184,7 +183,6 @@ params$limit <- phoslimit
 params
 
 
-
 # Thermistor ---------------------------------------------------------------
 
 test_stn <- all_pts %>%
@@ -196,8 +194,6 @@ test_therm <- therm_data %>%
   filter(station_id == test_stn$station_id) %>%
   filter(year == max(year)) %>%
   mutate(formatted_date = format(date, "%b %d"))
-
-
 
 
 test_therm <- therm_data %>%

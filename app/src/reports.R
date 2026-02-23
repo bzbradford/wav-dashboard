@@ -7,7 +7,7 @@ report_baseline_cols <- c(
   `Air temp (°C)` = "air_temp",
   `Water temp (°C)` = "water_temp",
   `DO (mg/L)` = "d_o",
-  `DO (% sat.)` = "d_o_percent_saturation",
+  `DO (% sat.)` = "d_o_saturation",
   `pH` = "ph",
   `Specific conductance (μS/cm)` = "specific_cond",
   `Transparency (cm)` = "transparency",
@@ -49,38 +49,60 @@ build_report_summary <- function(params) {
     counts[[var]] <- sum(!is.na(data$baseline[[var]]))
   }
 
-  has <- sapply(counts, function(n) {
-    n > 0
-  }, simplify = F)
+  has <- sapply(
+    counts,
+    function(n) {
+      n > 0
+    },
+    simplify = F
+  )
 
   # generate summary paragraph
   base_counts <- tribble(
-    ~count, ~text,
-    counts$baseline, "baseline water quality measurements",
-    counts$nutrient, "total phosphorus samples",
-    counts$thermistor, "days of continuous water temperature logging"
-  ) %>%
-    filter(count > 0) %>%
-    mutate(text = paste(count, text)) %>%
-    pull(text) %>%
+    ~count            , ~text                                          ,
+    counts$baseline   , "baseline water quality measurements"          ,
+    counts$nutrient   , "total phosphorus samples"                     ,
+    counts$thermistor , "days of continuous water temperature logging"
+  ) |>
+    filter(count > 0) |>
+    mutate(text = paste(count, text)) |>
+    pull(text) |>
     combine_words()
 
-  msg <- str_glue("This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}.")
+  msg <- str_glue(
+    "This report covers monitoring data collected between Jan 1 and Dec 31, {yr}, and includes {base_counts}."
+  )
 
   if (has$baseline) {
-    baseline_counts <- data$baseline %>%
-      select(all_of(names(baseline_count_cols))) %>%
-      pivot_longer(everything()) %>%
-      summarize(count = sum(!is.na(value)), .by = name) %>%
-      filter(count != 0) %>%
-      left_join(enframe(baseline_count_cols), join_by(name)) %>%
-      summarize(text = combine_words(value), .by = count) %>%
-      arrange(desc(count)) %>%
-      mutate(text = paste(count, text, if_else(count == 1, "measurement", "measurements"))) %>%
-      pull(text) %>%
+    baseline_counts <- data$baseline |>
+      select(all_of(names(baseline_count_cols))) |>
+      pivot_longer(everything()) |>
+      summarize(count = sum(!is.na(value)), .by = name) |>
+      filter(count != 0) |>
+      left_join(enframe(baseline_count_cols), join_by(name)) |>
+      summarize(text = combine_words(value), .by = count) |>
+      arrange(desc(count)) |>
+      mutate(
+        text = paste(
+          count,
+          text,
+          if_else(count == 1, "measurement", "measurements")
+        )
+      ) |>
+      pull(text) |>
       combine_words()
-    msg <- paste0(msg, " Baseline water quality monitoring included ", baseline_counts, ".")
-    msg <- paste0(msg, " Report downloaded on ", format(Sys.Date(), "%b %d, %Y"), ".")
+    msg <- paste0(
+      msg,
+      " Baseline water quality monitoring included ",
+      baseline_counts,
+      "."
+    )
+    msg <- paste0(
+      msg,
+      " Report downloaded on ",
+      format(Sys.Date(), "%b %d, %Y"),
+      "."
+    )
   }
 
   list(counts = counts, has = has, message = msg)
@@ -88,24 +110,31 @@ build_report_summary <- function(params) {
 
 # min/max etc for data cols
 summarize_report_cols <- function(df, cols) {
-  df %>%
-    rename(all_of(cols)) %>%
-    pivot_longer(all_of(names(cols)), names_to = "Parameter") %>%
-    mutate(Parameter = factor(Parameter, levels = names(cols))) %>%
-    drop_na(value) %>%
+  df |>
+    rename(all_of(cols)) |>
+    pivot_longer(all_of(names(cols)), names_to = "Parameter") |>
+    mutate(Parameter = factor(Parameter, levels = names(cols))) |>
+    drop_na(value) |>
     summarize(
-      across(value, list(
-        N = ~ n(),
-        Min = min,
-        Max = max,
-        Median = median,
-        Mean = mean,
-        SD = sd
-      ), .names = "{.fn}"),
+      across(
+        value,
+        list(
+          N = ~ n(),
+          Min = min,
+          Max = max,
+          Median = median,
+          Mean = mean,
+          SD = sd
+        ),
+        .names = "{.fn}"
+      ),
       .by = Parameter
-    ) %>%
-    mutate(CV = scales::percent(SD / Mean, accuracy = 1)) %>%
-    mutate(across(Min:SD, ~ if_else(is.na(.x), NA, as.character(signif(.x, 3)))))
+    ) |>
+    mutate(CV = scales::percent(SD / Mean, accuracy = 1)) |>
+    mutate(across(
+      Min:SD,
+      ~ if_else(is.na(.x), NA, as.character(signif(.x, 3)))
+    ))
 }
 
 # summary table
@@ -114,15 +143,15 @@ build_report_baseline_table <- function(baseline) {
   for (col in report_baseline_optional_cols) {
     if (all(is.na(df[[col]]))) df[[col]] <- NULL
   }
-  df <- df %>% select(`Date` = formatted_date, any_of(report_baseline_cols))
+  df <- df |> select(`Date` = formatted_date, any_of(report_baseline_cols))
   names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
   df
 }
 
 # summary table
 build_report_streamflow_table <- function(baseline) {
-  baseline %>%
-    mutate(across(flow_method_used, ~ gsub(" Method", "", .x))) %>%
+  baseline |>
+    mutate(across(flow_method_used, ~ gsub(" Method", "", .x))) |>
     select(
       `Date` = formatted_date,
       all_of(report_streamflow_cols),
@@ -133,29 +162,37 @@ build_report_streamflow_table <- function(baseline) {
 
 # creates some paragraphs with fieldwork details for the report
 build_report_fieldwork_comments <- function(baseline) {
-  baseline %>%
+  baseline |>
     select(
       date,
       fsn = fieldwork_seq_no,
       names = group_desc,
       wx = weather_conditions,
       rec_wx = weather_last_2_days,
-      com1 = fieldwork_comments,
+      com1 = fieldwork_comment,
       com2 = additional_comments
-    ) %>%
-    mutate(across(where(is.character), xtable::sanitize)) %>%
-    rowwise() %>%
-    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) %>%
-    mutate(fieldwork_desc = str_glue(
-      "* **{format(date, '%b %d, %Y')}** - ",
-      "SWIMS fieldwork number: {fsn}. ",
-      if_else(is.na(wx), "", " Weather: {wx}."),
-      if_else(is.na(rec_wx), "", " Weather past 2 days: {rec_wx}."),
-      if_else(nchar(comments) == 0, "", " Fieldwork comments: {comments}."),
-      if_else(is.na(names), "", " Submitted by: {names}.")
-    )) %>%
-    pull(fieldwork_desc) %>%
+    ) |>
+    mutate(across(where(is.character), xtable::sanitize)) |>
+    rowwise() |>
+    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) |>
+    mutate(
+      fieldwork_desc = str_glue(
+        "* **{format(date, '%b %d, %Y')}** - ",
+        "SWIMS fieldwork number: {fsn}. ",
+        if_else(is.na(wx), "", " Weather: {wx}."),
+        if_else(is.na(rec_wx), "", " Weather past 2 days: {rec_wx}."),
+        if_else(nchar(comments) == 0, "", " Fieldwork comments: {comments}."),
+        if_else(is.na(names), "", " Submitted by: {names}.")
+      )
+    ) |>
+    pull(fieldwork_desc) |>
     gsub("..", ".", ., fixed = T)
+}
+
+if (F) {
+  baseline_data |>
+    rnd_stn() |>
+    build_report_fieldwork_comments()
 }
 
 
@@ -174,14 +211,14 @@ build_report_map <- function(stn) {
       )
     )
 
-    county_lines <- wi_counties %>%
+    county_lines <- wi_counties |>
       st_cast("MULTILINESTRING")
-    crop_counties <- county_lines %>%
+    crop_counties <- county_lines |>
       st_crop(bbox)
     crop_state <- st_crop(wi_state, bbox)
     crop_wsheds <- st_crop(huc10, bbox)
-    crop_wshed_labels <- crop_wsheds %>%
-      st_centroid(of_largest_polygon = T) %>%
+    crop_wshed_labels <- crop_wsheds |>
+      st_centroid(of_largest_polygon = T) |>
       mutate(label = str_wrap(paste(Huc10Name, "Watershed"), 20))
     crop_water <- st_crop(waterbodies, bbox)
     crop_flow <- st_crop(flowlines, bbox)
@@ -270,9 +307,9 @@ build_report_map <- function(stn) {
 }
 
 if (F) {
-  all_pts %>%
-    filter(station_id == sample(station_id, 1)) %>%
-    buildReportMap()
+  all_pts |>
+    filter(station_id == sample(station_id, 1)) |>
+    build_report_map()
   ggsave("test.png", h = 4, w = 7)
 }
 
@@ -283,7 +320,11 @@ if (F) {
 
 report_plot_theme <- theme_classic() +
   theme(
-    panel.grid.major.x = element_line(color = "grey", linewidth = .25, linetype = "dashed"),
+    panel.grid.major.x = element_line(
+      color = "grey",
+      linewidth = .25,
+      linetype = "dashed"
+    ),
     legend.position = "none",
     axis.line = element_blank(),
     panel.border = element_rect(color = "black", fill = NA, linewidth = .5)
@@ -317,7 +358,9 @@ set_report_date_range <- function(dates, pad_right = FALSE) {
     min(dates - 10, default_range[1]),
     max(dates + 10, default_range[2])
   )
-  if (pad_right) lims[2] <- lims[2] + 30
+  if (pad_right) {
+    lims[2] <- lims[2] + 30
+  }
   lims
 }
 
@@ -331,9 +374,13 @@ set_axis_limits <- function(vals, lower, upper) {
 
 # adds a filled rectangle shape from min to max date axis and ymin to ymax y axis
 add_rect_date <- function(ymin, ymax, color) {
-  gg <- annotate("rect",
-    xmin = as.Date(-Inf), xmax = as.Date(Inf),
-    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  gg <- annotate(
+    "rect",
+    xmin = as.Date(-Inf),
+    xmax = as.Date(Inf),
+    ymin = ymin,
+    ymax = ymax,
+    fill = alpha(color, .05)
   )
   if (!is.infinite(ymax)) {
     gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .25)))
@@ -343,9 +390,13 @@ add_rect_date <- function(ymin, ymax, color) {
 
 # adds a filled rectangle shape from min to max datetime axis and ymin to ymax y axis
 add_rect_dttm <- function(ymin, ymax, color) {
-  gg <- annotate("rect",
-    xmin = as.POSIXct(-Inf), xmax = as.POSIXct(Inf),
-    ymin = ymin, ymax = ymax, fill = alpha(color, .05)
+  gg <- annotate(
+    "rect",
+    xmin = as.POSIXct(-Inf),
+    xmax = as.POSIXct(Inf),
+    ymin = ymin,
+    ymax = ymax,
+    fill = alpha(color, .05)
   )
   if (!is.infinite(ymax)) {
     gg <- c(gg, geom_hline(yintercept = ymax, color = alpha(color, .2)))
@@ -361,7 +412,7 @@ test_report_data <- function(df, col = NULL) {
   } else {
     unique(df$station_id)
   }
-  df <- df %>% filter(station_id == sample(valid_stns, 1))
+  df <- df |> filter(station_id == sample(valid_stns, 1))
 
   # pick a year. must cast to character for sample to work when vector length = 1
   valid_yrs <- if (!is.null(col)) {
@@ -369,7 +420,7 @@ test_report_data <- function(df, col = NULL) {
   } else {
     unique(df$year)
   }
-  df <- df %>% filter(year == sample(as.character(valid_yrs), 1))
+  df <- df |> filter(year == sample(as.character(valid_yrs), 1))
 
   message(first(df$station_id), ": ", first(df$station_name))
   message("Years: ", paste(valid_yrs, collapse = " "))
@@ -380,16 +431,16 @@ test_report_data <- function(df, col = NULL) {
   df
 }
 
-# baseline_data %>% test_report_data()
-# baseline_data %>% test_report_data("d_o")
-
+# baseline_data |> test_report_data()
+# baseline_data |> test_report_data("d_o")
 
 ## Plot selector ----
 
 #' @param df baseline, nutrient, or thermistor data for one station
 build_report_plot <- function(df, type) {
   try({
-    switch(type,
+    switch(
+      type,
       # baseline_data
       "temp" = report_plot_temp(df),
       "d_o" = report_plot_do(df),
@@ -412,7 +463,7 @@ build_report_plot <- function(df, type) {
 
 ## label only the min/max by year
 # if (nrow(df) > 50) {
-#   df <- df %>%
+#   df <- df |>
 #     mutate(label = if_else(
 #       temp == max(temp, na.rm = T) | temp == min(temp, na.rm = T),
 #       label,
@@ -422,16 +473,16 @@ build_report_plot <- function(df, type) {
 
 #' @param df `baseline_data` for one station
 report_plot_temp <- function(df) {
-  df <- df %>%
-    select(date, year, Air = air_temp, Water = water_temp) %>%
-    filter(!is.na(Air) | !is.na(Water)) %>%
+  df <- df |>
+    select(date, year, Air = air_temp, Water = water_temp) |>
+    filter(!is.na(Air) | !is.na(Water)) |>
     pivot_longer(
       c(Air, Water),
       names_to = "measure",
       values_to = "temp"
-    ) %>%
-    mutate(temp = c_to_f(temp)) %>%
-    mutate(label = paste0(temp, "°F")) %>%
+    ) |>
+    mutate(temp = c_to_f(temp)) |>
+    mutate(label = paste0(temp, "°F")) |>
     mutate(measure = paste(measure, "temperature"))
   if (nrow(df) == 0) {
     return("No data")
@@ -440,14 +491,14 @@ report_plot_temp <- function(df) {
   n_dates <- n_distinct(df$date)
   x_lims <- set_report_date_range(df$date, pad_right = T)
   y_lims <- set_axis_limits(df$temp, 50, 80)
-  air <- df %>%
-    filter(measure == "Air temperature") %>%
+  air <- df |>
+    filter(measure == "Air temperature") |>
     drop_na(temp)
-  water <- df %>%
-    filter(measure == "Water temperature") %>%
+  water <- df |>
+    filter(measure == "Water temperature") |>
     drop_na(temp)
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = temp)) +
     add_rect_date(-Inf, 69.3, "blue") +
     add_rect_date(69.3, 72.5, "cornflowerblue") +
@@ -500,18 +551,17 @@ report_plot_temp <- function(df) {
     theme(legend.position = "top")
 }
 
-# baseline_data %>% test_report_data("water_temp") %>% report_plot_temp()
-# baseline_data %>% test_report_data("air_temp") %>% report_plot_temp()
-
+# baseline_data |> test_report_data("water_temp") |> report_plot_temp()
+# baseline_data |> test_report_data("air_temp") |> report_plot_temp()
 
 #' @param df `baseline_data` for one station
 report_plot_do <- function(df) {
-  df <- df %>%
-    select(date, d_o, do_sat = d_o_percent_saturation) %>%
-    drop_na(d_o) %>%
+  df <- df |>
+    select(date, d_o, do_sat = d_o_saturation) |>
+    drop_na(d_o) |>
     mutate(do_color = map_chr(d_o, do_color))
   n_dates <- n_distinct(df$date)
-  df <- df %>%
+  df <- df |>
     mutate(
       sat_label = if_else(
         is.na(do_sat),
@@ -534,7 +584,7 @@ report_plot_do <- function(df) {
     )
   )
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = d_o)) +
     add_rect_date(-Inf, 1, "red") +
     add_rect_date(1, 3, "orange") +
@@ -577,14 +627,13 @@ report_plot_do <- function(df) {
     report_plot_theme
 }
 
-# baseline_data %>% test_report_data("d_o") %>% report_plot_do()
-
+# baseline_data |> test_report_data("d_o") |> report_plot_do()
 
 #' @param df `baseline_data` for one station
 report_plot_ph <- function(df) {
-  df <- df %>%
-    select(date, ph) %>%
-    drop_na(ph) %>%
+  df <- df |>
+    select(date, ph) |>
+    drop_na(ph) |>
     mutate(ph_diff = ph - 7)
   if (nrow(df) == 0) {
     return("No data")
@@ -600,7 +649,7 @@ report_plot_ph <- function(df) {
     )
   )
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = ph)) +
     add_rect_date(-Inf, 6, "orange") +
     add_rect_date(6, 9, "chartreuse") +
@@ -645,20 +694,19 @@ report_plot_ph <- function(df) {
     report_plot_theme
 }
 
-# baseline_data %>% test_report_data("ph") %>% report_plot_ph()
-
+# baseline_data |> test_report_data("ph") |> report_plot_ph()
 
 #' @param df `baseline_data` for one station
 report_plot_cond <- function(df) {
-  df <- df %>%
-    select(date, cond = specific_cond) %>%
-    drop_na(cond) %>%
+  df <- df |>
+    select(date, cond = specific_cond) |>
+    drop_na(cond) |>
     mutate(label = round(cond, 1))
   if (nrow(df) == 0) {
     return("No data")
   }
   n_dates <- n_distinct(df$date)
-  df <- df %>%
+  df <- df |>
     mutate(
       label = paste0(round(cond, 1), if_else(n_dates < 8, " uS/cm", ""))
     )
@@ -671,10 +719,10 @@ report_plot_cond <- function(df) {
       "Potentially toxic chloride\nlevels (1500-2000 uS/cm)\n\n",
       "Likely toxic chloride\nlevel (> 2000 uS/cm)\n\n"
     )
-  ) %>%
+  ) |>
     filter(y < y_lims[2])
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = cond)) +
     add_rect_date(-Inf, 800, "turquoise") +
     add_rect_date(800, 1500, "orange") +
@@ -717,20 +765,19 @@ report_plot_cond <- function(df) {
     theme(legend.position = "none")
 }
 
-# baseline_data %>% test_report_data("specific_cond") %>% report_plot_cond()
-
+# baseline_data |> test_report_data("specific_cond") |> report_plot_cond()
 
 #' @param df `baseline_data` for one station
 report_plot_trans <- function(df) {
-  df <- df %>%
-    select(date, trans = transparency, tube = transparency_tube_length) %>%
-    drop_na(trans) %>%
+  df <- df |>
+    select(date, trans = transparency, tube = transparency_tube_length) |>
+    drop_na(trans) |>
     mutate(trans = round(trans, 0))
   if (nrow(df) == 0) {
     return("No data")
   }
   n_dates <- n_distinct(df$date)
-  df <- df %>%
+  df <- df |>
     mutate(
       label = paste0(
         trans,
@@ -742,7 +789,7 @@ report_plot_trans <- function(df) {
   y_lims <- set_axis_limits(df$trans, 0, 120)
   col_width <- ifelse(n_dates > 6, 10, 15)
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = trans)) +
     geom_col(
       aes(y = tube, color = "grey50"),
@@ -793,19 +840,18 @@ report_plot_trans <- function(df) {
     theme(legend.position = "right", legend.title = element_text(size = 10))
 }
 
-# baseline_data %>% test_report_data("transparency") %>% report_plot_trans()
-
+# baseline_data |> test_report_data("transparency") |> report_plot_trans()
 
 #' @param df `baseline_data` for one station
 report_plot_flow <- function(df) {
-  df <- df %>%
-    select(date, flow = streamflow) %>%
+  df <- df |>
+    select(date, flow = streamflow) |>
     drop_na(flow)
   if (nrow(df) == 0) {
     return("No data")
   }
   n_dates <- n_distinct(df$date)
-  df <- df %>%
+  df <- df |>
     mutate(
       label = paste0(round(flow, 1), if_else(n_dates < 8, " cfs", ""))
     )
@@ -819,10 +865,10 @@ report_plot_flow <- function(df) {
       "Mainstem stream (3-150 cfs)\nHeadwater stream (0.03-3 cfs)  ",
       "Large river (> 150 cfs)\nMainstem stream (3-150 cfs)  "
     )
-  ) %>%
+  ) |>
     filter(y < y_lims[2], max > y_lims[2])
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = flow)) +
     add_rect_date(-Inf, .03, "#915119") +
     add_rect_date(.03, 3, "#e3c283") +
@@ -866,8 +912,7 @@ report_plot_flow <- function(df) {
     theme(legend.position = "none")
 }
 
-# baseline_data %>% test_report_data("streamflow") %>% report_plot_flow()
-
+# baseline_data |> test_report_data("streamflow") |> report_plot_flow()
 
 ## Nutrient plot ----
 
@@ -876,25 +921,25 @@ report_plot_nutrient <- function(df) {
   dates <- df$date
   yr <- lubridate::year(dates[1])
   eoy_date <- as.Date(paste0(yr, "-12-1"))
-  df <- df %>%
-    select(date, tp) %>%
-    drop_na(tp) %>%
-    mutate(exceeds = tp > phoslimit) %>%
+  df <- df |>
+    select(date, tp) |>
+    drop_na(tp) |>
+    mutate(exceeds = tp > phoslimit) |>
     mutate(label = ifelse(tp == 0, "< LOD", signif(tp, 3)))
   x_lims <- c(dates[1] - 15, eoy_date + 15)
   y_lims <- set_axis_limits(df$tp, 0, .1)
-  est <- getPhosEstimate(df$tp)
+  est <- get_phos_estimate(df$tp)
   est_labels <- tribble(
-    ~value, ~label,
-    est$lower, "Lower 80% CI",
-    est$median, "Median value",
-    est$upper, "Upper 80% CI",
-    est$limit, "State criteria",
-  ) %>%
+    ~value     , ~label           ,
+    est$lower  , "Lower 80% CI"   ,
+    est$median , "Median value"   ,
+    est$upper  , "Upper 80% CI"   ,
+    est$limit  , "State criteria" ,
+  ) |>
     mutate(date = eoy_date)
   ci <- est$n > 1 # conf int if more than 1 observation
 
-  df %>%
+  df |>
     ggplot(aes(x = date, y = tp)) +
     {
       # draw confidence interval
@@ -960,8 +1005,7 @@ report_plot_nutrient <- function(df) {
     theme(legend.position = "bottom")
 }
 
-# nutrient_data %>% test_report_data() %>% report_plot_nutrient()
-
+# nutrient_data |> test_report_data() |> report_plot_nutrient()
 
 ## Thermistor plot ----
 
@@ -970,22 +1014,22 @@ report_plot_therm <- function(df) {
   n_days <- as.numeric(max(df$date) - min(df$date))
   date_breaks <- ifelse(n_days > 150, "months", "weeks")
   date_format <- ifelse(n_days > 150, "%b", "%b %d")
-  daily_min <- df %>%
-    slice_min(order_by = temp_f, by = date) %>%
+  daily_min <- df |>
+    slice_min(order_by = temp_f, by = date) |>
     select(date_time, min = temp_f)
-  daily_max <- df %>%
-    slice_max(order_by = temp_f, by = date) %>%
+  daily_max <- df |>
+    slice_max(order_by = temp_f, by = date) |>
     select(date_time, max = temp_f)
   daily_range <-
-    bind_rows(daily_min, daily_max) %>%
-    arrange(date_time) %>%
-    mutate(across(c(min, max), ~ zoo::na.approx(.x, na.rm = F))) %>%
+    bind_rows(daily_min, daily_max) |>
+    arrange(date_time) |>
+    mutate(across(c(min, max), ~ zoo::na.approx(.x, na.rm = F))) |>
     drop_na()
-  daily_means <- df %>%
-    summarize(mean = mean(temp_f), .by = date) %>%
+  daily_means <- df |>
+    summarize(mean = mean(temp_f), .by = date) |>
     mutate(date_time = as.POSIXct(paste(date, "12:00:00")))
 
-  daily_range %>%
+  daily_range |>
     ggplot(aes(x = date_time)) +
     add_rect_dttm(-Inf, 69.3, "blue") +
     add_rect_dttm(69.3, 72.5, "cornflowerblue") +
@@ -1034,4 +1078,4 @@ report_plot_therm <- function(df) {
     theme(axis.text.x = element_text(angle = 30, hjust = 1))
 }
 
-# therm_data %>% test_report_data() %>% report_plot_therm()
+# therm_data |> test_report_data() |> report_plot_therm()
