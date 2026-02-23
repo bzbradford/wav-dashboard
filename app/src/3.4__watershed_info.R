@@ -1,14 +1,19 @@
 ### Watershed & Landscape Info Tab ###
 
-
 # Functions ---------------------------------------------------------------
 
 build_watershed_info <- function(stn) {
   require(glue)
 
-  maps_link <- glue("<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>")
-  wbic_link <- glue("<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>")
-  ws_link <- glue("<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>")
+  maps_link <- glue(
+    "<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>"
+  )
+  wbic_link <- glue(
+    "<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>"
+  )
+  ws_link <- glue(
+    "<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>"
+  )
   # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
 
   shiny::HTML(paste(
@@ -18,7 +23,9 @@ build_watershed_info <- function(stn) {
     glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
     glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
     glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
-    glue("<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"),
+    glue(
+      "<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"
+    ),
     glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
     glue("<b>Major basin:</b> {stn$major_basin}"),
     glue("<b>County name:</b> {stn$county_name} County"),
@@ -28,25 +35,47 @@ build_watershed_info <- function(stn) {
 }
 
 
-
 # Static UI ---------------------------------------------------------------
 
 watershedInfoUI <- function() {
   ns <- NS("watershed")
 
   links <- list(
-    nlcd = HTML("<a href='https://www.usgs.gov/centers/eros/science/national-land-cover-database' target='_blank'>2021 USGS National Land Cover Database</a>"),
-    nlcd_classes = HTML("<a href='https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description' target='_blank'>Click here</a>")
+    nlcd = HTML(
+      "<a href='https://www.usgs.gov/centers/eros/science/national-land-cover-database' target='_blank'>2021 USGS National Land Cover Database</a>"
+    ),
+    nlcd_classes = HTML(
+      "<a href='https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description' target='_blank'>Click here</a>"
+    )
   )
 
   div(
     class = "data-tab",
     h3("Watersheds"),
-    p(strong("What is a watershed?"), "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."),
-    p(HTML("In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale); see the entry in the table below for links to the DNR's information pages for each watershed. Use the layers menu (upper right) in the map above or"), strong(a(href = "#map", onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})", "click here")), "to enable these watershed boundaries on the map and explore them yourself."),
+    p(
+      strong("What is a watershed?"),
+      "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."
+    ),
+    p(
+      HTML(
+        "In the US, watersheds are divided into successively smaller areas called <em>hydrological units</em> and given a numerical designation called a <em>hydrological unit code</em> (HUC). These HUCs have a specific number of digits for each level of division. For example, Wisconsin is divided into 52 <em>sub-basins</em> (8 digit HUC), 372 <em>watersheds</em> (10 digit HUC), and 1,808 <em>sub-watersheds</em> (12 digit HUC). In Wisconsin the DNR has its own numbering system for watersheds (roughly equivalent to HUC10 scale); see the entry in the table below for links to the DNR's information pages for each watershed. Use the layers menu (upper right) in the map above or"
+      ),
+      strong(a(
+        href = "#map",
+        onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})",
+        "click here"
+      )),
+      "to enable these watershed boundaries on the map and explore them yourself."
+    ),
     uiOutput(ns("watershed_info_ui")) |> with_spinner(proxy.height = 200),
     h4(strong("Landscape composition")),
-    p("Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ", links$nlcd, ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ", links$nlcd_classes, " for more information and specific definitions of each land cover class."),
+    p(
+      "Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ",
+      links$nlcd,
+      ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ",
+      links$nlcd_classes,
+      " for more information and specific definitions of each land cover class."
+    ),
     div(
       class = "well flex-row year-btns",
       div(class = "year-btn-text", em("Landscape scale:")),
@@ -72,7 +101,6 @@ watershedInfoUI <- function() {
     ),
   )
 }
-
 
 
 # Server ------------------------------------------------------------------
@@ -116,7 +144,8 @@ watershedInfoServer <- function(main_rv) {
       ## selected_name ----
       selected_name <- reactive({
         stn <- cur_stn()
-        case_match(huc_scale(),
+        case_match(
+          huc_scale(),
           8 ~ paste(stn$sub_basin, "sub-basin"),
           10 ~ paste(stn$watershed, "watershed"),
           12 ~ paste(stn$sub_watershed, "sub-watershed")
@@ -125,21 +154,23 @@ watershedInfoServer <- function(main_rv) {
 
       ## mean_name ----
       mean_name <- reactive({
-        case_match(huc_scale(),
+        case_match(
+          huc_scale(),
           8 ~ "All Wisconsin sub-basins",
           10 ~ "All Wisconsin watersheds",
           12 ~ "All Wisconsin sub-watersheds"
         )
       })
 
-
-
       # Interface ---------------------------------------------------------------
 
       ## watershed_info_ui ----
       output$watershed_info_ui <- renderUI({
         wellPanel(
-          h4("Location and watershed details for selected station:", style = "margin-top: 0px;"),
+          h4(
+            "Location and watershed details for selected station:",
+            style = "margin-top: 0px;"
+          ),
           div(
             style = "padding-left: 1em;",
             build_watershed_info(cur_stn())
@@ -149,7 +180,6 @@ watershedInfoServer <- function(main_rv) {
 
       ## pie_chart_ui ----
       output$pie_chart_ui <- renderUI({
-
         tagList(
           div(
             class = "flex-row",
@@ -183,7 +213,13 @@ watershedInfoServer <- function(main_rv) {
           wellPanel(
             style = "margin-top: 10px;",
             h5(align = "center", strong("Difference in landscape composition")),
-            div(align = "center", class = "note", "Compared to the statewide average shown above, the landscape composition of the", strong(selected_name()), "differs in each of the following respects:"),
+            div(
+              align = "center",
+              class = "note",
+              "Compared to the statewide average shown above, the landscape composition of the",
+              strong(selected_name()),
+              "differs in each of the following respects:"
+            ),
             plotlyOutput(ns("ws_diff_plot"), height = "500px")
           )
         )
@@ -196,7 +232,6 @@ watershedInfoServer <- function(main_rv) {
           filename = sprintf("Landscape composition - %s.png", selected_name())
         )
       })
-
 
       # Plots ------------------------------------------------------------------
 
@@ -215,7 +250,6 @@ watershedInfoServer <- function(main_rv) {
       output$ws_diff_plot <- renderPlotly({
         plotly_landscape_diff(mean_data(), selected_data())
       })
-
     }
   )
 }

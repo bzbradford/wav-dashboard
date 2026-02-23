@@ -28,6 +28,8 @@ suppressPackageStartupMessages({
   library(knitr)
 })
 
+# load data created in setup.R
+load(".RData")
 
 # Development ------------------------------------------------------------------
 
@@ -86,7 +88,10 @@ stn_data_years <- rev(as.character(sort(unique(all_stn_years$year))))
 
 stn_year_choices <- append(
   setNames(stn_data_years[1:4], stn_data_years[1:4]),
-  setNames(stn_data_years[5], paste0(last(stn_data_years), "-", stn_data_years[5]))
+  setNames(
+    stn_data_years[5],
+    paste0(last(stn_data_years), "-", stn_data_years[5])
+  )
 )
 
 map_color_choices <- list(
@@ -232,6 +237,17 @@ build_notice_ui <- function(content, type = c("ok", "error")) {
   })
 }
 
+build_link <- function(text, href, title = text, ...) {
+  a(
+    text,
+    href = href,
+    title = href,
+    .noWS = "outside",
+    target = "_blank",
+    ...
+  )
+}
+
 
 ## Plot helpers ----
 
@@ -294,7 +310,10 @@ build_baseline_summary <- function(df) {
     select(col, name, units) |>
     rowwise() |>
     reframe(pick(everything()), stn_summary_min_max(df, col)) |>
-    mutate(across(c(min, mean, max), ~ if_else(is.na(units), as.character(.x), paste(.x, units)))) |>
+    mutate(across(
+      c(min, mean, max),
+      ~ if_else(is.na(units), as.character(.x), paste(.x, units))
+    )) |>
     mutate(across(c(date_of_min, date_of_max), ~ format(.x, date_fmt))) |>
     select(-c(col, units)) |>
     clean_names("title")
@@ -312,11 +331,11 @@ format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
   df <- df |> arrange(date)
 
   if (hide_empty) {
-    df <- select(df, where(~!all(is.na(.x))))
+    df <- select(df, where(~ !all(is.na(.x))))
   }
 
   df <- df |>
-    mutate(across(any_of(c("latitude", "longitude")), ~round(.x, 6))) |>
+    mutate(across(any_of(c("latitude", "longitude")), ~ round(.x, 6))) |>
     clean_names(
       case = "title",
       abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
@@ -328,7 +347,11 @@ format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
       mutate(date_n = n(), .by = Date) |>
       mutate(
         label = format(Date, "%b %d, %Y"),
-        label = if_else(date_n > 1, paste0(label, " (", row_number(), ")"), label),
+        label = if_else(
+          date_n > 1,
+          paste0(label, " (", row_number(), ")"),
+          label
+        ),
         .by = Date
       ) |>
       select(-date_n) |>
@@ -341,8 +364,8 @@ format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
 }
 
 if (F) {
-  baseline_data |> rnd_stn() |> format_data()
-  baseline_data |> rnd_stn() |> format_data(FALSE)
+  baseline_data |> rnd_stn() |> format_for_dt()
+  baseline_data |> rnd_stn() |> format_for_dt(FALSE)
   baseline_data |>
     filter(station_id == 10040926) |>
     format_for_dt() |>
@@ -370,7 +393,6 @@ merge_unit_cols <- function(df, units_suffix = "_units") {
 #   rnd_stn() |>
 #   merge_unit_cols() |>
 #   format_for_dt() |> view()
-
 
 # data structure for plotly background annotation rectangles
 PlotAnnotOpts <- function(
@@ -421,7 +443,14 @@ baseline_plot_annot <- lst(
       "Coldwater fish\n(>6 mg/L) ",
       "Coldwater spawning\n(>7 mg/L) "
     ),
-    colors = c("red", "orange", "gold", "lightblue", "steelblue", "cornflowerblue")
+    colors = c(
+      "red",
+      "orange",
+      "gold",
+      "lightblue",
+      "steelblue",
+      "cornflowerblue"
+    )
   ),
   transparency = PlotAnnotOpts(
     values = c(55, 90, 120),
@@ -472,13 +501,9 @@ baseline_plot_annot <- lst(
 )
 
 
-
 # baseline_data |>
 #   slice_sample(n = 1, by = station_id) |>
 #   get_baseline_param_choices()
-
-
-
 
 # Nutrient tab -----------------------------------------------------------------
 
@@ -522,15 +547,24 @@ get_phos_exceedance_text <- function(vals, limit = phoslimit) {
   }
 
   msg <- case_when(
-    lower >= limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
-    (lower <= limit) & (median >= limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
-    (upper >= limit) & (median <= limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
-    upper <= limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
+    lower >=
+      limit ~ "Total phosphorus levels clearly exceed the DNR's criteria (median and entire confidence interval above phosphorus standard) and the stream is likely impaired.",
+    (lower <= limit) &
+      (median >=
+        limit) ~ "Total phosphorus levels may exceed the DNR's criteria (median greater than the standard, but lower confidence interval below the standard).",
+    (upper >= limit) &
+      (median <=
+        limit) ~ "Total phosphorus levels may meet the DNR's criteria (median below phosphorus standard, but upper confidence interval above standard).",
+    upper <=
+      limit ~ "Total phosphorus levels clearly meet the DNR's criteria (median and entire confidence interval below phosphorus standard).",
     .default = msg
   )
 
   if (vals$n < 6) {
-    msg <- paste(msg, "However, less than the required 6 monthly measurements were taken at this station.")
+    msg <- paste(
+      msg,
+      "However, less than the required 6 monthly measurements were taken at this station."
+    )
   }
 }
 

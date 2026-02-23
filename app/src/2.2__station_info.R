@@ -25,7 +25,6 @@ stationInfoServer <- function(main_rv) {
   moduleServer(
     id = "station-info",
     function(input, output, session) {
-
       cur_stn <- reactive({
         req(main_rv$cur_stn)
       })
@@ -36,7 +35,10 @@ stationInfoServer <- function(main_rv) {
           select(station_id:geometry) |>
           st_set_geometry(NULL) |>
           mutate(across(everything(), as.character)) |>
-          clean_names(case = "title", abbreviations = c("ID", "DNR", "WBIC", "HUC")) |>
+          clean_names(
+            case = "title",
+            abbreviations = c("ID", "DNR", "WBIC", "HUC")
+          ) |>
           pivot_longer(
             cols = everything(),
             names_to = "Property",

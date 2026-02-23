@@ -781,7 +781,6 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
 }
 
 
-
 # Thermistor tab ---------------------------------------------------------------
 
 #' @requires

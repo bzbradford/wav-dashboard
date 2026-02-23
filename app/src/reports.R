@@ -309,7 +309,7 @@ build_report_map <- function(stn) {
 if (F) {
   all_pts |>
     filter(station_id == sample(station_id, 1)) |>
-    buildReportMap()
+    build_report_map()
   ggsave("test.png", h = 4, w = 7)
 }
 

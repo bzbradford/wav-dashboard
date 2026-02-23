@@ -5,7 +5,6 @@ mapUI <- function() {
 
   tagList(
     sidebarLayout(
-
       # Main panel ----
       mainPanel = mainPanel(
         div(
@@ -20,7 +19,6 @@ mapUI <- function() {
 
       # Sidebar ----
       sidebarPanel = sidebarPanel(
-
         ## Station data types ----
         checkboxGroupInput(
           inputId = ns("stn_types"),
@@ -160,7 +158,10 @@ mapServer <- function(main_rv, main_session) {
         # expand list of years if last option is selected
         match_years <- years
         if (last(stn_year_choices) %in% match_years) {
-          match_years <- union(match_years, last(match_years):last(stn_data_years))
+          match_years <- union(
+            match_years,
+            last(match_years):last(stn_data_years)
+          )
         }
 
         # handle any/all matching types
@@ -256,11 +257,11 @@ mapServer <- function(main_rv, main_session) {
       # Map setup ----
 
       basemaps <- tribble(
-        ~label, ~provider,
-        "ESRI Topo", providers$Esri.WorldTopoMap,
-        "Satellite", providers$Esri.WorldImagery,
-        "OpenStreetMap", providers$OpenStreetMap,
-        "Grey Canvas", providers$CartoDB.Positron
+        ~label          , ~provider                   ,
+        "ESRI Topo"     , providers$Esri.WorldTopoMap ,
+        "Satellite"     , providers$Esri.WorldImagery ,
+        "OpenStreetMap" , providers$OpenStreetMap     ,
+        "Grey Canvas"   , providers$CartoDB.Positron
       )
 
       addBasemaps <- function(map) {
@@ -415,12 +416,16 @@ mapServer <- function(main_rv, main_session) {
       ## Draw station circle markers ----
 
       # select the 'measure' radio button if the dropdown changes
-      observeEvent(input$stn_color_measure, {
-        updateRadioButtons(
-          inputId = "stn_color_by",
-          selected = "measure"
-        )
-      }, ignoreInit = TRUE)
+      observeEvent(
+        input$stn_color_measure,
+        {
+          updateRadioButtons(
+            inputId = "stn_color_by",
+            selected = "measure"
+          )
+        },
+        ignoreInit = TRUE
+      )
 
       observe({
         pts <- avail_pts()
@@ -439,8 +444,10 @@ mapServer <- function(main_rv, main_session) {
           pts <- pts |>
             mutate(
               color = case_when(
-                nutrient_stn & ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
-                therm_stn & ("thermistor" %in% stn_types) ~ stn_colors$thermistor,
+                nutrient_stn &
+                  ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
+                therm_stn &
+                  ("thermistor" %in% stn_types) ~ stn_colors$thermistor,
                 TRUE ~ stn_colors$baseline
               )
             ) |>
@@ -450,12 +457,24 @@ mapServer <- function(main_rv, main_session) {
           proxy_map |> removeControl("legend")
         } else {
           # get value from drop-down if needed
-          color_by <- ifelse(color_by == "measure", req(input$stn_color_measure), color_by)
+          color_by <- ifelse(
+            color_by == "measure",
+            req(input$stn_color_measure),
+            color_by
+          )
           # prepare color palette
           opts <- data_opts |> filter(col == color_by)
           domain <- c(opts$palette_min, opts$palette_max)
-          pal <- colorNumeric(opts$palette_name, domain, reverse = opts$palette_reverse)
-          pal_rev <- colorNumeric(opts$palette_name, domain, reverse = !opts$palette_reverse)
+          pal <- colorNumeric(
+            opts$palette_name,
+            domain,
+            reverse = opts$palette_reverse
+          )
+          pal_rev <- colorNumeric(
+            opts$palette_name,
+            domain,
+            reverse = !opts$palette_reverse
+          )
 
           # select stations, add color
           pts <- pts |>
@@ -465,8 +484,18 @@ mapServer <- function(main_rv, main_session) {
             mutate(color = pal(attr_clamped)) |>
             arrange(!is.na(attr), attr) |>
             mutate(
-              attr_label = if_else(is.na(attr), "No data", as.character(signif(attr, 4))),
-              map_label = paste0(map_label, "<br>", opts$label, ": ", attr_label) |>
+              attr_label = if_else(
+                is.na(attr),
+                "No data",
+                as.character(signif(attr, 4))
+              ),
+              map_label = paste0(
+                map_label,
+                "<br>",
+                opts$label,
+                ": ",
+                attr_label
+              ) |>
                 lapply(HTML)
             )
 
@@ -847,7 +876,6 @@ mapServer <- function(main_rv, main_session) {
           removeShape("user_watershed12")
         rv$user_loc_shown <- FALSE
       })
-
     }
   )
 }

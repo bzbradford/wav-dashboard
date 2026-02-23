@@ -1,4 +1,3 @@
-
 # server.R ----
 
 ## screenshot => download pdf ----
@@ -51,15 +50,13 @@
 #   runjs("document.querySelector('#screenshot-msg').style.display = 'none';")
 # })
 
-
-
 # global.R ----------------------------------------------------------------
 
 #' each option should have a value list and color list.
 #' the value list will be expanded with the plot limits on either side
 
 # BaselineOpts <- function(
-    #   name = character(),
+#   name = character(),
 #   units = character(),
 #   plot_opts = list(), # create with PlotlyOpts()
 #   map_opts = list() # create with ColorNumericOpts()
@@ -73,7 +70,7 @@
 # }
 #
 # PlotOpts <- function(
-    #   range = numeric(),
+#   range = numeric(),
 #   color = character(),
 #   annot = list() # create with PlotlyAnnotOpts()
 # ) {
@@ -87,7 +84,7 @@
 
 # data structure for calling colorNumeric for leaflet
 # ColorNumericOpts <- function(
-    #   domain = numeric(),
+#   domain = numeric(),
 #   palette = character(),
 #   reverse = logical()
 # ) {
@@ -98,7 +95,6 @@
 #
 #   lst(domain, palette, reverse)
 # }
-
 
 # Baseline data options
 # baseline_opts <- lst(
@@ -277,7 +273,6 @@
 #   )
 #
 # )
-
 
 # # old plot options
 # baseline_plot_opts = tribble(

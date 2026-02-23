@@ -1,7 +1,6 @@
 ##  MAIN SERVER  ##
 
 server <- function(input, output, session) {
-
   # Defs ----
 
   # stations with data from most recent year
@@ -14,11 +13,9 @@ server <- function(input, output, session) {
     slice_sample() |>
     pull(station_id)
 
-
   # Reactives values ----
 
   rv <- reactiveValues(
-
     ## rv$init ----
     # becomes F after initial station selection
     init = TRUE,
@@ -39,7 +36,6 @@ server <- function(input, output, session) {
     ## rv$cur_stn ----
     # single row data frame with station info for currently selected station
     cur_stn = NULL
-
   )
 
   observe({
@@ -59,7 +55,6 @@ server <- function(input, output, session) {
     rv$cur_stn <- filter(all_pts, station_id == stn)
   })
 
-
   ## stn_list() ----
   # creates a list for selectInput based on avail_stns
   stn_list <- reactive({
@@ -70,7 +65,6 @@ server <- function(input, output, session) {
       list()
     }
   })
-
 
   # Event reactives ----
 
@@ -93,13 +87,20 @@ server <- function(input, output, session) {
       stn_name <- all_stns[all_stns$station_id == selected, ]$station_name
       rv$initial_stn <- selected
       list(
-        msg = sprintf("Dashboard loaded with station '%s: %s' selected.", id, stn_name),
+        msg = sprintf(
+          "Dashboard loaded with station '%s: %s' selected.",
+          id,
+          stn_name
+        ),
         type = "ok"
       )
     } else {
       rv$initial_stn <- initial_stn
       list(
-        msg = sprintf("Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.", query),
+        msg = sprintf(
+          "Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.",
+          query
+        ),
         type = "error"
       )
     }
@@ -135,7 +136,9 @@ server <- function(input, output, session) {
       if (!is.null(cur_stn)) {
         # find geographically nearest station
         avail_pts <- all_pts |> filter(station_id %in% stations)
-        selected <- avail_pts[st_nearest_feature(cur_stn, avail_pts), ]$station_id
+        selected <- avail_pts[
+          st_nearest_feature(cur_stn, avail_pts),
+        ]$station_id
       } else {
         selected <- stations[sample(seq_along(stations), 1)]
       }
@@ -166,7 +169,6 @@ server <- function(input, output, session) {
       set_page_title(NULL)
     }
   })
-
 
   # Button handlers ----
 
@@ -251,7 +253,10 @@ server <- function(input, output, session) {
         max(c(stn$max_fw_year, last(stn_year_choices))),
         input$`map-stn_years`
       )
-      updateCheckboxGroupInput(inputId = "map-stn_types", selected = station_types)
+      updateCheckboxGroupInput(
+        inputId = "map-stn_types",
+        selected = station_types
+      )
       updateCheckboxGroupInput(inputId = "map-stn_years", selected = new_years)
       updateRadioButtons(inputId = "map-year_exact_match", selected = FALSE)
     }
@@ -264,7 +269,6 @@ server <- function(input, output, session) {
       )
   })
 
-
   # Rendered UIs ----
 
   ## bookmark_btn ----
@@ -273,12 +277,22 @@ server <- function(input, output, session) {
   output$bookmark_btn <- renderUI({
     req(!is.null(rv$bookmarking))
     if (rv$bookmarking) {
-      actionButton("bookmarking", icon("bookmark", class = "fa-solid"), class = "stn-btn", style = "background: gold;", title = "Disable showing station in URL and page title")
+      actionButton(
+        "bookmarking",
+        icon("bookmark", class = "fa-solid"),
+        class = "stn-btn",
+        style = "background: gold;",
+        title = "Disable showing station in URL and page title"
+      )
     } else {
-      actionButton("bookmarking", icon("bookmark"), class = "stn-btn", title = "Show station in URL and page title so you can share or bookmark this page")
+      actionButton(
+        "bookmarking",
+        icon("bookmark"),
+        class = "stn-btn",
+        title = "Show station in URL and page title so you can share or bookmark this page"
+      )
     }
   })
-
 
   # Module servers ----
 
@@ -293,5 +307,4 @@ server <- function(input, output, session) {
   thermistorDataServer(rv)
   watershedInfoServer(rv)
   stnReportServer(rv)
-
 }

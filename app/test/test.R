@@ -417,8 +417,8 @@ make_min_max <- function(df, var) {
 summary_vars <- tribble(
   ~var                , ~name               , ~units ,
   "d_o"               , "Dissolved oxygen"  , "mg/L" ,
-  "water_temperature" , "Water temperature" , "°C"  ,
-  "air_temp"          , "Air temperature"   , "°C"  ,
+  "water_temperature" , "Water temperature" , "°C"   ,
+  "air_temp"          , "Air temperature"   , "°C"   ,
   "transparency"      , "Transparency"      , "cm"   ,
   "stream_flow_cfs"   , "Stream flow"       , "cfs"
 ) %>%

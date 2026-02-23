@@ -17,7 +17,6 @@ nutrientDataServer <- function(main_rv) {
     function(input, output, session) {
       ns <- session$ns
 
-
       # Reactive values ----
 
       ## rv$ready ----
@@ -40,10 +39,14 @@ nutrientDataServer <- function(main_rv) {
         data <- nutrient_data |>
           filter(station_id == stn$station_id)
         if (nrow(data) == 0) {
-          if (rv$ready) rv$ready <- FALSE
+          if (rv$ready) {
+            rv$ready <- FALSE
+          }
           rv$stn_data <- NULL
         } else {
-          if (!rv$ready) rv$ready <- TRUE
+          if (!rv$ready) {
+            rv$ready <- TRUE
+          }
           rv$stn_data <- data
         }
       })
@@ -68,7 +71,6 @@ nutrientDataServer <- function(main_rv) {
         get_phos_estimate(df$tp)
       })
 
-
       # Main UI ----
 
       ## ui ----
@@ -76,7 +78,10 @@ nutrientDataServer <- function(main_rv) {
         if (rv$ready) {
           uiOutput(ns("main_ui"))
         } else {
-          div(class = "well", "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station.")
+          div(
+            class = "well",
+            "This station has no nutrient data. Choose another station or view the baseline or thermistor data associated with this station."
+          )
         }
       })
 
@@ -159,7 +164,11 @@ nutrientDataServer <- function(main_rv) {
         stn <- cur_stn()
         build_plot_download_btn(
           id = "#nutrient-plot-container",
-          filename = sprintf("WAV Nutrient Data - Stn %s - %s.png", stn$station_id, yr)
+          filename = sprintf(
+            "WAV Nutrient Data - Stn %s - %s.png",
+            stn$station_id,
+            yr
+          )
         )
       })
 
@@ -172,9 +181,14 @@ nutrientDataServer <- function(main_rv) {
         yr_choices <- if (length(yrs) > 1) c(yrs, "All years") else yrs
         tagList(
           p(
-            strong("Station ID:"), stn$station_id, br(),
-            strong("Station Name:"), stn$station_name, br(),
-            strong("Waterbody:"), stn$waterbody
+            strong("Station ID:"),
+            stn$station_id,
+            br(),
+            strong("Station Name:"),
+            stn$station_name,
+            br(),
+            strong("Waterbody:"),
+            stn$waterbody
           ),
           wellPanel(
             div(
@@ -204,7 +218,10 @@ nutrientDataServer <- function(main_rv) {
           ),
           p(
             downloadButton(ns("dl_cur_data"), "Download this data"),
-            downloadButton(ns("dl_all_data"), "Download entire phosphorus dataset")
+            downloadButton(
+              ns("dl_all_data"),
+              "Download entire phosphorus dataset"
+            )
           ),
           dataTableOutput(ns("dt"))
         )
@@ -216,31 +233,40 @@ nutrientDataServer <- function(main_rv) {
         transpose <- req(input$dt_transpose) == "Columns"
         yr <- req(input$dt_year)
 
-        if (yr != "All years") df <- filter(df, year == yr)
+        if (yr != "All years") {
+          df <- filter(df, year == yr)
+        }
 
         format_for_dt(df, transpose)
       })
 
       ## dt ----
-      output$dt <- renderDataTable({
-        stn_dt_data() |>
-          datatable(
-            selection = "none",
-            rownames = FALSE,
-            extensions = "FixedColumns",
-            options = list(
-              paging = FALSE,
-              scrollX = TRUE,
-              scrollCollapse = TRUE,
-              fixedColumns = list(leftColumns = 1)
-            ),
-            callback = JS("addTopScroll(table);")
-          )
-      }, server = FALSE)
+      output$dt <- renderDataTable(
+        {
+          stn_dt_data() |>
+            datatable(
+              selection = "none",
+              rownames = FALSE,
+              extensions = "FixedColumns",
+              options = list(
+                paging = FALSE,
+                scrollX = TRUE,
+                scrollCollapse = TRUE,
+                fixedColumns = list(leftColumns = 1)
+              ),
+              callback = JS("addTopScroll(table);")
+            )
+        },
+        server = FALSE
+      )
 
       ## dl_cur_yr ----
       output$dl_cur_data <- downloadHandler(
-        sprintf("WAV Stn %s Phosphorus Data (%s).csv", cur_stn()$station_id, req(input$dt_year)),
+        sprintf(
+          "WAV Stn %s Phosphorus Data (%s).csv",
+          cur_stn()$station_id,
+          req(input$dt_year)
+        ),
         function(file) {
           write_csv(stn_dt_data(), file, na = "")
         }
@@ -253,8 +279,6 @@ nutrientDataServer <- function(main_rv) {
           write_csv(nutrient_data, file, na = "")
         }
       )
-
-
     }
   )
 }

@@ -17,7 +17,6 @@ baselineDataServer <- function(main_rv) {
     function(input, output, session) {
       ns <- session$ns
 
-
       # Reactive values ----
 
       ## rv ----
@@ -43,10 +42,14 @@ baselineDataServer <- function(main_rv) {
         data <- baseline_data |>
           filter(station_id == stn$station_id)
         if (nrow(data) == 0) {
-          if (rv$ready) rv$ready <- FALSE
+          if (rv$ready) {
+            rv$ready <- FALSE
+          }
           rv$stn_data <- NULL
         } else {
-          if (!rv$ready) rv$ready <- TRUE
+          if (!rv$ready) {
+            rv$ready <- TRUE
+          }
           rv$stn_data <- data
         }
       })
@@ -93,13 +96,12 @@ baselineDataServer <- function(main_rv) {
         c(
           list("Annual" = "annual"),
           list("Long-term" = "trend"),
-          if ("biotic_index_score" %in% parameter_choices())
-            list("Macroinvertebrate" = "macro"),
+          if ("biotic_index_score" %in% parameter_choices()) {
+            list("Macroinvertebrate" = "macro")
+          },
           list("Heatmap" = "ribbon")
         )
       })
-
-
 
       # Main UI ----------------------------------------------------------------
 
@@ -108,7 +110,10 @@ baselineDataServer <- function(main_rv) {
         if (rv$ready) {
           uiOutput(ns("main_ui"))
         } else {
-          div(class = "well", "This station has no baseline data. Choose another station or view the nutrient or thermistor data associated with this station.")
+          div(
+            class = "well",
+            "This station has no baseline data. Choose another station or view the nutrient or thermistor data associated with this station."
+          )
         }
       })
 
@@ -120,19 +125,23 @@ baselineDataServer <- function(main_rv) {
             style = "margin-bottom: 1rem;",
             uiOutput(ns("plot_type_ui")),
             conditionalPanel(
-              "input.plot_type == 'annual'", ns = ns,
+              "input.plot_type == 'annual'",
+              ns = ns,
               uiOutput(ns("plot_year_ui"))
             ),
             conditionalPanel(
-              "input.plot_type == 'trend'", ns = ns,
+              "input.plot_type == 'trend'",
+              ns = ns,
               uiOutput(ns("trend_type_ui"))
             ),
             conditionalPanel(
-              "input.plot_type == 'trend'", ns = ns,
+              "input.plot_type == 'trend'",
+              ns = ns,
               uiOutput(ns("trend_param_ui"))
             ),
             conditionalPanel(
-              "input.plot_type == 'macro'", ns = ns,
+              "input.plot_type == 'macro'",
+              ns = ns,
               uiOutput(ns("macro_type_ui"))
             ),
           ),
@@ -140,36 +149,49 @@ baselineDataServer <- function(main_rv) {
             id = "baseline-plot-container",
             uiOutput(ns("stn_title_ui")),
             conditionalPanel(
-              "input.plot_type == 'annual'", ns = ns,
+              "input.plot_type == 'annual'",
+              ns = ns,
               plotlyOutput(ns("annual_plot")),
-              div(class = "plot-caption", "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters.")
+              div(
+                class = "plot-caption",
+                "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters."
+              )
             ),
             conditionalPanel(
-              "input.plot_type == 'trend'", ns = ns,
+              "input.plot_type == 'trend'",
+              ns = ns,
               plotlyOutput(ns("trend_plot")),
               div(class = "plot-caption", textOutput(ns("trend_plot_caption")))
             ),
             conditionalPanel(
-              "input.plot_type == 'macro'", ns = ns,
+              "input.plot_type == 'macro'",
+              ns = ns,
               plotlyOutput(ns("macro_plot"), height = "500px"),
-              div(class = "plot-caption", HTML(paste0(
-                "The aquatic macroinvertebrate community can reflect a stream’s general condition, as some species are more sensitive to water quality than others. ",
-                colorize("Group 1 (blue)", "blue"),
-                " are the most sensitive. ",
-                colorize("Group 2 (green)", "green"),
-                " are somewhat sensitive, ",
-                colorize("Group 3 (orange)", "orange"),
-                " are somewhat tolerant, followed by ",
-                colorize("Group 4 (red)", "red"),
-                ", the most tolerant. Suspected invasive species are shown in ",
-                colorize("purple"),
-                "."
-              )))
+              div(
+                class = "plot-caption",
+                HTML(paste0(
+                  "The aquatic macroinvertebrate community can reflect a stream’s general condition, as some species are more sensitive to water quality than others. ",
+                  colorize("Group 1 (blue)", "blue"),
+                  " are the most sensitive. ",
+                  colorize("Group 2 (green)", "green"),
+                  " are somewhat sensitive, ",
+                  colorize("Group 3 (orange)", "orange"),
+                  " are somewhat tolerant, followed by ",
+                  colorize("Group 4 (red)", "red"),
+                  ", the most tolerant. Suspected invasive species are shown in ",
+                  colorize("purple"),
+                  "."
+                ))
+              )
             ),
             conditionalPanel(
-              "input.plot_type == 'ribbon'", ns = ns,
+              "input.plot_type == 'ribbon'",
+              ns = ns,
               uiOutput(ns("ribbon_plot_ui")),
-              div(class = "plot-caption", "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations.")
+              div(
+                class = "plot-caption",
+                "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations."
+              )
             ),
             div(class = "plot-caption", htmlOutput(ns("plot_caption_text"))),
           ),
@@ -201,14 +223,16 @@ baselineDataServer <- function(main_rv) {
 
       ## trend_plot_caption ----
       output$trend_plot_caption <- renderText({
-        paste(switch(
-          req(input$trend_type),
-          "scatter" = "All observations for the selected parameter are shown above.",
-          "month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points.",
-          "year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points."
-        ), "Interpretive ranges are illustrated to contextualize the observations.")
+        paste(
+          switch(
+            req(input$trend_type),
+            "scatter" = "All observations for the selected parameter are shown above.",
+            "month" = "Measurements from each month across all years are summarized using boxplots, which illustrate the median value (solid central bar), mean value (dashed central bar), Q1-Q3 interquartile range (main box) and full value range (whiskers). Individual observations are overlaid as points.",
+            "year" = "Measurements from each year are summarized using boxplots, which illustrate the median value, mean value, interquartile range (main box), and full value range (whiskers). Individual observations are overlaid as points."
+          ),
+          "Interpretive ranges are illustrated to contextualize the observations."
+        )
       })
-
 
       # Plot options ----
 
@@ -298,7 +322,6 @@ baselineDataServer <- function(main_rv) {
         )
       })
 
-
       # Station title ----
 
       ## stn_title_ui ----
@@ -307,7 +330,6 @@ baselineDataServer <- function(main_rv) {
         title <- str_to_title(stn$label)
         h3(title, align = "center")
       })
-
 
       # Plots ----
 
@@ -349,7 +371,6 @@ baselineDataServer <- function(main_rv) {
         plotly_baseline_ribbon(df)
       })
 
-
       # Plot download button ----
 
       ## plot_dl_btn ----
@@ -357,11 +378,16 @@ baselineDataServer <- function(main_rv) {
       output$plot_dl_btn <- renderUI({
         filename <- paste(
           paste("WAV Stn", cur_stn()$station_id, req(input$plot_type), "plot"),
-          switch(req(input$plot_type),
+          switch(
+            req(input$plot_type),
             "annual" = req(input$plot_year),
             "trend" = local({
               params <- parameter_choices()
-              paste(req(input$trend_type), names(params[params == req(input$trend_param)]), sep = " - ")
+              paste(
+                req(input$trend_type),
+                names(params[params == req(input$trend_param)]),
+                sep = " - "
+              )
             }),
             "macro" = req(input$macro_type)
           ),
@@ -374,7 +400,6 @@ baselineDataServer <- function(main_rv) {
         )
       })
 
-
       # Station data summary ----
 
       ## stn_summary_tbl ----
@@ -385,12 +410,10 @@ baselineDataServer <- function(main_rv) {
         align = "lcccccc"
       )
 
-
       # Data downloads ----
 
       ## stn_data_ui ----
       output$stn_data_ui <- renderUI({
-
         tagList(
           uiOutput(ns("dt_stn_info_ui")),
           wellPanel(
@@ -422,9 +445,14 @@ baselineDataServer <- function(main_rv) {
       output$dt_stn_info_ui <- renderUI({
         stn <- cur_stn()
         p(
-          strong("Station ID:"), stn$station_id, br(),
-          strong("Station Name:"), stn$station_name, br(),
-          strong("Waterbody:"), stn$waterbody
+          strong("Station ID:"),
+          stn$station_id,
+          br(),
+          strong("Station Name:"),
+          stn$station_name,
+          br(),
+          strong("Waterbody:"),
+          stn$waterbody
         )
       })
 
@@ -455,7 +483,9 @@ baselineDataServer <- function(main_rv) {
       stn_dl_data <- reactive({
         df <- req(rv$stn_data)
         yr <- req(input$dt_year)
-        if (yr != "All years") df <- filter(df, year == yr)
+        if (yr != "All years") {
+          df <- filter(df, year == yr)
+        }
         df
       })
 
@@ -468,21 +498,24 @@ baselineDataServer <- function(main_rv) {
       })
 
       ## dt ----
-      output$dt <- renderDataTable({
-        stn_dt_data() |>
-          datatable(
-            selection = "none",
-            rownames = FALSE,
-            extensions = "FixedColumns",
-            options = list(
-              paging = FALSE,
-              scrollX = TRUE,
-              scrollCollapse = TRUE,
-              fixedColumns = list(leftColumns = 1)
-            ),
-            callback = JS("addTopScroll(table);")
-          )
-      }, server = FALSE)
+      output$dt <- renderDataTable(
+        {
+          stn_dt_data() |>
+            datatable(
+              selection = "none",
+              rownames = FALSE,
+              extensions = "FixedColumns",
+              options = list(
+                paging = FALSE,
+                scrollX = TRUE,
+                scrollCollapse = TRUE,
+                fixedColumns = list(leftColumns = 1)
+              ),
+              callback = JS("addTopScroll(table);")
+            )
+        },
+        server = FALSE
+      )
 
       ## dl_cur_yr ----
       output$dl_cur_data <- downloadHandler(
@@ -490,7 +523,9 @@ baselineDataServer <- function(main_rv) {
           stn <- cur_stn()
           yr <- req(input$dt_year)
           paste0(
-            "WAV Stn ", stn$station_id, " Baseline Data",
+            "WAV Stn ",
+            stn$station_id,
+            " Baseline Data",
             ifelse(yr == "All years", "", str_glue(" ({yr})")),
             ".csv"
           )
