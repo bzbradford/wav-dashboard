@@ -42,6 +42,7 @@ if (FALSE) {
 
   # this got removed from CRAN
   devtools::install_github("trafficonese/leaflet.extras")
+  renv::install("sf@1.0-24") # v1.1 failed to install
 
   # RENV
   renv::activate()
