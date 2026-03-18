@@ -1,6 +1,14 @@
-# Shapefiles -------------------------------------------------------------------
+#' Shapefile data prep
+#' This takes some time and only needs to be run if shapes are updated
 
-## Counties ----
+library(tidyverse)
+library(janitor)
+library(sf)
+library(rmapshaper) # ms_simplify
+library(leaflet)
+
+
+# Counties ----
 
 counties <- read_sf("shp/wi-county-bounds.geojson") |>
   clean_names("big_camel") |>
@@ -13,7 +21,7 @@ counties <- read_sf("shp/wi-county-bounds.geojson") |>
 
 counties.simp <- ms_simplify(counties, 0.25)
 
-if (F) {
+if (FALSE) {
   quickmap(counties)
   quickmap(counties.simp)
 }
@@ -40,13 +48,13 @@ nke_data <- nkes |>
     ~ str_to_sentence(str_trim(gsub("[\r\n]", "", .x)))
   ))
 
-if (F) {
+if (FALSE) {
   quickmap(nkes)
   quickmap(nkes.simp)
 }
 
 
-## Watersheds ----
+# Watersheds ----
 # transform to 3071 (WTM) for faster joining
 
 # huc6 basins
@@ -131,7 +139,7 @@ huc12.simp <- ms_simplify(huc12, 0.5)
 dnr_watersheds.simp <- ms_simplify(dnr_watersheds, 0.15)
 
 # inspect
-if (F) {
+if (FALSE) {
   quickmap(huc6)
   quickmap(huc8)
   quickmap(huc8.simp)
@@ -144,17 +152,17 @@ if (F) {
 }
 
 
-## Major waterbodies ----
+# Major waterbodies ----
 # Top 1000 waterbodies in the state by area, for use on the pdf reports
 
 waterbodies <- read_sf("shp/wi-major-lakes.geojson")
 
-if (F) {
+if (FALSE) {
   quickmap(waterbodies)
 }
 
 
-## Flowlines ----
+# Flowlines ----
 
 flowlines <- read_sf("shp/wi-hydro-nhd-flowlines.gpkg")
 # head(flowlines)
@@ -176,7 +184,7 @@ flowlines.simp <- flow2d |>
 rm(flowlines)
 rm(flow2d)
 
-if (F) {
+if (FALSE) {
   flowlines.simp |>
     ggplot() +
     geom_sf(aes(color = factor(level))) +
@@ -184,9 +192,10 @@ if (F) {
 }
 
 
-## Export shapes ----
+# Export ----
 
 local({
+  save.image("shapefiles.RData")
   shapes <- list(
     counties = counties.simp,
     nkes = nkes.simp,
@@ -199,7 +208,7 @@ local({
   )
   for (shape in names(shapes)) {
     fname <- paste0(shape, ".rds")
-    fpath <- data_dir(file.path("shp", fname))
+    fpath <- sprintf("../data/shp/%s", fname)
     saveRDS(shapes[[shape]], fpath)
     message("Save shape => ", fpath)
   }

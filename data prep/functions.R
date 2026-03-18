@@ -10,7 +10,7 @@ data_dir <- function(f) {
 load_xl <- function(fname, clean = TRUE) {
   f <- file.path("swims", fname)
   f.mtime <- file.mtime(f)
-  df <- read_excel(f, na = c("", "NA"), guess_max = 1e6) |>
+  df <- readxl::read_excel(f, na = c("", "NA"), guess_max = 1e6) |>
     as_tibble()
   if (clean) {
     df <- clean_names(df)
@@ -42,9 +42,31 @@ left_join_at <- function(x, y, after = NULL, ...) {
 #' sequence number. Used when merging data from different sources that may have partial
 #' or overlapping data. Will retain the first row in each column by group that has a
 #' valid value
+# merge_by <- function(df, by) {
+#   data.table::setDT(df) |>
+#     _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = by] |>
+#     as_tibble()
+# }
+
 merge_by <- function(df, by) {
   data.table::setDT(df) |>
-    _[, lapply(.SD, \(x) x[!is.na(x)][1]), by = by] |>
+    _[,
+      lapply(.SD, \(x) {
+        real <- x[!is.na(x)]
+        if (length(real)) {
+          return(real[1])
+        }
+        if (is.double(x)) {
+          nan <- x[is.nan(x)]
+          if (length(nan)) {
+            return(NaN)
+          }
+          return(NA_real_)
+        }
+        x[1] # returns typed NA for character, logical, etc.
+      }),
+      by = by
+    ] |>
     as_tibble()
 }
 
@@ -69,7 +91,7 @@ f_to_c <- function(x, digits = 1) {
   round((x - 32) * (5 / 9), digits)
 }
 
-# convert to numeric and turn non-numeric values to Inf instead of NA
+# convert to numeric, anything that failed to convert is set to NaN
 to_numeric <- function(x) {
   original_na <- is.na(x) | trimws(x) == ""
   result <- suppressWarnings(as.numeric(x))
@@ -105,6 +127,7 @@ nan_coalesce <- function(...) {
 # Shapefiles -------------------------------------------------------------------
 
 quickmap <- function(shape) {
+  require(leaflet)
   message(
     "Shape has ",
     nrow(shape),

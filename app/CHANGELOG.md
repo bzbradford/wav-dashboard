@@ -1,5 +1,6 @@
 **Feb 2026**
 
+- Add data validation checks, warnings about invalid or out of range values are shown in the `data_validation` column in the baseline data table view
 - Update branding per new Extension guidelines
 
 **Dec 2025**

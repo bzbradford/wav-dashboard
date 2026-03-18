@@ -9,10 +9,9 @@ library(readxl)
 library(janitor)
 library(lubridate)
 library(sf)
-library(rmapshaper) # ms_simplify
 library(leaflet)
 
-load(".RData")
+# load(".RData")
 # save.image()
 
 # in case query returns newer stuff we don't want yet
@@ -26,6 +25,8 @@ source("functions.R")
 # update and export shapefiles if needed. Will take a few min
 if (FALSE) {
   source("update_shapefiles.R")
+} else {
+  load("shapefiles.RData")
 }
 
 
@@ -586,6 +587,7 @@ baseline_validation <- baseline_data |>
     ),
     msg = case_when(
       valid ~ NA,
+      is.nan(value) ~ "was not a number",
       is.na(value) ~ NA,
       action == "f_to_c" ~ str_glue("converted from {value} to {new_value}"),
       measure == "specific_cond" ~ case_when(
@@ -621,7 +623,6 @@ baseline_clean <- baseline_data |>
 # data check
 if (FALSE) {
   baseline_validation |> filter(str_detect(msg, "not a number"))
-  baseline_validation |> filter(str_detect(msg, "infinite"))
   baseline_validation |> filter(str_detect(msg, "bad value"))
 
   baseline_clean |>
