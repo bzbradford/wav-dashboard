@@ -636,6 +636,11 @@ if (FALSE) {
   baseline_clean |>
     distinct(station_id, latitude, longitude, wbic) |>
     validate_stns()
+
+  # how often are people using 100cm transparency tubes
+  baseline_clean |>
+    filter(year >= 2023) |>
+    count(transparency_tube_length)
 }
 
 

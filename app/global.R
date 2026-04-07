@@ -37,11 +37,8 @@ if (FALSE) {
   # load/reset data
   source("setup.R")
 
-  # add to renv without loading
-  library(devtools)
-
   # this got removed from CRAN
-  devtools::install_github("trafficonese/leaflet.extras")
+  remotes::install_github("trafficonese/leaflet.extras")
   renv::install("sf@1.0-24") # v1.1 failed to install
 
   # RENV

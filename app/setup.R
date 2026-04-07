@@ -11,6 +11,7 @@ library(sf)
 
 # summarize existing data
 try({
+  load(".RData")
   baseline_data |>
     group_by(year) |>
     summarize(
