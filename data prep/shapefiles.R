@@ -8,9 +8,26 @@ library(rmapshaper) # ms_simplify
 library(leaflet)
 
 
+# Data conversion ----
+
+# convert geojson to fgb
+# list.files("shp") |>
+#   sapply(function(f) {
+#     infile <- sprintf("shp/%s", f)
+#     outfile <- sprintf("shp/%s.fgb", tools::file_path_sans_ext(f))
+#     message(infile, " ==> ", outfile)
+#     if (file.exists(outfile)) {
+#       return(FALSE)
+#     }
+#     read_sf(infile) |>
+#       st_zm() |>
+#       write_sf(outfile)
+#     TRUE
+#   })
+
 # Counties ----
 
-counties <- read_sf("shp/wi-county-bounds.geojson") |>
+counties <- read_sf("shp/wi-county-bounds.fgb") |>
   clean_names("big_camel") |>
   st_make_valid() |>
   select(
@@ -28,7 +45,7 @@ if (FALSE) {
 
 ## NKEs ----
 
-nkes <- read_sf("shp/wi-nke-plans-2022.geojson") |>
+nkes <- read_sf("shp/wi-nke-plans-2022.fgb") |>
   clean_names("big_camel") |>
   st_make_valid() |>
   drop_na(PlanId)
@@ -58,13 +75,13 @@ if (FALSE) {
 # transform to 3071 (WTM) for faster joining
 
 # huc6 basins
-huc6.wtm <- read_sf("shp/wi-huc06-basins.geojson") |>
+huc6.wtm <- read_sf("shp/wi-huc06-basins.fgb") |>
   clean_names(case = "big_camel") |>
   st_make_valid() |>
   st_transform(3071)
 
 # load huc8 subbasins and join huc6 info
-huc8.wtm <- read_sf("shp/wi-huc08-subbasins.geojson") |>
+huc8.wtm <- read_sf("shp/wi-huc08-subbasins.fgb") |>
   clean_names(case = "big_camel") |>
   st_make_valid() |>
   st_transform(3071) |>
@@ -79,7 +96,7 @@ huc8.wtm <- read_sf("shp/wi-huc08-subbasins.geojson") |>
   )
 
 # load huc10 watersheds and join huc8 info
-huc10.wtm <- read_sf("shp/wi-huc10-watersheds.geojson") |>
+huc10.wtm <- read_sf("shp/wi-huc10-watersheds.fgb") |>
   clean_names(case = "big_camel") |>
   st_make_valid() |>
   st_transform(3071) |>
@@ -95,7 +112,7 @@ huc10.wtm <- read_sf("shp/wi-huc10-watersheds.geojson") |>
   )
 
 # load huc12 watersheds and join huc10 info
-huc12.wtm <- read_sf("shp/wi-huc12-subwatersheds.geojson") |>
+huc12.wtm <- read_sf("shp/wi-huc12-subwatersheds.fgb") |>
   clean_names(case = "big_camel") |>
   st_make_valid() |>
   st_transform(3071) |>
@@ -119,7 +136,7 @@ huc10 <- st_transform(huc10.wtm, 4326)
 huc12 <- st_transform(huc12.wtm, 4326)
 
 # DNR watersheds (approx HUC10)
-dnr_watersheds <- read_sf("shp/wi-dnr-watersheds.geojson") |>
+dnr_watersheds <- read_sf("shp/wi-dnr-watersheds.fgb") |>
   clean_names(case = "big_camel") |>
   st_make_valid() |>
   select(
@@ -155,7 +172,7 @@ if (FALSE) {
 # Major waterbodies ----
 # Top 1000 waterbodies in the state by area, for use on the pdf reports
 
-waterbodies <- read_sf("shp/wi-major-lakes.geojson")
+waterbodies <- read_sf("shp/wi-major-lakes.fgb")
 
 if (FALSE) {
   quickmap(waterbodies)
@@ -163,26 +180,28 @@ if (FALSE) {
 
 
 # Flowlines ----
+#' used in the PDF reports
 
-flowlines <- read_sf("shp/wi-hydro-nhd-flowlines.gpkg")
+flowlines <- read_sf("shp/wi-hydro-nhd-flowlines.fgb")
 # head(flowlines)
 # str(flowlines)
 # sort(unique(flowlines$visibilityfilter))
-flow2d <- flowlines |>
-  rename(geometry = geom) |>
-  st_zm() |>
-  st_make_valid() |>
+flow <- flowlines |>
+  # st_make_valid() |>
   st_transform(4326) |>
   arrange(desc(visibilityfilter)) |>
   mutate(level = consecutive_id(visibilityfilter))
 
-flowlines.simp <- flow2d |>
+# small shapes are lost during ms_simplify to have to filter out null geometries
+flowlines.simp <- flow |>
   select(level, geometry) |>
+  # remove high-level (very small) streams
   filter(level <= 5) |>
-  ms_simplify(0.25)
+  ms_simplify(0.25, keep_shapes = TRUE) |>
+  filter(!st_is_empty(geometry))
 
 rm(flowlines)
-rm(flow2d)
+rm(flow)
 
 if (FALSE) {
   flowlines.simp |>
@@ -207,9 +226,9 @@ local({
     flowlines = flowlines.simp
   )
   for (shape in names(shapes)) {
-    fname <- paste0(shape, ".rds")
+    fname <- paste0(shape, ".fgb")
     fpath <- sprintf("../data/shp/%s", fname)
-    saveRDS(shapes[[shape]], fpath)
+    write_sf(shapes[[shape]], fpath, delete_dsn = TRUE)
     message("Save shape => ", fpath)
   }
 })

@@ -261,11 +261,11 @@ mapServer <- function(main_rv, main_session) {
         "ESRI Topo"     , providers$Esri.WorldTopoMap ,
         "Satellite"     , providers$Esri.WorldImagery ,
         "OpenStreetMap" , providers$OpenStreetMap     ,
-        "Grey Canvas"   , providers$CartoDB.Positron
+        "Grey Canvas"   , providers$CartoDB.Positron  ,
       )
 
       addBasemaps <- function(map) {
-        for (r in seq_along(basemaps)) {
+        for (r in seq_len(nrow(basemaps))) {
           df <- slice(basemaps, r)
           map <- addProviderTiles(map, df$provider, group = df$label)
         }

@@ -22,6 +22,7 @@ suppressPackageStartupMessages({
   library(DT) # data tables
   library(leaflet) # map
   library(leaflet.extras) # map JS buttons
+  library(leaflet.providers) # updated provider list
   library(plotly) # plots
 
   # reports
@@ -38,7 +39,6 @@ if (FALSE) {
   source("setup.R")
 
   # this got removed from CRAN
-  remotes::install_github("trafficonese/leaflet.extras")
   renv::install("sf@1.0-24") # v1.1 failed to install
 
   # RENV

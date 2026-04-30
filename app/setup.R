@@ -134,16 +134,15 @@ fmt_area <- function(area) {
   )
 }
 
-wi_counties <- data_dir("shp/counties.rds") |>
-  read_rds() |>
-  st_make_valid()
+wi_counties <- data_dir("shp/counties.fgb") |>
+  read_sf()
 wi_state <- st_union(wi_counties)
-waterbodies <- data_dir("shp/waterbodies.rds") |>
-  read_rds()
-flowlines <- data_dir("shp/flowlines.rds") |>
-  read_rds()
-nkes <- data_dir("shp/nkes.rds") |>
-  read_rds() |>
+waterbodies <- data_dir("shp/waterbodies.fgb") |>
+  read_sf()
+flowlines <- data_dir("shp/flowlines.fgb") |>
+  read_sf()
+nkes <- data_dir("shp/nkes.fgb") |>
+  read_sf() |>
   mutate(
     Label = paste0(
       "<b>",
@@ -155,8 +154,8 @@ nkes <- data_dir("shp/nkes.rds") |>
       Objective
     )
   )
-huc8 <- data_dir("shp/huc8.rds") |>
-  read_rds() |>
+huc8 <- data_dir("shp/huc8.fgb") |>
+  read_sf() |>
   mutate(
     Label = paste0(
       "<b>",
@@ -170,8 +169,8 @@ huc8 <- data_dir("shp/huc8.rds") |>
       MajorBasin
     )
   )
-huc10 <- data_dir("shp/huc10.rds") |>
-  read_rds() |>
+huc10 <- data_dir("shp/huc10.fgb") |>
+  read_sf() |>
   mutate(
     Label = paste0(
       "<b>",
@@ -190,8 +189,8 @@ huc10 <- data_dir("shp/huc10.rds") |>
 suppressWarnings({
   huc10_centroids <- st_centroid(huc10)
 })
-huc12 <- data_dir("shp/huc12.rds") |>
-  read_rds() |>
+huc12 <- data_dir("shp/huc12.fgb") |>
+  read_sf() |>
   mutate(
     Label = paste0(
       "<b>",
