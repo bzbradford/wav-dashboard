@@ -15,7 +15,7 @@ library(leaflet)
 # save.image()
 
 # in case query returns newer stuff we don't want yet
-MAX_DATE <- as_date("2025-12-31")
+MAX_DATE <- as_date("2026-12-31")
 
 # load functions
 source("functions.R")
@@ -45,6 +45,7 @@ stns_in <- stn_xl |>
     station_name = primary_station_name,
     latitude = calc_ll_lat_dd_amt,
     longitude = calc_ll_long_dd_amt,
+    station_seq_no = monit_station_seq_no,
     wbic,
     waterbody = official_waterbody_name,
     station_type = station_type_code,
@@ -115,6 +116,7 @@ stn_list.sf <- stns_valid |>
     station_name,
     latitude,
     longitude,
+    station_seq_no,
     wbic,
     waterbody,
     station_type,

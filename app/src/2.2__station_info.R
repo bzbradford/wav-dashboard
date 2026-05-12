@@ -9,12 +9,23 @@ stationInfoUI <- function() {
       div(
         class = "flex-col",
         h4("Station Information"),
-        tableOutput(ns("details_tbl"))
+        tableOutput(ns("details_tbl")),
       ),
       div(
         class = "flex-col",
         h4("Station Data Coverage"),
-        tableOutput(ns("coverage_tbl"))
+        tableOutput(ns("coverage_tbl")),
+        h4("View on SWIMS", style = "margin-top: 1rem;"),
+        p(
+          "The",
+          a(
+            "Surface Water Integrated Monitoring System (SWIMS)",
+            href = "https://dnr.wisconsin.gov/topic/SurfaceWater/SWIMS",
+            target = "_blank"
+          ),
+          "is a DNR system that holds chemistry (water, sediment, fish tissue) data, physical data, biological (macroinvertebrate, aquatic invasives) data and more."
+        ),
+        uiOutput(ns("swims_link"))
       )
     )
   )
@@ -45,6 +56,20 @@ stationInfoServer <- function(main_rv) {
             values_to = "Value"
           ) |>
           na.omit()
+      })
+
+      output$swims_link <- renderUI({
+        stn <- cur_stn()
+        seq_no <- stn$station_seq_no
+        id <- stn$station_id
+        span(
+          sprintf(
+            "On SWIMS, this station is linked to by its sequence number (%s), not its ID (%s).",
+            seq_no,
+            id
+          ),
+          HTML(swims_stn_link(seq_no, "View this station on SWIMS."))
+        )
       })
 
       # Station data coverage table

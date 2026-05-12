@@ -65,25 +65,29 @@ stationListServer <- function(main_rv) {
         )
 
         stns |>
-          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label)) |>
-          clean_names(case = "big_camel")
+          select(-c(label, baseline_stn, therm_stn, nutrient_stn, map_label))
+        # clean_names(case = "big_camel")
       })
 
       ## dt_data() ----
       dt_data <- reactive({
-        stn_list <- req
         cur_stns() |>
           mutate(
-            Action = if_else(
-              StationId %in% stn_list(),
+            action = if_else(
+              station_id %in% stn_list(),
               sprintf(
                 "<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>",
-                StationId
+                station_id
               ),
               ""
-            ) |>
-              lapply(HTML),
+            ),
             .before = 1
+          ) |>
+          mutate(across(c(latitude, longitude), ~ round(.x, 6))) |>
+          mutate(station_id = swims_stn_link(station_seq_no, station_id)) |>
+          clean_names(
+            case = "title",
+            abbreviations = c("ID", "DNR", "WBIC", "HUC")
           )
       })
 
@@ -95,6 +99,7 @@ stationListServer <- function(main_rv) {
         rownames = F,
         selection = "none",
         extensions = "FixedColumns",
+        escape = FALSE,
         options = list(
           dom = "iftrp",
           scrollResize = T,
@@ -104,7 +109,7 @@ stationListServer <- function(main_rv) {
           pageLength = 20,
           fixedColumns = list(leftColumns = 1),
           columnDefs = list(list(
-            targets = 2:24,
+            targets = 3:24,
             render = JS(
               "
               function(data, type, row, meta) {

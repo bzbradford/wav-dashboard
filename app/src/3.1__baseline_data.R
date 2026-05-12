@@ -493,6 +493,7 @@ baselineDataServer <- function(main_rv) {
       stn_dt_data <- reactive({
         transpose <- req(input$dt_transpose) == "Columns"
         stn_dl_data() |>
+          mutate(across(fieldwork_seq_no, ~ swims_fw_link(.x))) |>
           merge_unit_cols() |>
           format_for_dt(transpose)
       })
@@ -505,6 +506,7 @@ baselineDataServer <- function(main_rv) {
               selection = "none",
               rownames = FALSE,
               extensions = "FixedColumns",
+              escape = FALSE,
               options = list(
                 paging = FALSE,
                 scrollX = TRUE,
@@ -521,20 +523,14 @@ baselineDataServer <- function(main_rv) {
       output$dl_cur_data <- downloadHandler(
         filename = function() {
           stn <- cur_stn()
-          yr <- req(input$dt_year)
-          paste0(
-            "WAV Stn ",
+          sprintf(
+            "WAV Stn %s Baseline Data (%s).csv",
             stn$station_id,
-            " Baseline Data",
-            ifelse(yr == "All years", "", str_glue(" ({yr})")),
-            ".csv"
+            input$dt_year
           )
         },
         content = function(file) {
-          transpose <- req(input$dt_transpose) == "Columns"
-          stn_dl_data() |>
-            format_for_dt(transpose) |>
-            write_csv(file, na = "")
+          write_csv(stn_dl_data(), file, na = "")
         }
       )
 

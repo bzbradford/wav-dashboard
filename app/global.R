@@ -38,9 +38,6 @@ if (FALSE) {
   # load/reset data
   source("setup.R")
 
-  # this got removed from CRAN
-  renv::install("sf@1.0-24") # v1.1 failed to install
-
   # RENV
   renv::activate()
   renv::init()
@@ -49,6 +46,8 @@ if (FALSE) {
   renv::update()
   renv::snapshot()
   renv::clean()
+  renv::install("sf@1.0-24")
+  renv::install("terra@1.9-11")
 
   # enable development mode
   shiny::devmode(TRUE)
@@ -167,6 +166,22 @@ rnd_stn <- function(df) {
 }
 
 
+## SWIMS link builders ----
+
+swims_fw_link <- function(seq_no, link_text = seq_no) {
+  str_glue(
+    "<a title='View on SWIMS' href='https://apps.dnr.wi.gov/swims/Fieldwork/FieldworkDetails?id={seq_no}' target='_blank'>{link_text}</a>"
+  )
+}
+
+swims_stn_link <- function(seq_no, link_text = seq_no) {
+  str_glue(
+    "<a title='View on SWIMS' href='https://apps.dnr.wi.gov/swims/Stations/StationDetails?id={seq_no}' target='_blank'>{link_text}</a>"
+  )
+}
+
+# swims_stn_link(1234)
+
 ## UI ----
 
 # adds "All" to end of years list
@@ -177,6 +192,7 @@ year_choices <- function(years) {
     years
   }
 }
+
 
 colorize <- function(text, color = tolower(text)) {
   HTML(paste0(
@@ -337,7 +353,7 @@ if (F) {
 
 
 # for baseline and nutrient data downloads
-format_for_dt <- function(df, transpose = TRUE, hide_empty = FALSE) {
+format_for_dt <- function(df, transpose = FALSE, hide_empty = FALSE) {
   df <- df |> arrange(date)
 
   if (hide_empty) {

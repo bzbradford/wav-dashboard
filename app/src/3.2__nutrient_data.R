@@ -228,26 +228,32 @@ nutrientDataServer <- function(main_rv) {
       })
 
       ## stn_dt_data ----
-      stn_dt_data <- reactive({
+      stn_dl_data <- reactive({
         df <- req(rv$stn_data)
-        transpose <- req(input$dt_transpose) == "Columns"
         yr <- req(input$dt_year)
-
         if (yr != "All years") {
           df <- filter(df, year == yr)
         }
+        df
+      })
 
-        format_for_dt(df, transpose)
+      stn_dt_data <- reactive({
+        transpose <- req(input$dt_transpose) == "Columns"
+        stn_dl_data() |>
+          mutate(across(fieldwork_seq_no, ~ swims_fw_link(.x))) |>
+          format_for_dt(transpose)
       })
 
       ## dt ----
       output$dt <- renderDataTable(
         {
           stn_dt_data() |>
+
             datatable(
               selection = "none",
               rownames = FALSE,
               extensions = "FixedColumns",
+              escape = FALSE,
               options = list(
                 paging = FALSE,
                 scrollX = TRUE,
@@ -262,13 +268,13 @@ nutrientDataServer <- function(main_rv) {
 
       ## dl_cur_yr ----
       output$dl_cur_data <- downloadHandler(
-        sprintf(
+        filename = sprintf(
           "WAV Stn %s Phosphorus Data (%s).csv",
           cur_stn()$station_id,
           req(input$dt_year)
         ),
-        function(file) {
-          write_csv(stn_dt_data(), file, na = "")
+        content = function(file) {
+          write_csv(stn_dl_data(), file, na = "")
         }
       )
 

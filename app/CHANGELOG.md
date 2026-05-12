@@ -1,3 +1,7 @@
+**May 2026**
+
+- Add links to SWIMS pages for fieldwork and stations
+
 **Feb 2026**
 
 - Add data validation checks, warnings about invalid or out of range values are shown in the `data_validation` column in the baseline data table view

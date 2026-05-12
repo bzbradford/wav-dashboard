@@ -3,33 +3,36 @@
 # Functions ---------------------------------------------------------------
 
 build_watershed_info <- function(stn) {
-  require(glue)
-
-  maps_link <- glue(
+  stn_link <- swims_stn_link(stn$station_seq_no, "View on SWIMS")
+  maps_link <- str_glue(
     "<a href='https://www.google.com/maps/search/?api=1&query={stn$latitude}+{stn$longitude}' target='_blank'>View on Google Maps</a>"
   )
-  wbic_link <- glue(
+  wbic_link <- str_glue(
     "<a href='https://apps.dnr.wi.gov/water/waterDetail.aspx?WBIC={stn$wbic}' target='_blank'>Learn more at the DNR's Water Data page</a>"
   )
-  ws_link <- glue(
+  ws_link <- str_glue(
     "<a href='https://apps.dnr.wi.gov/Water/watershedDetail.aspx?code={stn$dnr_watershed_code}' target='_blank'>Learn more at the DNR's Watershed Detail page</a>"
   )
   # usgs_huc8_link <- glue("<a href='https://water.usgs.gov/lookup/getwatershed?{stn$huc8}' target='_blank'>USGS water resources links for this sub-basin</a>")
 
-  shiny::HTML(paste(
-    glue("<b>Station name:</b> {stn$station_name}"),
-    glue("<b>Station ID:</b> {stn$station_id}"),
-    glue("<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"),
-    glue("<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"),
-    glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
-    glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
-    glue(
+  HTML(paste(
+    str_glue("<b>Station name:</b> {stn$station_name}"),
+    str_glue("<b>Station ID:</b> {stn$station_id} | {stn_link}"),
+    str_glue(
+      "<b>Coordinates:</b> {stn$latitude}, {stn$longitude} | {maps_link}"
+    ),
+    str_glue(
+      "<b>Waterbody:</b> {stn$waterbody} (WBIC: {stn$wbic}) | {wbic_link}"
+    ),
+    str_glue("<b>HUC12 sub-watershed:</b> {stn$sub_watershed} ({stn$huc12})"),
+    str_glue("<b>HUC10 watershed:</b> {stn$watershed} ({stn$huc10})"),
+    str_glue(
       "<b>DNR watershed:</b> {stn$dnr_watershed_name} ({stn$dnr_watershed_code}) | {ws_link}"
     ),
-    glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
-    glue("<b>Major basin:</b> {stn$major_basin}"),
-    glue("<b>County name:</b> {stn$county_name} County"),
-    glue("<b>DNR region:</b> {stn$dnr_region}"),
+    str_glue("<b>HUC8 sub-basin:</b> {stn$sub_basin} ({stn$huc8})"),
+    str_glue("<b>Major basin:</b> {stn$major_basin}"),
+    str_glue("<b>County name:</b> {stn$county_name} County"),
+    str_glue("<b>DNR region:</b> {stn$dnr_region}"),
     sep = "<br>"
   ))
 }

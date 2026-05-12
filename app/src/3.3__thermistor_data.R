@@ -454,12 +454,12 @@ thermistorDataServer <- function(main_rv) {
 
       ## dl_daily ----
       output$dl_daily <- downloadHandler(
-        sprintf(
+        filename = sprintf(
           "WAV Stn %s Daily Temperature Data (%s).csv",
           cur_stn()$station_id,
-          input$year
+          req(input$year)
         ),
-        function(file) {
+        content = function(file) {
           write_csv(daily_data(), file, na = "")
         }
       )

@@ -47,7 +47,7 @@ try({
 rm(list = ls(all.names = TRUE)) # remove all objects
 gc() # garbage collect
 
-MAX_DATE <- as_date("2025-12-31")
+MAX_DATE <- as_date("2026-12-31")
 
 
 # Functions ----
