@@ -2,7 +2,7 @@
 "$schema" = "https://cdn.posit.co/publisher/schemas/posit-publishing-record-schema-v3.json"
 server_type = "connect"
 server_url = "https://connect.doit.wisc.edu"
-client_version = "2.2.0"
+client_version = "2.7.6"
 created_at = "2026-04-07T10:51:11-05:00"
 type = "r-shiny"
 configuration_name = "WAV Dashboard-PKRO"
@@ -10,9 +10,9 @@ id = "5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 dashboard_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 direct_url = "https://connect.doit.wisc.edu/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/"
 logs_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39/logs"
-deployed_at = "2026-05-12T17:46:36.305Z"
-bundle_id = "4817"
-bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/4817/download"
+deployed_at = "2026-06-02T17:46:20.506Z"
+bundle_id = "4957"
+bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/4957/download"
 files = [
     ".RData",
     ".posit/publish/WAV Dashboard-PKRO.toml",

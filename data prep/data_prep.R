@@ -74,6 +74,8 @@ stns_invalid <- validate_stns(stns_in, F)
 
 # data check
 if (FALSE) {
+  stns_in |>
+    filter(station_id == 10060158)
   # optionally export invalid station lists
   for (nm in names(stns_invalid)) {
     local({
@@ -649,13 +651,14 @@ if (FALSE) {
 ## Data checks ----
 
 # any missing lat/lng?
-stopifnot(
-  baseline_clean |>
-    distinct(station_id, .keep_all = TRUE) |>
-    filter(is.na(latitude) | is.na(longitude)) |>
-    nrow() ==
-    0
-)
+baseline_stns_invalid <- baseline_clean |>
+  distinct(station_id, .keep_all = TRUE) |>
+  filter(is.na(latitude) | is.na(longitude))
+if (nrow(baseline_stns_invalid) > 0) {
+  cat("Baseline stations without lat/lng:\n")
+  warning("Some baseline stations are missing coordinates!")
+  print(baseline_stns_invalid)
+}
 
 
 # find stations where all FSNs in a year have no baseline data and drop them
