@@ -10,9 +10,9 @@ id = "5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 dashboard_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 direct_url = "https://connect.doit.wisc.edu/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/"
 logs_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39/logs"
-deployed_at = "2026-06-02T17:46:20.506Z"
-bundle_id = "4957"
-bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/4957/download"
+deployed_at = "2026-06-02T23:51:27.373Z"
+bundle_id = "4960"
+bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/4960/download"
 files = [
     ".RData",
     ".posit/publish/WAV Dashboard-PKRO.toml",

@@ -60,7 +60,8 @@ stn_corrections <- tribble(
   ~station_id , ~latitude , ~longitude ,
      10055326 , 44.048073 , -88.688243 ,
      10060233 , 45.998043 , -89.404756 ,
-     10060454 , 45.823530 , -92.012559
+     10060454 , 45.823530 , -92.012559 ,
+     10060158 , 42.70712  , -89.9069
 )
 
 
@@ -151,16 +152,6 @@ if (FALSE) {
 ## Export full station list ----
 stn_list |> write_csv(data_dir("stn_list_full.csv"), na = "")
 
-
-# PEOPLE =======================================================================
-
-# ip_groups <- load_xl("1_wav_all_ip_groups.xlsx")
-#
-# group_descs <- ip_groups |>
-#   summarize(
-#     group_desc = paste(unique(str_to_title(paste(first_name, last_name))), collapse = ", "),
-#     .by = group_seq_no
-#   )
 
 # BASELINE / FLOW / MACRO ======================================================
 
@@ -697,6 +688,30 @@ baseline_final |>
 macro_species_counts |>
   write_csv(data_dir("macro_species_counts.csv"), na = "")
 
+
+# PEOPLE =======================================================================
+
+ip_groups <- load_xl("wav_all_ip_groups.xlsx")
+ip <- load_xl("wav_all_ip.xlsx")
+
+submitter_list <- baseline_final |>
+  distinct(year, fsn, group_seq_no) |>
+  left_join(ip_groups, relationship = "many-to-many") |>
+  drop_na(interested_party_seq_no) |>
+  summarize(
+    n_fieldwork = n(),
+    fieldwork_ids = paste(unique(fsn), collapse = ", "),
+    .by = c(year, interested_party_seq_no, last_name, first_name, primary_email)
+  ) |>
+  arrange(desc(year), last_name, first_name)
+
+submitter_list |> write_csv("submitter_list.csv", na = "")
+
+# group_descs <- ip_groups |>
+#   summarize(
+#     group_desc = paste(unique(str_to_title(paste(first_name, last_name))), collapse = ", "),
+#     .by = group_seq_no
+#   )
 
 # NUTRIENT / PHOSPHORUS ========================================================
 
