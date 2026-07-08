@@ -427,6 +427,32 @@ mapServer <- function(main_rv, main_session) {
         ignoreInit = TRUE
       )
 
+      # determine station type for color-coding based on available data for selected years
+      # thermistor > nutrient > baseline
+      avail_stn_types <- reactive({
+        types <- input$stn_types
+        years <- input$stn_years
+        avail_ids <- avail_stns()$station_id
+
+        list(
+          thermistor = therm_data,
+          nutrient = nutrient_data,
+          baseline = baseline_data
+        ) |>
+          lapply(function(df) {
+            df |>
+              distinct(station_id, year) |>
+              filter(
+                station_id %in% avail_ids,
+                year %in% years
+              )
+          }) |>
+          bind_rows(.id = "type") |>
+          filter(type %in% types) |>
+          summarize(type = head(type, 1), .by = station_id)
+      })
+
+      # draw station markers
       observe({
         pts <- avail_pts()
 
@@ -440,15 +466,17 @@ mapServer <- function(main_rv, main_session) {
         radius <- pt_size()
 
         if (color_by == "type") {
-          # set station colors
+          # set station colors based on available data after type and year filters
+          # (thermistor > nutrient > baseline)
           pts <- pts |>
+            left_join(avail_stn_types(), join_by(station_id)) |>
             mutate(
-              color = case_when(
-                nutrient_stn &
-                  ("nutrient" %in% stn_types) ~ stn_colors$nutrient,
-                therm_stn &
-                  ("thermistor" %in% stn_types) ~ stn_colors$thermistor,
-                TRUE ~ stn_colors$baseline
+              color = recode_values(
+                type,
+                "nutrient" ~ stn_colors$nutrient,
+                "thermistor" ~ stn_colors$thermistor,
+                "baseline" ~ stn_colors$baseline,
+                default = stn_colors$baseline
               )
             ) |>
             arrange(max_fw_date)
