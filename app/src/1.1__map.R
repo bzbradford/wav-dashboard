@@ -151,7 +151,7 @@ mapServer <- function(main_rv, main_session) {
         years <- input$stn_years
         match_type <- input$year_exact_match
 
-        if (is.null(types) | is.null(years)) {
+        if (is.null(types) || is.null(years)) {
           return(head(all_stn_years, 0))
         }
 
@@ -165,19 +165,12 @@ mapServer <- function(main_rv, main_session) {
         }
 
         # handle any/all matching types
-        if (match_type) {
-          ids <- sapply(types, function(stn_type) {
-            stn_coverages[[stn_type]] |>
-              filter(all(match_years %in% data_year_list)) |>
-              pull(station_id)
-          })
-        } else {
-          ids <- sapply(types, function(stn_type) {
-            stn_coverages[[stn_type]] |>
-              filter(any(match_years %in% data_year_list)) |>
-              pull(station_id)
-          })
-        }
+        match_fn <- if (match_type) all else any
+        ids <- sapply(types, function(stn_type) {
+          stn_coverages[[stn_type]] |>
+            filter(match_fn(match_years %in% data_year_list)) |>
+            pull(station_id)
+        })
 
         avail_ids <- sort(reduce(ids, union))
         filter(all_stn_years, station_id %in% avail_ids)
@@ -199,6 +192,10 @@ mapServer <- function(main_rv, main_session) {
 
       ## pt_size => Map point size ----
       pt_size <- reactiveVal(4)
+
+      ## stn_draw_ids => station_ids currently drawn, so a redraw only has to
+      ## removeMarker() the ones that dropped out instead of clearGroup() ----
+      stn_draw_ids <- numeric()
 
       getPtSize <- function(z) {
         case_when(
@@ -452,19 +449,9 @@ mapServer <- function(main_rv, main_session) {
           summarize(type = head(type, 1), .by = station_id)
       })
 
-      # draw station markers
-      observe({
-        pts <- avail_pts()
-
-        # remove existing points before redraw
-        proxy_map |> clearGroup(layers$stations)
-
-        req(nrow(pts) > 0)
-
-        stn_types <- req(input$stn_types)
-        color_by <- req(input$stn_color_by)
-        radius <- pt_size()
-
+      # colors + labels stations for the current color mode
+      # returns the colored points, plus a legend spec (or NULL for type mode)
+      prepareStationColors <- function(pts, color_by, color_measure) {
         if (color_by == "type") {
           # set station colors based on available data after type and year filters
           # (thermistor > nutrient > baseline)
@@ -481,78 +468,119 @@ mapServer <- function(main_rv, main_session) {
             ) |>
             arrange(max_fw_date)
 
+          return(list(pts = pts, legend = NULL))
+        }
+
+        # get value from drop-down if needed
+        color_by <- ifelse(
+          color_by == "measure",
+          req(color_measure),
+          color_by
+        )
+        # prepare color palette
+        opts <- data_opts |> filter(col == color_by)
+        domain <- c(opts$palette_min, opts$palette_max)
+        pal <- colorNumeric(
+          opts$palette_name,
+          domain,
+          reverse = opts$palette_reverse
+        )
+        pal_rev <- colorNumeric(
+          opts$palette_name,
+          domain,
+          reverse = !opts$palette_reverse
+        )
+
+        # select stations, add color
+        pts <- pts |>
+          left_join(map_color_data, join_by(station_id)) |>
+          rename(attr = all_of(color_by)) |>
+          mutate(attr_clamped = clamp(attr, domain[1], domain[2])) |>
+          mutate(color = pal(attr_clamped)) |>
+          arrange(!is.na(attr), attr) |>
+          mutate(
+            attr_label = if_else(
+              is.na(attr),
+              "No data",
+              as.character(signif(attr, 4))
+            ),
+            map_label = paste0(
+              map_label,
+              "<br>",
+              opts$label,
+              ": ",
+              attr_label
+            ) |>
+              lapply(HTML)
+          )
+
+        list(pts = pts, legend = list(pal = pal_rev, domain = domain))
+      }
+
+      # redraws all currently visible station markers - in the order pts is
+      # sorted in, so stations meant to draw on top (e.g. more recent data)
+      # stay on top - and removes ones that dropped out. Avoids the
+      # clearGroup() flash since remove/add-by-layerId is one proxy message.
+      # (re-adding everyone rather than just changed rows costs the same as
+      # the old clearGroup()+redraw did; it just skips the empty frame.)
+      updateStationMarkers <- function(pts, radius) {
+        new_ids <- pts$station_id
+
+        to_remove <- setdiff(stn_draw_ids, new_ids)
+        if (length(to_remove) > 0) {
+          # leaflet's layerManager only indexes a layer by layerId when the
+          # layerId is a *character* - a numeric layerId is silently never
+          # registered, so removeMarker() would find nothing to remove
+          proxy_map |> removeMarker(layerId = as.character(to_remove))
+        }
+
+        if (nrow(pts) > 0) {
+          proxy_map |>
+            addCircleMarkers(
+              data = pts,
+              group = layers$stations,
+              label = ~map_label,
+              layerId = ~as.character(station_id),
+              radius = radius,
+              color = "black",
+              weight = 0.5,
+              fillColor = ~color,
+              fillOpacity = 1,
+              options = markerOptions(pane = "stations", sticky = FALSE)
+            )
+        }
+
+        stn_draw_ids <<- new_ids
+      }
+
+      # draw station markers
+      observe({
+        color_by <- req(input$stn_color_by)
+        radius <- pt_size()
+
+        result <- prepareStationColors(
+          avail_pts(),
+          color_by,
+          input$stn_color_measure
+        )
+
+        if (is.null(result$legend)) {
           # no legend for station types
           proxy_map |> removeControl("legend")
         } else {
-          # get value from drop-down if needed
-          color_by <- ifelse(
-            color_by == "measure",
-            req(input$stn_color_measure),
-            color_by
-          )
-          # prepare color palette
-          opts <- data_opts |> filter(col == color_by)
-          domain <- c(opts$palette_min, opts$palette_max)
-          pal <- colorNumeric(
-            opts$palette_name,
-            domain,
-            reverse = opts$palette_reverse
-          )
-          pal_rev <- colorNumeric(
-            opts$palette_name,
-            domain,
-            reverse = !opts$palette_reverse
-          )
-
-          # select stations, add color
-          pts <- pts |>
-            left_join(map_color_data, join_by(station_id)) |>
-            rename(attr = all_of(color_by)) |>
-            mutate(attr_clamped = clamp(attr, domain[1], domain[2])) |>
-            mutate(color = pal(attr_clamped)) |>
-            arrange(!is.na(attr), attr) |>
-            mutate(
-              attr_label = if_else(
-                is.na(attr),
-                "No data",
-                as.character(signif(attr, 4))
-              ),
-              map_label = paste0(
-                map_label,
-                "<br>",
-                opts$label,
-                ": ",
-                attr_label
-              ) |>
-                lapply(HTML)
-            )
-
           # add legend with reversed palette and labels
           proxy_map |>
             addLegend(
               layerId = "legend",
               position = "bottomright",
-              pal = pal_rev,
+              pal = result$legend$pal,
               bins = 5,
-              values = domain,
+              values = result$legend$domain,
               labFormat = labelFormat(transform = function(x) sort(x, TRUE))
             )
         }
 
-        # add stations to map
-        proxy_map |>
-          addCircleMarkers(
-            data = pts,
-            group = layers$stations,
-            label = ~map_label,
-            layerId = ~station_id,
-            radius = radius,
-            color = "black",
-            weight = 0.5,
-            fillColor = ~color,
-            fillOpacity = 1,
-            options = markerOptions(pane = "stations", sticky = FALSE)
-          )
+        updateStationMarkers(result$pts, radius)
       })
 
       ## Map markers/clusters ----
@@ -599,41 +627,30 @@ mapServer <- function(main_rv, main_session) {
             group = "cur_point"
           )
 
-        if (input$stn_color_by == "type") {
-          proxy_map |>
-            addCircleMarkers(
-              data = stn,
-              lat = ~latitude,
-              lng = ~longitude,
-              label = ~map_label,
-              layerId = ~station_id,
-              group = "cur_point",
-              options = pathOptions(pane = "cur_point_circle"),
-              radius = pt_size() + 1,
-              weight = 1,
-              color = "black",
-              opacity = 1,
-              fillColor = stn_colors$current,
-              fillOpacity = 1
-            )
+        # solid dot in the current-station color for type mode,
+        # hollow ring in that color when coloring by variable
+        style <- if (input$stn_color_by == "type") {
+          list(weight = 1, color = "black", fillColor = stn_colors$current)
         } else {
-          # create hollow station icon if coloring by variable
-          proxy_map |>
-            addCircleMarkers(
-              data = stn,
-              lat = ~latitude,
-              lng = ~longitude,
-              label = ~map_label,
-              layerId = ~station_id,
-              group = "cur_point",
-              options = pathOptions(pane = "cur_point_circle"),
-              radius = pt_size() + 1,
-              weight = 3,
-              color = stn_colors$current,
-              opacity = 1,
-              fillColor = "none"
-            )
+          list(weight = 3, color = stn_colors$current, fillColor = "none")
         }
+
+        proxy_map |>
+          addCircleMarkers(
+            data = stn,
+            lat = ~latitude,
+            lng = ~longitude,
+            label = ~map_label,
+            layerId = ~station_id,
+            group = "cur_point",
+            options = pathOptions(pane = "cur_point_circle"),
+            radius = pt_size() + 1,
+            weight = style$weight,
+            color = style$color,
+            fillColor = style$fillColor,
+            opacity = 1,
+            fillOpacity = 1
+          )
       })
 
       ## Current station's watersheds ----
