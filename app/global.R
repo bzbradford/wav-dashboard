@@ -151,7 +151,7 @@ f_to_c <- function(f, d = 1) {
   round((f - 32) * 5.0 / 9.0, d)
 }
 
-clamp <- function(x, lower = x, upper = x, na.rm = F) {
+clamp <- function(x, lower = x, upper = x, na.rm = FALSE) {
   pmax(lower, pmin(upper, x, na.rm = na.rm), na.rm = na.rm)
 }
 
@@ -322,7 +322,7 @@ stn_summary_min_max <- function(df, var) {
   )
 }
 
-if (F) {
+if (FALSE) {
   baseline_data |>
     slice_sample(n = 1, by = station_id) |>
     stn_summary_min_max("water_temp")
@@ -345,7 +345,7 @@ build_baseline_summary <- function(df) {
     clean_names("title")
 }
 
-if (F) {
+if (FALSE) {
   baseline_data |>
     slice_sample(n = 1, by = station_id) |>
     build_baseline_summary()
@@ -389,7 +389,7 @@ format_for_dt <- function(df, transpose = FALSE, hide_empty = FALSE) {
   df
 }
 
-if (F) {
+if (FALSE) {
   baseline_data |> rnd_stn() |> format_for_dt()
   baseline_data |> rnd_stn() |> format_for_dt(FALSE)
   baseline_data |>

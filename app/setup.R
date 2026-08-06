@@ -9,38 +9,6 @@ library(janitor)
 library(shiny)
 library(sf)
 
-# summarize existing data
-try({
-  load(".RData")
-  baseline_data |>
-    group_by(year) |>
-    summarize(
-      bsl_stns = n_distinct(station_id),
-      bsl_obs = n()
-    ) |>
-    left_join(
-      {
-        nutrient_data |>
-          group_by(year) |>
-          summarize(
-            ntr_stns = n_distinct(station_id),
-            ntr_obs = n()
-          )
-      },
-      join_by(year)
-    ) |>
-    left_join(
-      {
-        therm_data |>
-          group_by(year) |>
-          summarize(
-            therms = n_distinct(logger_sn)
-          )
-      },
-      join_by(year)
-    )
-})
-
 
 # Clear environment ----
 
@@ -76,13 +44,13 @@ get_coverage <- function(df) {
     group_by(station_id) |>
     summarise(
       data_years = paste(year, collapse = ", "),
-      max_fw_year = max(year, na.rm = T)
+      max_fw_year = max(year, na.rm = TRUE)
     ) |>
     rowwise() |>
     mutate(data_year_list = list(unique(sort(strsplit(data_years, ", ")[[1]]))))
   dates <- df |>
     group_by(station_id) |>
-    summarise(max_fw_date = max(date, na.rm = T))
+    summarise(max_fw_date = max(date, na.rm = TRUE))
   left_join(years, dates, by = "station_id")
 }
 
@@ -100,7 +68,7 @@ check_missing_stns <- function(data, pts, type) {
       " ",
       type,
       " stations are missing from the station list!",
-      call. = F
+      call. = FALSE
     )
   }
 }
@@ -113,7 +81,7 @@ data_dir <- function(f) {
 }
 
 load_csv <- function(fname) {
-  df <- read_csv(data_dir(fname), show_col_types = F)
+  df <- read_csv(data_dir(fname), show_col_types = FALSE)
   if ("date" %in% names(df)) {
     df <- filter(df, date <= MAX_DATE)
   }
@@ -214,7 +182,7 @@ huc12 <- data_dir("shp/huc12.fgb") |>
 
 station_list <- load_csv("stn_list.csv")
 station_pts <- station_list |>
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F)
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE)
 
 ## Baseline data ----
 
@@ -222,7 +190,7 @@ station_pts <- station_list |>
 add_units <- function(.data, col, units) {
   mutate(
     .data,
-    "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, T ~ units),
+    "{col}_units" := case_when(is.na(.data[[col]]) ~ NA, TRUE ~ units),
     .after = {{ col }}
   )
 }
@@ -230,8 +198,8 @@ add_units <- function(.data, col, units) {
 baseline_data <- load_csv("baseline_data.csv") |>
   arrange(station_id, date) |>
   rename(fieldwork_seq_no = fsn) |>
-  add_units("water_temp", "C") |>
-  add_units("air_temp", "C") |>
+  add_units("water_temp", "°C") |>
+  add_units("air_temp", "°C") |>
   add_units("d_o", "mg/L") |>
   add_units("d_o_saturation", "%") |>
   add_units("transparency", "cm") |>
@@ -481,7 +449,7 @@ stn_fieldwork_counts <- bind_rows(
   )
 
 # names, plot, and map settings for baseline and nutrient data
-data_opts <- read_csv("options.csv", show_col_types = F) |>
+data_opts <- read_csv("options.csv", show_col_types = FALSE) |>
   mutate(
     label = if_else(is.na(units), name, str_glue("{name} ({units})")),
     .after = name
@@ -537,6 +505,62 @@ watershed_sizes <- landscape_data |>
   deframe()
 
 
-# Save environment ----
+# Save and summarize data update ----
+.build_data_summary <- function(rdata = NULL) {
+  if (is.character(rdata)) {
+    load(rdata)
+  }
+
+  # Compute per-year and overall stats separately (both cheap, single-pass
+  # aggregates over the original data), then stack the small results —
+  # avoids duplicating the underlying data just to add a totals row.
+  add_year_summary <- function(data, ...) {
+    data |>
+      summarize(..., .by = year) |>
+      bind_rows(summarize(data, year = 9999, ...))
+  }
+
+  bl <- baseline_data |>
+    add_year_summary(bl_stns = n_distinct(station_id), bl_obs = n())
+  ntr <- nutrient_data |>
+    add_year_summary(ntr_stns = n_distinct(station_id), ntr_obs = n())
+  therm <- therm_data |>
+    add_year_summary(therms = n_distinct(logger_sn))
+
+  res <- bl |>
+    left_join(ntr, by = "year") |>
+    left_join(therm, by = "year") |>
+    arrange(year)
+  res[is.na(res)] <- 0
+  res
+}
+
+# copy existing data to backup and get a summary of it
+.prev_data <- if (
+  isTRUE(
+    (file.exists(".RData") & !file.exists("backup.RData")) |
+      (tools::md5sum("backup.RData") != tools::md5sum(".RData"))
+  )
+) {
+  file.copy(".RData", "backup.RData", overwrite = TRUE)
+  .build_data_summary("backup.RData")
+}
 
 save.image()
+
+.cur_data <- .build_data_summary()
+
+if (!is.null(.prev_data)) {
+  message("\nPrevious data:")
+  print(.prev_data)
+  message("\nNew data:")
+  print(.cur_data)
+  message("\nDifference:")
+  .prev_data |>
+    bind_rows(.cur_data) |>
+    summarize(across(everything(), diff), .by = year) |>
+    print()
+} else {
+  message("No change from prev data:")
+  print(.cur_data)
+}

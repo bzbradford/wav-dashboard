@@ -7,6 +7,11 @@ library(sf)
 library(rmapshaper) # ms_simplify
 library(leaflet)
 
+if (FALSE) {
+  library(terra)
+  elev <- rast("D:/GIS/raster/wi_elevation_10m/NED_10m_elevation.tif")
+}
+
 
 # Data conversion ----
 

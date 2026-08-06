@@ -19,7 +19,7 @@ params:
   data: NA
 ---
 
-```{r setup, include=F}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
   warning = FALSE,
@@ -46,7 +46,7 @@ report_summary <- build_report_summary(params)
 has <- report_summary$has
 ```
 
-```{r interp, include=F}
+```{r interp, include=FALSE}
 ## Data interpretations ##
 
 interp <- list()

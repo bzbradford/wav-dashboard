@@ -9,6 +9,7 @@ library(readxl)
 library(janitor)
 library(lubridate)
 library(sf)
+library(terra)
 library(leaflet)
 
 # load(".RData")
@@ -71,6 +72,9 @@ stns_valid <- stns_in |>
   merge_by("station_id") |>
   validate_stns()
 
+stns_valid.sf <- stns_valid |>
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = FALSE)
+
 stns_invalid <- validate_stns(stns_in, F)
 
 # data check
@@ -103,14 +107,21 @@ if (FALSE) {
     )
 }
 
+## Get station elevations ----
+# optional extra data, can skip if raster not available
+elev <- rast("D:/GIS/raster/wi_elevation_10m/NED_10m_elevation.tif")
+stn_elev <- terra::extract(
+  elev,
+  stns_valid.sf |> st_transform(crs = st_crs(elev))
+)$BinValues
+
+
 ## Join shapefile data ----
-stn_list.sf <- stns_valid |>
-  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, remove = F) |>
+stn_list.sf <- stns_valid.sf |>
   select(-county_name) |>
-  # some sites are outside the strict state boundaries so we just join by nearest county
   st_join(
     counties |> select(CountyName, DnrRegion),
-    join = st_nearest_feature
+    join = st_nearest_feature # some sites are outside the strict state boundaries so we just join by nearest county
   ) |>
   st_join(huc12 |> select(-Area)) |>
   st_join(dnr_watersheds |> select(DnrWatershedCode, DnrWatershedName)) |>
@@ -136,7 +147,8 @@ stn_list.sf <- stns_valid |>
     major_basin = MajorBasin,
     geometry
   ) |>
-  distinct(station_id, .keep_all = T)
+  mutate(elevation_ft = stn_elev, .before = geometry) |>
+  distinct(station_id, .keep_all = TRUE)
 
 # convert to tibble
 stn_list <- stn_list.sf |> st_set_geometry(NULL)
@@ -539,9 +551,12 @@ validation_actions <- tribble(
   ~measure                     , ~min , ~max , ~action  ,
   "air_temp"                   ,  -40 ,   40 , "f_to_c" ,
   "water_temp"                 ,  -40 ,   40 , "f_to_c" ,
-  "d_o"                        ,    0 ,   25 , "remove" ,
-  "d_o_saturation"             ,    0 ,  150 , "remove" ,
-  "ph"                         ,    4 ,   11 , "remove" ,
+  "d_o"                        ,    0 ,   25 , "keep"   ,
+  "d_o_saturation"             ,    0 ,  180 , "keep"   ,
+  "calc_do_sat_conc"           ,    0 ,   25 , "keep"   ,
+  "calc_do_sat"                ,    0 ,  180 , "keep"   ,
+  "calc_do_sat_diff"           ,  -20 ,   20 , "keep"   ,
+  "ph"                         ,    4 ,   11 , "keep"   ,
   "specific_cond"              ,    5 , 5000 , "keep"   ,
   "transparency"               ,    0 ,  120 , "cap"    ,
   "stream_width"               ,    0 ,  150 , "keep"   ,
@@ -555,8 +570,55 @@ validation_actions <- tribble(
   "biotic_index_score"         ,    1 ,    4 , "keep"
 )
 
+# calculate saturated DO mg/L at a given water temp (C) using APHA equation
+# mean station elevation in WI = 850
+calc_do_full_sat <- function(t, elevation_ft = 0) {
+  # Return NA for non-valid water temperatures
+  t[t < 0 | t > 30] <- NA
+
+  # Base sea-level DO saturation (APHA polynomial)
+  sat_sea_level <- 14.652 - 0.41022 * t + 7.991e-3 * t^2 - 7.7774e-5 * t^3
+
+  # Atmospheric pressure correction ratio relative to sea level
+  p_ratio <- (1 - (elevation_ft / 145442))^5.25588
+
+  # Corrected saturation
+  sat_corrected <- sat_sea_level * p_ratio
+
+  round(sat_corrected, 2)
+}
+
+if (FALSE) {
+  calc_do_full_sat(20)
+  calc_do_full_sat(20, 1000)
+  expand_grid(temp = seq(0, 30, by = 0.1), elevation = c(0, 600, 1000, 1500)) |>
+    mutate(do = calc_do_full_sat(temp, elevation)) |>
+    ggplot(aes(x = temp, y = do, color = elevation)) +
+    geom_point()
+  baseline_data |>
+    mutate(
+      do_sat_conc = calc_do_full_sat(water_temp),
+      do_sat_calc = 100 * d_o / do_sat_conc,
+      do_sat_diff = d_o_saturation - do_sat_calc,
+      .after = d_o
+    ) |>
+    ggplot(aes(do_sat_calc)) +
+    geom_histogram()
+}
+
+baseline_data_modified <- baseline_data |>
+  mutate(
+    calc_do_sat_conc = calc_do_full_sat(
+      water_temp,
+      coalesce(elevation_ft, 700) # sub in for missing elevations probably just outside the DEM
+    ),
+    calc_do_sat = round(100 * d_o / calc_do_sat_conc),
+    calc_do_sat_diff = round(d_o_saturation - calc_do_sat, 2),
+    .after = d_o_saturation
+  )
+
 # apply action to out of range values
-baseline_validation <- baseline_data |>
+baseline_validation <- baseline_data_modified |>
   select(fsn, all_of(validation_actions$measure)) |>
   pivot_longer(cols = -fsn, names_to = "measure") |>
   left_join(validation_actions) |>
@@ -598,7 +660,7 @@ baseline_validation <- baseline_data |>
   )
 
 # put it back together and swap in validated values
-baseline_clean <- baseline_data |>
+baseline_clean <- baseline_data_modified |>
   select(-all_of(validation_actions$measure)) |>
   left_join({
     baseline_validation |>
@@ -619,6 +681,7 @@ baseline_clean <- baseline_data |>
 if (FALSE) {
   baseline_validation |> filter(str_detect(msg, "not a number"))
   baseline_validation |> filter(str_detect(msg, "bad value"))
+  baseline_validation |> filter(str_detect(msg, "suspect"))
 
   baseline_clean |>
     filter(str_detect(data_validation, "specific_cond")) |>
@@ -840,8 +903,10 @@ stn_list_keep <- stn_list |>
     ))
   )
 
-# stn_list_keep |> filter(is.na(station_name))
-# stn_list_keep |> validate_stns()
+if (FALSE) {
+  stn_list_keep |> filter(is.na(station_name))
+  stn_list_keep |> validate_stns()
+}
 
 ## Make sure there are no stations missing from the list ----
 stopifnot(

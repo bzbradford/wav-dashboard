@@ -127,7 +127,7 @@ stnReportServer <- function(main_rv) {
           br(),
           div(
             class = "note",
-            "These station reports are a new feature currently in development. We encourage any feedback! Please email WAV staff at",
+            "If you have any issues with these generated reports please email WAV staff at",
             a("wav@extension.wisc.edu", href = "mailto:wav@extension.wisc.edu"),
             "with any questions or comments."
           ),
@@ -138,14 +138,14 @@ stnReportServer <- function(main_rv) {
       output$avail_reports_tbl <- renderDataTable(
         avail_reports(),
         selection = "none",
-        rownames = F,
+        rownames = FALSE,
         filter = "none",
         extensions = "FixedColumns",
         options = list(
-          paging = F,
-          searching = F,
-          info = F,
-          sort = F,
+          paging = FALSE,
+          searching = FALSE,
+          info = FALSE,
+          sort = FALSE,
           fixedColumns = list(leftColumns = 1, rightColumns = 1),
           columnDefs = list(
             list(
@@ -155,7 +155,7 @@ stnReportServer <- function(main_rv) {
             )
           )
         ),
-        escape = F
+        escape = FALSE
       )
 
       # Handle downloads ----
@@ -208,11 +208,14 @@ stnReportServer <- function(main_rv) {
               yr
             ))
             temp_rmd <- file.path(temp_dir, "report.Rmd")
-            file.copy("report/station_report.Rmd", temp_rmd, overwrite = T)
-            file.copy("report/header.png", temp_dir, overwrite = T)
-            lapply(list.files("report", "*.ttf", full.names = T), function(f) {
-              file.copy(f, temp_dir)
-            })
+            file.copy("report/station_report.Rmd", temp_rmd, overwrite = TRUE)
+            file.copy("report/header.png", temp_dir, overwrite = TRUE)
+            lapply(
+              list.files("report", "*.ttf", full.names = TRUE),
+              function(f) {
+                file.copy(f, temp_dir)
+              }
+            )
             rmarkdown::render(
               input = temp_rmd,
               output_file = temp_out,

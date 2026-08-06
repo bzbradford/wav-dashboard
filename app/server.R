@@ -17,7 +17,7 @@ server <- function(input, output, session) {
 
   rv <- reactiveValues(
     ## rv$init ----
-    # becomes F after initial station selection
+    # becomes FALSE after initial station selection
     init = TRUE,
 
     ## rv$bookmarking ----

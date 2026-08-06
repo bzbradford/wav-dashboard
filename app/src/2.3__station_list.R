@@ -23,7 +23,7 @@ stationListUI <- function() {
         `All thermistor` = "therm",
         `All stations` = "all"
       ),
-      inline = T
+      inline = TRUE
     ),
     div(
       id = "resize_wrapper",
@@ -96,16 +96,16 @@ stationListServer <- function(main_rv) {
       # later, an observer is used to inject new data into the existing DT
       output$stn_tbl <- renderDataTable(
         isolate(dt_data()),
-        rownames = F,
+        rownames = FALSE,
         selection = "none",
         extensions = "FixedColumns",
         escape = FALSE,
         options = list(
           dom = "iftrp",
-          scrollResize = T,
-          scrollX = T,
+          scrollResize = TRUE,
+          scrollX = TRUE,
           scrollY = 400,
-          scrollCollapse = T,
+          scrollCollapse = TRUE,
           pageLength = 20,
           fixedColumns = list(leftColumns = 1),
           columnDefs = list(list(
@@ -126,7 +126,7 @@ stationListServer <- function(main_rv) {
       # update data table when source data changes
       observe({
         dataTableProxy("stn_tbl") |>
-          replaceData(dt_data(), rownames = F)
+          replaceData(dt_data(), rownames = FALSE)
       })
 
       # Download handlers ------------------------------------------------------
@@ -175,7 +175,7 @@ stationListServer <- function(main_rv) {
             st_as_sf(
               coords = c("Longitude", "Latitude"),
               crs = 4326,
-              remove = F
+              remove = FALSE
             ) |>
             write_sf(file, layer = "")
         }
@@ -190,7 +190,7 @@ stationListServer <- function(main_rv) {
             st_as_sf(
               coords = c("Longitude", "Latitude"),
               crs = 4326,
-              remove = F
+              remove = FALSE
             ) |>
             write_sf(file)
         }

@@ -1,3 +1,12 @@
+**Aug 2026**
+
+- Add data thru Aug 5
+- Add additional dissolved oxygen validation:
+  - calc_do_sat_conc = mg/L at reported water temp for 100% saturation. Calculated from water temperature using the APHA polynomial equation
+  - calc_do_sat = reported mg/L / theoretical mg/L
+  - calc_do_sat_diff = reported saturation - saturation calculated from the reported mg/L. This value should be small (<20%)
+  - These validation columns appear at the end/bottom of the baseline data table. Values outside of an expected range will trigger notes in the "Data Validation" column
+
 **May 2026**
 
 - Add links to SWIMS pages for fieldwork and stations

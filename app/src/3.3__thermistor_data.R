@@ -158,7 +158,7 @@ thermistorDataServer <- function(main_rv) {
             radioButtons(
               inputId = ns("units"),
               label = NULL,
-              inline = T,
+              inline = TRUE,
               choices = list("Fahrenheit" = "F", "Celsius" = "C")
             )
           ),
@@ -170,7 +170,7 @@ thermistorDataServer <- function(main_rv) {
             radioButtons(
               inputId = ns("annotations"),
               label = NULL,
-              inline = T,
+              inline = TRUE,
               choices = list(
                 "Warm/cool/coldwater classification" = "wtemp",
                 "Brook trout temperature range" = "btrout",
@@ -283,7 +283,7 @@ thermistorDataServer <- function(main_rv) {
           max_temp < 69.3 ~ "coldwater",
           max_temp < 72.5 ~ "cool-cold",
           max_temp < 76.3 ~ "cool-warm",
-          T ~ "warmwater"
+          TRUE ~ "warmwater"
         )
 
         p(

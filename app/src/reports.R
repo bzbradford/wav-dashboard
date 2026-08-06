@@ -54,7 +54,7 @@ build_report_summary <- function(params) {
     function(n) {
       n > 0
     },
-    simplify = F
+    simplify = FALSE
   )
 
   # generate summary paragraph
@@ -144,7 +144,7 @@ build_report_baseline_table <- function(baseline) {
     if (all(is.na(df[[col]]))) df[[col]] <- NULL
   }
   df <- df |> select(`Date` = formatted_date, any_of(report_baseline_cols))
-  names(df) <- gsub(" (", "\\\n(", names(df), fixed = T) # add line breaks
+  names(df) <- gsub(" (", "\\\n(", names(df), fixed = TRUE) # add line breaks
   df
 }
 
@@ -186,10 +186,10 @@ build_report_fieldwork_comments <- function(baseline) {
       )
     ) |>
     pull(fieldwork_desc) |>
-    gsub("..", ".", ., fixed = T)
+    gsub("..", ".", ., fixed = TRUE)
 }
 
-if (F) {
+if (FALSE) {
   baseline_data |>
     rnd_stn() |>
     build_report_fieldwork_comments()
@@ -218,7 +218,7 @@ build_report_map <- function(stn) {
     crop_state <- st_crop(wi_state, bbox)
     crop_wsheds <- st_crop(huc10, bbox)
     crop_wshed_labels <- crop_wsheds |>
-      st_centroid(of_largest_polygon = T) |>
+      st_centroid(of_largest_polygon = TRUE) |>
       mutate(label = str_wrap(paste(Huc10Name, "Watershed"), 20))
     crop_water <- st_crop(waterbodies, bbox)
     crop_flow <- st_crop(flowlines, bbox)
@@ -241,7 +241,7 @@ build_report_map <- function(stn) {
         color = "#c5050c"
       ) +
       geom_sf(data = stn, fill = "red", size = 3, shape = 24) +
-      coord_sf(expand = F) +
+      coord_sf(expand = FALSE) +
       theme_void() +
       theme(
         legend.position = "none",
@@ -288,10 +288,10 @@ build_report_map <- function(stn) {
         aes(label = label),
         size = 1.5,
         alpha = .5,
-        check_overlap = T
+        check_overlap = TRUE
       ) +
       geom_sf(data = stn, fill = "red", size = 3, shape = 24) +
-      coord_sf(expand = F) +
+      coord_sf(expand = FALSE) +
       scale_linewidth_identity() +
       theme_void() +
       theme(
@@ -306,7 +306,7 @@ build_report_map <- function(stn) {
   # message(as.numeric(now() - t))
 }
 
-if (F) {
+if (FALSE) {
   all_pts |>
     filter(station_id == sample(station_id, 1)) |>
     build_report_map()
@@ -333,7 +333,7 @@ report_plot_theme <- theme_classic() +
 
 ## report_temp_labels ----
 
-# coldwater < 69.3 F
+# coldwater < 69.3 FALSE
 # cool-cold 69.3 - 72.5 (middle 70.9)
 # cool-warm 72.5 - 76.3 (middle 74.4)
 # warmwater > 76.3
@@ -465,7 +465,7 @@ build_report_plot <- function(df, type) {
 # if (nrow(df) > 50) {
 #   df <- df |>
 #     mutate(label = if_else(
-#       temp == max(temp, na.rm = T) | temp == min(temp, na.rm = T),
+#       temp == max(temp, na.rm = TRUE) | temp == min(temp, na.rm = TRUE),
 #       label,
 #       NA
 #     ), .by = c(year, measure))
@@ -489,7 +489,7 @@ report_plot_temp <- function(df) {
   }
 
   n_dates <- n_distinct(df$date)
-  x_lims <- set_report_date_range(df$date, pad_right = T)
+  x_lims <- set_report_date_range(df$date, pad_right = TRUE)
   y_lims <- set_axis_limits(df$temp, 50, 80)
   air <- df |>
     filter(measure == "Air temperature") |>
@@ -570,7 +570,7 @@ report_plot_do <- function(df) {
       ),
       label = paste0(d_o, ifelse(n_dates < 8, " mg/L", ""), sat_label)
     )
-  x_lims <- set_report_date_range(df$date, pad_right = T)
+  x_lims <- set_report_date_range(df$date, pad_right = TRUE)
   y_lims <- set_axis_limits(df$d_o, 0, 8)
   col_width <- ifelse(n_dates > 6, 10, 15)
   do_labels <- tibble(
@@ -638,7 +638,7 @@ report_plot_ph <- function(df) {
   if (nrow(df) == 0) {
     return("No data")
   }
-  x_lims <- set_report_date_range(df$date, pad_right = T)
+  x_lims <- set_report_date_range(df$date, pad_right = TRUE)
   y_lims <- set_axis_limits(df$ph, 6, 9)
   ph_labels <- tibble(
     y = c(6, 7.5, 9),
@@ -710,7 +710,7 @@ report_plot_cond <- function(df) {
     mutate(
       label = paste0(round(cond, 1), if_else(n_dates < 8, " uS/cm", ""))
     )
-  x_lims <- set_report_date_range(df$date, pad_right = T)
+  x_lims <- set_report_date_range(df$date, pad_right = TRUE)
   y_lims <- set_axis_limits(df$cond, 400, 700)
   cond_labels <- tibble(
     y = c(800, 1500, 2000),
@@ -819,15 +819,15 @@ report_plot_trans <- function(df) {
       expand = expansion()
     ) +
     coord_cartesian(xlim = x_lims, ylim = y_lims) +
-    scale_color_identity(guide = guide_legend(label = F)) +
+    scale_color_identity(guide = guide_legend(label = FALSE)) +
     scale_fill_distiller(
       palette = "BuGn",
       limits = c(0, 120),
       breaks = c(0, 120),
       guide = guide_colorbar(
-        label = F,
+        label = FALSE,
         frame.colour = "black",
-        ticks = F
+        ticks = FALSE
       )
     ) +
     labs(
@@ -855,7 +855,7 @@ report_plot_flow <- function(df) {
     mutate(
       label = paste0(round(flow, 1), if_else(n_dates < 8, " cfs", ""))
     )
-  x_lims <- set_report_date_range(df$date, pad_right = T)
+  x_lims <- set_report_date_range(df$date, pad_right = TRUE)
   y_lims <- set_axis_limits(df$flow, 0, 1)
   flow_labels <- tibble(
     y = c(.03, 3, 150),
@@ -947,7 +947,7 @@ report_plot_nutrient <- function(df) {
         c(
           geom_rect(
             data = tibble(),
-            inherit.aes = F,
+            inherit.aes = FALSE,
             aes(fill = est$lower > phoslimit),
             xmin = -Inf,
             xmax = Inf,
@@ -992,7 +992,7 @@ report_plot_nutrient <- function(df) {
     ) +
     coord_cartesian(xlim = x_lims, ylim = y_lims) +
     scale_fill_manual(
-      breaks = c(T, F),
+      breaks = c(TRUE, FALSE),
       values = c("#ffb568", "#40b0a6"),
       labels = c("Yes", "No")
     ) +
@@ -1023,7 +1023,7 @@ report_plot_therm <- function(df) {
   daily_range <-
     bind_rows(daily_min, daily_max) |>
     arrange(date_time) |>
-    mutate(across(c(min, max), ~ zoo::na.approx(.x, na.rm = F))) |>
+    mutate(across(c(min, max), ~ zoo::na.approx(.x, na.rm = FALSE))) |>
     drop_na()
   daily_means <- df |>
     summarize(mean = mean(temp_f), .by = date) |>

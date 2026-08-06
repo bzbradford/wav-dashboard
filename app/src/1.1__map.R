@@ -540,7 +540,7 @@ mapServer <- function(main_rv, main_session) {
               data = pts,
               group = layers$stations,
               label = ~map_label,
-              layerId = ~as.character(station_id),
+              layerId = ~ as.character(station_id),
               radius = radius,
               color = "black",
               weight = 0.5,

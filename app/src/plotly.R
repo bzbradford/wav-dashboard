@@ -50,7 +50,7 @@ plotly_find_max <- function(vals, min_val) {
 #' @param df baseline data for a single station
 
 plotly_baseline <- function(df) {
-  df <- distinct(df, date, .keep_all = T)
+  df <- distinct(df, date, .keep_all = TRUE)
 
   # modify and remove empties for each var
   do_data <- df |>
@@ -58,7 +58,7 @@ plotly_baseline <- function(df) {
     mutate(
       label = case_when(
         is.na(d_o_saturation) ~ paste0(d_o, " mg/L"),
-        T ~ paste0(d_o, " mg/L<br>", d_o_saturation, "% sat")
+        TRUE ~ paste0(d_o, " mg/L<br>", d_o_saturation, "% sat")
       )
     ) |>
     rowwise() |>
@@ -178,7 +178,7 @@ plotly_baseline <- function(df) {
       ),
       line = list(color = "#48a67b", width = 3)
     ) |>
-    layout(
+    plotly::layout(
       title = "Baseline Measurements",
       hovermode = "x unified",
       margin = list(t = 50, r = 50),
@@ -187,18 +187,18 @@ plotly_baseline <- function(df) {
         title = "",
         type = "date",
         range = date_range,
-        fixedrange = T, # allow user to zoom the axis?
+        fixedrange = TRUE, # allow user to zoom the axis?
         dtick = date_tick,
         ticklabelmode = "period",
         hoverformat = "%b %d, %Y",
-        domain = c(.1, .9)
+        domain = c(0.1, 0.9)
       ),
       yaxis = list(
         title = "Dissolved oxygen",
         ticksuffix = " mg/L",
         range = yranges$d_o,
-        fixedrange = T,
-        automargin = T
+        fixedrange = TRUE,
+        automargin = TRUE
       ),
       yaxis2 = list(
         title = "Temperature",
@@ -206,22 +206,22 @@ plotly_baseline <- function(df) {
         side = "left",
         ticksuffix = "&deg;C",
         position = 0,
-        showgrid = F,
-        zeroline = F,
+        showgrid = FALSE,
+        zeroline = FALSE,
         range = yranges$temp,
-        fixedrange = T,
-        automargin = T
+        fixedrange = TRUE,
+        automargin = TRUE
       ),
       yaxis3 = list(
         title = "Transparency",
         overlaying = "y",
         side = "right",
         ticksuffix = " cm",
-        showgrid = F,
-        zeroline = F,
+        showgrid = FALSE,
+        zeroline = FALSE,
         range = yranges$trans,
-        fixedrange = T,
-        automargin = T
+        fixedrange = TRUE,
+        automargin = TRUE
       ),
       yaxis4 = list(
         title = "Stream flow",
@@ -229,14 +229,14 @@ plotly_baseline <- function(df) {
         side = "right",
         ticksuffix = " cfs",
         position = 1,
-        showgrid = F,
-        zeroline = F,
+        showgrid = FALSE,
+        zeroline = FALSE,
         range = yranges$cfs,
-        fixedrange = T,
-        automargin = T
+        fixedrange = TRUE,
+        automargin = TRUE
       )
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 }
 
 
@@ -260,7 +260,7 @@ plotly_baseline_trend <- function(
     select(year, month, date, all_of(c(value = col))) |>
     drop_na(value) |>
     mutate(
-      month_name = factor(month.abb[month], levels = month.abb, ordered = T)
+      month_name = factor(month.abb[month], levels = month.abb, ordered = TRUE)
     )
 
   req(nrow(df) > 0)
@@ -270,7 +270,7 @@ plotly_baseline_trend <- function(
     type,
     scatter = mutate(df, x = date),
     month = mutate(df, x = month_name),
-    year = mutate(df, x = factor(year, ordered = T))
+    year = mutate(df, x = factor(year, ordered = TRUE))
   )
 
   # set y axis range
@@ -281,25 +281,25 @@ plotly_baseline_trend <- function(
   }
 
   plt <- plot_ly(df) |>
-    config(displayModeBar = F) |>
-    layout(
+    plotly::layout(
       title = list(text = opts$name),
-      showlegend = F,
+      showlegend = FALSE,
       hovermode = "unified",
       hoverdistance = 100,
       xaxis = list(
         title = NA,
-        automargin = T,
-        fixedrange = T
+        automargin = TRUE,
+        fixedrange = TRUE
       ),
       yaxis = list(
         title = opts$label,
-        automargin = T,
-        fixedrange = T,
+        automargin = TRUE,
+        fixedrange = TRUE,
         range = yrange
       ),
       margin = list(b = 25)
-    )
+    ) |>
+    plotly::config(displayModeBar = FALSE)
 
   plt <- if (type == "scatter") {
     plt |>
@@ -319,8 +319,8 @@ plotly_baseline_trend <- function(
         y = ~value,
         name = "Summary",
         type = "box",
-        boxpoints = F,
-        boxmean = T,
+        boxpoints = FALSE,
+        boxmean = TRUE,
         hoverinfo = list(extras = "none")
       ) |>
       add_trace(
@@ -342,7 +342,7 @@ plotly_baseline_trend <- function(
     shapes <- lapply(seq_along(annot$colors), function(i) {
       plotly_rect(values[i], values[i + 1], annot$colors[i])
     })
-    plt <- layout(plt, shapes = shapes)
+    plt <- plotly::layout(plt, shapes = shapes)
     for (i in seq_along(annot$values)) {
       plt <- plt |>
         add_trace(
@@ -379,15 +379,15 @@ plotly_baseline_ribbon <- function(df) {
     select(year, month, measure, value) |>
     mutate(date = as_date(paste(year, month, 1, sep = "-"))) |>
     filter(date < today()) |>
-    summarize(value = mean(value, na.rm = T), .by = c(date, measure)) |>
+    summarize(value = mean(value, na.rm = TRUE), .by = c(date, measure)) |>
     filter(!all(is.na(value)), .by = measure) |>
     left_join(opts, join_by(measure == col)) |>
     mutate(
       scaled = scales::rescale(
         value,
         from = c(
-          min(c(value, plot_min), na.rm = T),
-          max(c(value, plot_max), na.rm = T)
+          min(c(value, plot_min), na.rm = TRUE),
+          max(c(value, plot_max), na.rm = TRUE)
         )
       ),
       .by = measure
@@ -410,7 +410,7 @@ plotly_baseline_ribbon <- function(df) {
       colors = "Blues",
       hovertemplate = "%{x}<br>%{y}: %{text}<extra></extra>",
       ygap = 1,
-      showscale = F
+      showscale = FALSE
     ) |>
     # colorbar(
     #   title = list(text = NA),
@@ -423,15 +423,14 @@ plotly_baseline_ribbon <- function(df) {
     #   tickvals = c(0, 1),
     #   ticktext = c("Low", "High")
     # ) |>
-    layout(
+    plotly::layout(
       title = "Baseline monitoring record and observation heatmap",
-      showlegend = F,
-      # margin = list(t = 0, b = 25),
+      showlegend = FALSE,
       yaxis = list(
         title = NA,
-        automargin = T,
-        showgrid = F,
-        fixedrange = T,
+        automargin = TRUE,
+        showgrid = FALSE,
+        fixedrange = TRUE,
         tickmode = "linear",
         dtick = 1,
         categoryorder = "array",
@@ -439,16 +438,16 @@ plotly_baseline_ribbon <- function(df) {
       ),
       xaxis = list(
         title = NA,
-        automargin = T,
-        showgrid = F,
-        fixedrange = T,
+        automargin = TRUE,
+        showgrid = FALSE,
+        fixedrange = TRUE,
         dtick = "M12"
       )
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 }
 
-if (F) {
+if (FALSE) {
   baseline_data |>
     filter(station_id == sample(station_id, 1)) |>
     filter(year == sample(year, 1)) |>
@@ -474,7 +473,7 @@ macro_colortable <- tibble(
     "Invasive"
   )
 ) |>
-  expand_grid(present = c(T, F)) |>
+  expand_grid(present = c(TRUE, FALSE)) |>
   mutate(
     z = (1:10 - .5) / 10,
     alpha = if_else(present, 1, .1),
@@ -583,11 +582,11 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
       text = ~tooltip_text,
       hoverinfo = "text",
       colorscale = macro_colorscale,
-      showscale = F,
+      showscale = FALSE,
       xgap = 1,
       ygap = 1
     ) |>
-    layout(
+    plotly::layout(
       title = "Macroinvertebrate Presence/Absence",
       xaxis = list(
         title = "",
@@ -595,31 +594,31 @@ plotly_macros <- function(stn_id, plot_type = c("all", "annual")) {
         categoryarray = levels(plot_data$date_label),
         categoryorder = "array",
         tickangle = -30,
-        showgrid = F,
-        fixedrange = T,
-        automargin = T,
+        showgrid = FALSE,
+        fixedrange = TRUE,
+        automargin = TRUE,
         tickmode = "linear",
         dtick = 1
       ),
       yaxis = list(
         title = NA,
-        type = 'category',
+        type = "category",
         categoryorder = "array",
         categoryarray = rev(levels(plot_data$species_name)),
-        showgrid = F,
-        fixedrange = T,
-        automargin = T,
+        showgrid = FALSE,
+        fixedrange = TRUE,
+        automargin = TRUE,
         tickmode = "linear",
         dtick = 1
       ),
       plot_bgcolor = "white",
       margin = list(t = 50, r = 10, b = 10, l = 10)
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 }
 
 # test
-if (F) {
+if (FALSE) {
   plotly_macros(10011638)
   plotly_macros(283223)
   plotly_macros(10012445)
@@ -641,7 +640,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
   }
 
   df <- df |>
-    summarize(tp = mean(tp, na.rm = T), .by = c(year, date)) |>
+    summarize(tp = mean(tp, na.rm = TRUE), .by = c(year, date)) |>
     mutate(
       exceedance = factor(
         ifelse(
@@ -661,7 +660,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
     ) |>
     rowwise() |>
     mutate(
-      bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = T))
+      bar_width = max(7, min(28, days_since_last, days_to_next, na.rm = TRUE))
     ) |>
     replace_na(list(bar_width = 28))
 
@@ -676,7 +675,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
   all_dates <- sort(unique(c(outer_months, data_dates)))
   yrange <- suppressWarnings(c(
     0,
-    max(phoslimit * 1.2, max(df$tp, na.rm = T) * 1.2)
+    max(phoslimit * 1.2, max(df$tp, na.rm = TRUE) * 1.2)
   ))
 
   phos_params <- tibble(
@@ -748,7 +747,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       textfont = list(color = "black"),
       hovertemplate = "Measured TP: %{y:.3f} mg/L<extra></extra>"
     ) |>
-    layout(
+    plotly::layout(
       title = "Total Phosphorus",
       xaxis = list(
         title = "",
@@ -763,7 +762,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
         ticksuffix = " mg/L",
         zerolinecolor = "lightgrey",
         range = yrange,
-        fixedrange = T
+        fixedrange = TRUE
       ),
       legend = list(
         traceorder = "reversed",
@@ -775,7 +774,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       margin = list(t = 50),
       shapes = shapes
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 
   plt
 }
@@ -788,7 +787,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
 #'  `rect()` creates rectangles on plotly
 #' @param df_hourly hourly temperature data
 #' @param df_daily daily min/max temperature data
-#' @param units units 'f' or 'c'
+#' @param units units 'FALSE' or 'c'
 #' @param annotations may be 'None', 'btrout', or 'wtemp' to add behind plot
 
 plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
@@ -799,7 +798,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
   # handle units
   temp_col <- paste0("temp_", tolower(units))
   ytitle <- paste0("Temperature (°", units, ")")
-  default_yrange <- if (units == "F") c(40, 90) else c(5, 30)
+  default_yrange <- if (units == "FALSE") c(40, 90) else c(5, 30)
   data_yrange <- c(
     min(df_hourly[[temp_col]], na.rm = TRUE),
     max(df_hourly[[temp_col]], na.rm = TRUE)
@@ -874,7 +873,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
         color = "orange"
       )
     ) |>
-    layout(
+    plotly::layout(
       title = list(
         text = "Stream Temperature",
         y = .99,
@@ -896,18 +895,18 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
       ),
       margin = list(t = 50)
     ) |>
-    config(displayModeBar = FALSE)
+    plotly::config(displayModeBar = FALSE)
 
   # add annotation color bands
   if (annotations != "none") {
     if (annotations == "btrout") {
-      temps <- c(32, 52, 61, 72, 100) # F
+      temps <- c(32, 52, 61, 72, 100) # FALSE
       if (units == "C") {
         temps <- f_to_c(temps)
       }
       colors <- c("cornflowerblue", "green", "lightgreen", "darkorange")
     } else if (annotations == "wtemp") {
-      temps <- c(-40, 69.3, 72.5, 76.3, 150) # F
+      temps <- c(-40, 69.3, 72.5, 76.3, 150) # FALSE
       if (units == "C") {
         temps <- f_to_c(temps)
       }
@@ -915,7 +914,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
     }
 
     plt <- plt |>
-      layout(
+      plotly::layout(
         shapes = lapply(seq_along(colors), function(i) {
           plotly_rect(temps[i], temps[i + 1], colors[i])
         })
@@ -944,14 +943,14 @@ plotly_landscape_pie <- function(landscape) {
       textposition = "inside",
       texttemplate = "<b>%{label}</b><br>%{percent}",
       hovertemplate = "<b>%{label}</b><br>%{percent}<extra></extra>",
-      sort = F
+      sort = FALSE
     ) |>
-    layout(
-      showlegend = F,
+    plotly::layout(
+      showlegend = FALSE,
       margin = list(l = 0, r = 0, t = 0, b = 0),
       paper_bgcolor = "rgba(0, 0, 0, 0)"
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 }
 
 
@@ -1019,24 +1018,24 @@ plotly_landscape_diff <- function(landscape1, landscape2) {
       textposition = "none",
       hovertemplate = "<b>%{y}<br></b>%{text}<extra></extra>"
     ) |>
-    layout(
+    plotly::layout(
       barmode = "overlay",
       xaxis = list(
         title = "Difference from state average",
         tickformat = ",.0%",
         ticks = "outside",
-        fixedrange = T,
+        fixedrange = TRUE,
         range = xrange,
         zerolinewidth = 1.5
       ),
       yaxis = list(
-        visible = F,
-        fixedrange = T
+        visible = FALSE,
+        fixedrange = TRUE
       ),
-      showlegend = F,
+      showlegend = FALSE,
       margin = list(l = 10, r = 10),
       plot_bgcolor = "rgba(0, 0, 0, 0)",
       paper_bgcolor = "rgba(0, 0, 0, 0)"
     ) |>
-    config(displayModeBar = F)
+    plotly::config(displayModeBar = FALSE)
 }
