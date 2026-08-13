@@ -46,8 +46,7 @@ if (FALSE) {
   renv::update()
   renv::snapshot()
   renv::clean()
-  renv::install("sf@1.0-24")
-  renv::install("terra@1.9-11")
+  renv::install("terra@1.9-27")
 
   # enable development mode
   shiny::devmode(TRUE)
