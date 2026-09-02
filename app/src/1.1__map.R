@@ -253,18 +253,33 @@ mapServer <- function(main_rv, main_session) {
 
       # Map setup ----
 
+      carto_key <- Sys.getenv("CARTO_API_KEY")
+
       basemaps <- tribble(
         ~label          , ~provider                   ,
         "ESRI Topo"     , providers$Esri.WorldTopoMap ,
         "Satellite"     , providers$Esri.WorldImagery ,
         "OpenStreetMap" , providers$OpenStreetMap     ,
-        "Grey Canvas"   , providers$CartoDB.Positron  ,
+        "Carto Light"   , "carto"                     ,
       )
 
       addBasemaps <- function(map) {
         for (r in seq_len(nrow(basemaps))) {
           df <- slice(basemaps, r)
-          map <- addProviderTiles(map, df$provider, group = df$label)
+          if (df$provider == "carto") {
+            map <- map |>
+              addTiles(
+                urlTemplate = paste0(
+                  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key=",
+                  carto_key
+                ),
+                attribution = '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+                options = tileOptions(subdomains = "abcd", maxZoom = 20),
+                group = df$label
+              )
+          } else {
+            map <- addProviderTiles(map, df$provider, group = df$label)
+          }
         }
         map
       }

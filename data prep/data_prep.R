@@ -16,7 +16,7 @@ library(leaflet)
 # save.image()
 
 # in case query returns newer stuff we don't want yet
-MAX_DATE <- as_date("2026-12-31")
+MAX_DATE <- as_date("2026-12-31") # SET THIS
 
 # load functions
 source("functions.R")
