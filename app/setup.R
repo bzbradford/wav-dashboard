@@ -197,6 +197,7 @@ add_units <- function(.data, col, units) {
 
 baseline_data <- load_csv("baseline_data.csv") |>
   arrange(station_id, date) |>
+  mutate(datetime = with_tz(datetime, tzone = "America/Chicago")) |>
   rename(fieldwork_seq_no = fsn) |>
   add_units("water_temp", "°C") |>
   add_units("air_temp", "°C") |>

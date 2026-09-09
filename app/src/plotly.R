@@ -98,7 +98,7 @@ plotly_baseline <- function(df) {
     add_trace(
       data = do_data,
       name = "D.O.",
-      x = ~date,
+      x = ~datetime,
       y = ~d_o,
       text = ~label,
       marker = list(
@@ -112,7 +112,7 @@ plotly_baseline <- function(df) {
     add_trace(
       data = temp_data,
       name = "Water temp",
-      x = ~date,
+      x = ~datetime,
       y = ~water_temp,
       type = "scatter",
       mode = "lines+markers",
@@ -131,7 +131,7 @@ plotly_baseline <- function(df) {
     add_trace(
       data = temp_data,
       name = "Air temp",
-      x = ~date,
+      x = ~datetime,
       y = ~air_temp,
       type = "scatter",
       mode = "lines+markers",
@@ -147,7 +147,7 @@ plotly_baseline <- function(df) {
     add_trace(
       data = trans_data,
       name = "Transparency",
-      x = ~date,
+      x = ~datetime,
       y = ~transparency,
       type = "scatter",
       mode = "lines+markers",
@@ -164,7 +164,7 @@ plotly_baseline <- function(df) {
     add_trace(
       data = flow_data,
       name = "Stream flow",
-      x = ~date,
+      x = ~datetime,
       y = ~streamflow,
       type = "scatter",
       mode = "lines+markers",
@@ -190,7 +190,7 @@ plotly_baseline <- function(df) {
         fixedrange = TRUE, # allow user to zoom the axis?
         dtick = date_tick,
         ticklabelmode = "period",
-        hoverformat = "%b %d, %Y",
+        hoverformat = "%b %d, %Y, %I:%M %p",
         domain = c(0.1, 0.9)
       ),
       yaxis = list(

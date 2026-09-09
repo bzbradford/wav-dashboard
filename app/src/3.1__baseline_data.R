@@ -119,6 +119,22 @@ baselineDataServer <- function(main_rv) {
 
       ## main_ui ----
       output$main_ui <- renderUI({
+        annual_plot_caption <- "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters."
+        ribbon_plot_caption <- "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations."
+        macro_plot_caption <- HTML(paste0(
+          "The aquatic macroinvertebrate community can reflect a stream’s general condition, as some species are more sensitive to water quality than others. ",
+          colorize("Group 1 (blue)", "blue"),
+          " are the most sensitive. ",
+          colorize("Group 2 (green)", "green"),
+          " are somewhat sensitive, ",
+          colorize("Group 3 (orange)", "orange"),
+          " are somewhat tolerant, followed by ",
+          colorize("Group 4 (red)", "red"),
+          ", the most tolerant. Suspected invasive species are shown in ",
+          colorize("purple"),
+          "."
+        ))
+
         tagList(
           div(
             class = "well flex-row",
@@ -152,10 +168,7 @@ baselineDataServer <- function(main_rv) {
               "input.plot_type == 'annual'",
               ns = ns,
               plotlyOutput(ns("annual_plot")),
-              div(
-                class = "plot-caption",
-                "A selection of available baseline parameters are shown above. Click on an item in the legend below the plot to hide/show individual parameters."
-              )
+              div(class = "plot-caption", annual_plot_caption)
             ),
             conditionalPanel(
               "input.plot_type == 'trend'",
@@ -167,31 +180,13 @@ baselineDataServer <- function(main_rv) {
               "input.plot_type == 'macro'",
               ns = ns,
               plotlyOutput(ns("macro_plot"), height = "500px"),
-              div(
-                class = "plot-caption",
-                HTML(paste0(
-                  "The aquatic macroinvertebrate community can reflect a stream’s general condition, as some species are more sensitive to water quality than others. ",
-                  colorize("Group 1 (blue)", "blue"),
-                  " are the most sensitive. ",
-                  colorize("Group 2 (green)", "green"),
-                  " are somewhat sensitive, ",
-                  colorize("Group 3 (orange)", "orange"),
-                  " are somewhat tolerant, followed by ",
-                  colorize("Group 4 (red)", "red"),
-                  ", the most tolerant. Suspected invasive species are shown in ",
-                  colorize("purple"),
-                  "."
-                ))
-              )
+              div(class = "plot-caption", macro_plot_caption)
             ),
             conditionalPanel(
               "input.plot_type == 'ribbon'",
               ns = ns,
               uiOutput(ns("ribbon_plot_ui")),
-              div(
-                class = "plot-caption",
-                "This figure shows which parameters have been measured for this station, with tickmarks showing Jan 1 of each year, and each column represents one month of observations."
-              )
+              div(class = "plot-caption", ribbon_plot_caption)
             ),
             div(class = "plot-caption", htmlOutput(ns("plot_caption_text"))),
           ),
@@ -209,7 +204,6 @@ baselineDataServer <- function(main_rv) {
               )
             )
           ),
-          includeMarkdown("md/baseline_info.md"),
           accordion(
             accordion_panel(
               title = "View/download baseline data",
@@ -217,7 +211,8 @@ baselineDataServer <- function(main_rv) {
               uiOutput(ns("stn_data_ui"))
             ),
             open = FALSE
-          )
+          ),
+          includeMarkdown("md/baseline_info.md")
         )
       })
 

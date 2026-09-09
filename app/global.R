@@ -361,6 +361,7 @@ format_for_dt <- function(df, transpose = FALSE, hide_empty = FALSE) {
 
   df <- df |>
     mutate(across(any_of(c("latitude", "longitude")), ~ round(.x, 6))) |>
+    mutate(across(any_of("datetime"), ~ format(.x, "%Y-%m-%d %I:%M %p"))) |>
     clean_names(
       case = "title",
       abbreviations = c("ID", "DNR", "WBIC", "HUC", "DO", "pH", "TP"),
