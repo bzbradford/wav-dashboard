@@ -1,5 +1,13 @@
 ##  GLOBAL  ##
 
+library(tictoc)
+
+tic("Total startup time")
+
+# Load packages ----------------------------------------------------------------
+
+tic("Loading packages")
+
 library(sf) # spatial
 
 suppressPackageStartupMessages({
@@ -29,8 +37,8 @@ suppressPackageStartupMessages({
   library(knitr)
 })
 
-# load data created in setup.R
-load(".RData")
+toc() # package startup time
+
 
 # Development ------------------------------------------------------------------
 
@@ -65,6 +73,15 @@ if (FALSE) {
 #   })
 
 # install xelatex
+
+# RData ------------------------------------------------------------------------
+
+tic("Loading .RData")
+
+load(".RData") # created in setup.R
+
+toc()
+
 
 # Definitions ------------------------------------------------------------------
 
@@ -652,8 +669,10 @@ build_therm_summary <- function(df, units) {
 }
 
 
-# Source files in /R ----
+# Source files -----------------------------------------------------------------
 
 for (file in list.files("src", pattern = "\\.[Rr]$", full.names = TRUE)) {
   source(file)
 }
+
+toc() # total startup time
