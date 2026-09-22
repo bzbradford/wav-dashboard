@@ -284,8 +284,8 @@ plotly_baseline_trend <- function(
     plotly::layout(
       title = list(text = opts$name),
       showlegend = FALSE,
-      hovermode = "unified",
-      hoverdistance = 100,
+      # hovermode = "x unified",
+      hoverdistance = 50,
       xaxis = list(
         title = NA,
         automargin = TRUE,
@@ -313,25 +313,60 @@ plotly_baseline_trend <- function(
         hovertemplate = paste("%{x}: %{y:.2f}", opts$units)
       )
   } else {
+    # build boxplot stats for tooltip display hack
+    box_stats <- df |>
+      summarize(
+        .by = x,
+        y = mean(value),
+        label = paste(
+          sprintf("<b>Mean:</b> %s", signif(mean(value), 3)),
+          sprintf("<b>Median:</b> %s", signif(median(value), 3)),
+          sprintf(
+            "<b>IQR:</b> %s-%s",
+            signif(quantile(value, 0.25), 3),
+            signif(quantile(value, 0.75), 3)
+          ),
+          sprintf(
+            "<b>Range:</b> %s-%s",
+            signif(min(value), 3),
+            signif(max(value), 3)
+          ),
+          sprintf("<b>n:</b> %s", n()),
+          sep = "<br>"
+        )
+      )
+
+    # add boxplot, observations, and ghost bar for tooltip
     plt |>
-      add_trace(
+      add_boxplot(
         x = ~x,
         y = ~value,
         name = "Summary",
-        type = "box",
         boxpoints = FALSE,
         boxmean = TRUE,
-        hoverinfo = list(extras = "none")
+        hoverinfo = "skip"
       ) |>
       add_trace(
+        data = df,
         x = ~x,
         y = ~value,
         name = "Observation",
         type = "scatter",
         mode = "markers",
-        hoverinfo = list(extras = "none"),
         text = ~ paste(month_name, year),
-        hovertemplate = paste("%{text}: %{y}", opts$units)
+        hovertemplate = paste0("%{text}: %{y} ", opts$units, "<extra></extra>")
+      ) |>
+      add_trace(
+        data = box_stats,
+        x = ~x,
+        y = ~y,
+        name = "Summary",
+        type = "bar",
+        width = 0.5, # matched boxplot
+        marker = list(opacity = 0),
+        hovertext = ~label,
+        textposition = "none",
+        hovertemplate = "%{hovertext}<extra></extra>"
       )
   }
 

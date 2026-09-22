@@ -455,9 +455,9 @@ baseline_plot_annot <- lst(
   water_temp = PlotAnnotOpts(
     values = c(20.7, 22.5, 24.6),
     labels = c(
-      "Cold/Cool-cold transition",
-      "Cool-cold/Cool-warm transition",
-      "Cool-warm/Warm transition"
+      "Cold/cool-cold transition (20.7°C)",
+      "Cool-cold/cool-warm transition (22.5°C)",
+      "Cool-warm/warm transition (24.6°C)"
     ),
     colors = c("blue", "cornflowerblue", "lightsteelblue", "darkorange")
   ),
