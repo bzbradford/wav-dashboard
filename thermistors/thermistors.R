@@ -4,7 +4,7 @@
 library(tidyverse)
 
 
-# Setup ----
+# 1. Setup ---------------------------------------------------------------------
 
 data_dir <- function(f) {
   file.path("../data", f)
@@ -12,10 +12,31 @@ data_dir <- function(f) {
 
 stn_master_list <- read_csv(data_dir("stn_list_full.csv"))
 
+# Load thermistor inventory, matching SNs with WAV Stns
+# update the inventory with correct deploy/retrieve dates
+# then re-run the cleaning
+therm_inventory <- read_csv("combined-hobo-inventory.csv") |>
+  left_join({
+    stn_master_list |>
+      select(station_id, station_name, latitude, longitude)
+  })
 
-# Define functions ----
+# should be no duplicates
+therm_inventory |>
+  filter(n() > 2, .by = c(year, logger_sn))
 
-# reads in all raw hobo data csv files and parses them
+
+# 2. Define functions ----------------------------------------------------------
+
+#' Reads in all raw hobo data csv files and parses them
+#' File format expectations:
+#' - Row 1 may be skipped, often contained 'plot title' or other heading.
+#' - Obs # in column 1
+#' - Date in column 2
+#' - Temperature in column 3
+#'   - Units must be specified in column name
+#' Need to load all loggers for a calendar year, check, combine (if necessary)
+#' and export a single csv for that year. Then repeat for each year.
 read_hobos <- function(dir, yr) {
   require(tidyverse)
   require(lubridate)
@@ -59,28 +80,43 @@ read_hobos <- function(dir, yr) {
     message("\nReading ", basename(file), "...")
     sn <- gsub(".csv", "", basename(file))
 
-    first_line <- readLines(file, n = 1)
-    skip <- 0
+    # determine csv structure for importing
+    lines <- readLines(file, n = 2L)
 
-    if (grepl("Plot", first_line)) {
-      skip <- 1
+    # skip line 1 if it has eg "Plot" in it, otherwise assume line 1 is column names
+    skip <- if_else(str_detect(lines[1], "Plot"), 1, 0)
+
+    # if column 1 is '#' then it is a row number column, so skip it and adjust column selection
+    .cols <- if (any(str_detect(lines[skip + 1], c("^#", "^\"#\"")))) {
+      2:3
+    } else {
+      1:2
     }
 
-    import <- read_csv(file, skip = skip, col_select = 1:3, col_types = "ccc")
+    # read raw hobo csv
+    import <- read_csv(
+      file,
+      skip = skip,
+      col_select = all_of(.cols),
+      col_types = "ccc"
+    )
+
     message(paste0("SN: ", sn))
 
-    if (grepl("(*F)", names(import)[3], useBytes = T)) {
-      unit <- "F"
-    } else if (grepl("(*C)", names(import)[3], useBytes = T)) {
-      unit <- "C"
+    unit <- if (str_detect(colnames(import)[2], "°F")) {
+      "F"
+    } else if (str_detect(colnames(import)[2], "°C")) {
+      "C"
     } else {
+      print(lines)
+      print(colnames(import))
       stop(
         "FATAL: Unable to determine temperature units! Require (°F) or (°C) in temperature column name!"
       )
     }
 
     data <- import |>
-      select(DateTime = 2, Temp = 3) |>
+      select(DateTime = 1, Temp = 2) |>
       mutate(Temp = as.numeric(Temp)) |>
       drop_na(Temp) |>
       mutate(Unit = unit) |>
@@ -97,48 +133,34 @@ read_hobos <- function(dir, yr) {
             "%m/%d/%Y %H:%M",
             "%m/%d/%Y %H:%M:%S"
           ),
-          exact = T,
+          exact = TRUE,
           tz = "America/Chicago"
         )
       ) |>
       mutate(
-        Date = as.Date(DateTime),
-        Year = lubridate::year(Date),
+        Date = as_date(DateTime),
+        Year = year(Date),
         .after = DateTime
       ) |>
       mutate(TempOK = temp_check(Temp, Unit))
 
     print(data)
 
-    cat(paste0(
-      " => ",
-      nrow(data),
-      " obs\n",
-      " => ",
-      as.Date(min(data$Date)),
-      " - ",
-      as.Date(max(data$Date)),
-      "\n",
-      " => ",
-      min(data$Temp),
-      " - ",
-      max(data$Temp),
-      " °",
-      unit,
-      "\n"
-    ))
+    cat(
+      paste0(" => ", nrow(data), " obs\n"),
+      paste0(" => ", min(data$Date), " - ", max(data$Date), "\n"),
+      paste0(" => ", min(data$Temp), " - ", max(data$Temp), " °", unit, "\n")
+    )
 
     if (length(unique(data$Year)) > 1) {
       before <- nrow(data)
       years <- paste(sort(unique(data$Year)), collapse = ", ")
-      # data <- filter(data, Year == yr)
-      # after <- nrow(data)
       after <- filter(data, Year == yr) |> nrow()
-      warn(sn, paste("Multiple years in data range: ", years))
+      warn(sn, paste("Multiple years in data range:", years))
       warn(
         sn,
         paste(
-          "Note: ",
+          "Note:",
           before - after,
           "values are not from the inventory year."
         )
@@ -152,7 +174,7 @@ read_hobos <- function(dir, yr) {
       after <- nrow(data)
       warn(
         sn,
-        paste("Removed ", before - after, "temperature value(s) out of range")
+        paste("Removed", before - after, "temperature value(s) out of range")
       )
       print(bad_temps)
     }
@@ -165,7 +187,7 @@ read_hobos <- function(dir, yr) {
       select(-Temp, -Unit, -TempOK)
   })
 
-  cat("\n")
+  cat("\nWARNINGS:\n")
   lapply(errors, function(err) message(err))
 
   clean_data <- bind_rows(raw_data) |>
@@ -273,14 +295,11 @@ make_thermistor_plot <- function(df_hourly, weather = NULL) {
     paste(
       "Year:",
       year,
-      "|",
-      "Logger SN:",
+      "| Logger SN:",
       logger_sn,
-      "|",
-      "Station ID:",
+      "| Station ID:",
       station_id,
-      "|",
-      "Coords:",
+      "| Coords:",
       paste0(latitude, ", ", longitude)
     )
   )
@@ -435,15 +454,20 @@ make_thermistor_plot <- function(df_hourly, weather = NULL) {
 }
 
 
+# generate interactive charts to inspect the data and compare to air temperatures
+# currently no way to easily trim internal dates when a logger becomes exposed to the air
+# can use this to confirm deployment and retrieval dates
+# update dates in the inventory file if desired, then re-run the cleaning
+
 # cycles through hobo data and plots them each in turn
 # can give one or more serial numbers to inspect, or it goes through all of them
 inspect_hobos <- function(
   hobodata,
-  serials = sort(unique(hobodata$logger_sn))
+  start_sn = 1
 ) {
-  i <- 1
+  serials <- sort(unique(hobodata$logger_sn))
   n <- length(serials)
-  for (i in 1:n) {
+  for (i in which(serials >= start_sn)) {
     sn <- serials[i]
     message("Logger ", i, "/", n, ": SN ", sn)
     hobo <- hobodata |> filter(logger_sn == sn)
@@ -507,90 +531,108 @@ export_hobos <- function(
 }
 
 
-# Read and check Hobo data ----
+# 3. Load logger csv files -----------------------------------------------------
 
-# Load thermistor inventory, matching SNs with WAV Stns
-# update the inventory with correct deploy/retrieve dates
-# then re-run the cleaning
-therm_inventory <- read_csv("combined-hobo-inventory.csv") |>
-  left_join({
-    stn_master_list |>
-      select(station_id, station_name, latitude, longitude)
-  })
+## 2020 ----
 
-# should be no duplicates
-therm_inventory |>
-  filter(n() > 2, .by = c(year, logger_sn))
-
-
-#' File format expectations:
-#' - Row 1 may be skipped, often contained 'plot title' or other heading.
-#' - Obs # in column 1
-#' - Date in column 2
-#' - Temperature in column 3
-#'   - Units must be specified in column name
-
-# Read in raw hobo csv files. Indicate inventory year
 hobos_in_2020 <- read_hobos("hobo/2020", 2020)
-hobos_in_2021 <- read_hobos("hobo/2021", 2021)
-hobos_in_2022 <- read_hobos("hobo/2022", 2022)
-hobos_in_2023 <- read_hobos("hobo/2023", 2023)
-hobos_in_2023_mrk <- read_hobos("hobo/2023_mrk", 2023)
-hobos_in_2024 <- read_hobos("hobo/2024", 2024)
-# these two hobos were found, having been deployed for multiple years
-hobos_in_2024_extra <- read_hobos("hobo/2024_extra", 2024)
-hobos_in_2024_mrk <- read_hobos("hobo/2024_mrk", 2024)
-hobos_in_2025 <- read_hobos("hobo/2025", 2025)
-
-# clean the hobo data using the deployment dates in the inventory
 hobos_2020 <- clean_hobos(hobos_in_2020)
-hobos_2021 <- clean_hobos(hobos_in_2021)
-hobos_2022 <- clean_hobos(hobos_in_2022)
-hobos_2023_wav <- clean_hobos(hobos_in_2023)
-hobos_2023_mrk <- clean_hobos(hobos_in_2023_mrk)
-hobos_2024_wav <- clean_hobos(hobos_in_2024)
-hobos_2024_extra <- clean_hobos(hobos_in_2024_extra)
-hobos_2024_mrk <- clean_hobos(hobos_in_2024_mrk)
-hobos_2025 <- clean_hobos(hobos_in_2025)
-
-
-# generate interactive charts to inspect the data and compare to air temperatures
-# currently no way to easily trim internal dates when a logger becomes exposed to the air
-# can use this to confirm deployment and retrieval dates
-# update dates in the inventory file if desired, then re-run the cleaning
 inspect_hobos(hobos_2020)
+
+
+## 2021 ----
+
+hobos_in_2021 <- read_hobos("hobo/2021", 2021)
+hobos_2021 <- clean_hobos(hobos_in_2021)
 inspect_hobos(hobos_2021)
+
+
+## 2022 ----
+
+hobos_in_2022 <- read_hobos("hobo/2022", 2022)
+hobos_2022 <- clean_hobos(hobos_in_2022)
 inspect_hobos(hobos_2022)
+
+
+## 2023 ----
+
+hobos_in_2023 <- read_hobos("hobo/2023", 2023)
+hobos_2023_wav <- clean_hobos(hobos_in_2023)
 inspect_hobos(hobos_2023_wav)
+
+hobos_in_2023_mrk <- read_hobos("hobo/2023_mrk", 2023)
+hobos_2023_mrk <- clean_hobos(hobos_in_2023_mrk)
 inspect_hobos(hobos_2023_mrk)
-inspect_hobos(hobos_2024_wav, 20361490)
-inspect_hobos(hobos_2024_extra)
-inspect_hobos(hobos_2024_mrk)
-inspect_hobos(hobos_2025)
-# inspect_hobos(hobos_2025, 10706426)
 
 # merge sets, exclude logger(s) with very dubious data
 hobos_2023 <- bind_rows(hobos_2023_wav, hobos_2023_mrk) |>
-  filter(!(logger_sn %in% c(20820405)))
+  filter(logger_sn != 20820405)
+
+
+## 2024 ----
+
+hobos_in_2024 <- read_hobos("hobo/2024", 2024)
+hobos_2024_wav <- clean_hobos(hobos_in_2024)
+inspect_hobos(hobos_2024_wav)
+
+# these two hobos were found, having been deployed for multiple years
+hobos_in_2024_extra <- read_hobos("hobo/2024_extra", 2024)
+hobos_2024_extra <- clean_hobos(hobos_in_2024_extra)
+inspect_hobos(hobos_2024_extra)
+
+hobos_in_2024_mrk <- read_hobos("hobo/2024_mrk", 2024)
+hobos_2024_mrk <- clean_hobos(hobos_in_2024_mrk)
+inspect_hobos(hobos_2024_mrk)
+
 hobos_2024 <- bind_rows(hobos_2024_wav, hobos_2024_extra, hobos_2024_mrk)
 
-# save these cleaned datasets
-hobos_2020 |> write_csv("cleaned/hobos-cleaned-2020.csv.gz", na = "")
-hobos_2021 |> write_csv("cleaned/hobos-cleaned-2021.csv.gz", na = "")
-hobos_2022 |> write_csv("cleaned/hobos-cleaned-2022.csv.gz", na = "")
-hobos_2023 |> write_csv("cleaned/hobos-cleaned-2023.csv.gz", na = "")
-hobos_2024 |> write_csv("cleaned/hobos-cleaned-2024.csv.gz", na = "")
-hobos_2025 |> write_csv("cleaned/hobos-cleaned-2025.csv.gz", na = "")
 
-# export individual CSVs, indicate output year folder
-export_hobos(hobos_2020, 2020)
-export_hobos(hobos_2021, 2021)
-export_hobos(hobos_2022, 2022)
-export_hobos(hobos_2023, 2023)
-export_hobos(hobos_2024, 2024, logger_serials = 20361490)
+## 2025 ----
+
+hobos_in_2025 <- read_hobos("hobo/2025", 2025)
+hobos_2025_wav <- clean_hobos(hobos_in_2025)
+inspect_hobos(hobos_2025_wav)
+
+hobos_in_2025_mrk <- read_hobos("hobo/2025_mrk", 2025)
+hobos_2025_mrk <- clean_hobos(hobos_in_2025_mrk)
+inspect_hobos(hobos_2025_mrk, 22063557) # exclude: 22063557, mostly out of the water
+
+hobos_2025 <- bind_rows(hobos_2025_wav, hobos_2025_mrk) |>
+  filter(logger_sn != 22063557)
 
 
-# Merge hobodata ----
+# Export and/or load full-year datasets ----------------------------------------
+
+save_hobo_data <- function(df, yr) {
+  fname <- glue::glue("cleaned/hobos-cleaned-{yr}.csv.gz")
+  message("Writing '", fname, "'")
+  write_csv(df, fname, na = "")
+}
+
+hobos_2020 |> save_hobo_data(2020)
+hobos_2021 |> save_hobo_data(2021)
+hobos_2022 |> save_hobo_data(2022)
+hobos_2023 |> save_hobo_data(2023)
+hobos_2024 |> save_hobo_data(2024)
+hobos_2025 |> save_hobo_data(2025)
+
+
+# restore data that wasn't processed in this session
+read_hobo_data <- function(yr) {
+  fname <- glue::glue("cleaned/hobos-cleaned-{yr}.csv.gz")
+  message("Reading '", fname, "'")
+  read_csv(fname, col_types = cols())
+}
+
+hobos_2020 <- read_hobo_data(2020)
+hobos_2021 <- read_hobo_data(2021)
+hobos_2022 <- read_hobo_data(2022)
+hobos_2023 <- read_hobo_data(2023)
+hobos_2024 <- read_hobo_data(2024)
+hobos_2025 <- read_hobo_data(2025)
+
+
+# Merge data for export to dashboard -------------------------------------------
 
 hobo_data <-
   bind_rows(
@@ -608,17 +650,17 @@ hobo_data |>
   count(logger_sn, year) |>
   count(year)
 
-tz(hobo_data$date_time)
+tz(hobo_data$date_time) # should show it's been converted to UTC
 
 # Collect list of SNs by year
 hobo_serials <- hobo_data |>
   distinct(year, logger_sn) |>
-  mutate(have_data = T)
+  mutate(have_data = TRUE)
 
 # Are we missing data for loggers in the inventory?
 therm_info <- therm_inventory |>
   left_join(hobo_serials) |>
-  replace_na(list(have_data = F)) |>
+  replace_na(list(have_data = FALSE)) |>
   arrange(year)
 
 # save list of loggers without inventory
@@ -647,7 +689,7 @@ therm_info_export <- therm_info |>
   )
 
 
-# Export data ----
+# Export data ------------------------------------------------------------------
 
 save.image("thermistors.RData") # assumes already in '/thermistors' as working directory
 therm_info_export |> write_csv(data_dir("therm_inventory.csv"), na = "")
