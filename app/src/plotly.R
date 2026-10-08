@@ -822,7 +822,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
 #'  `rect()` creates rectangles on plotly
 #' @param df_hourly hourly temperature data
 #' @param df_daily daily min/max temperature data
-#' @param units units 'FALSE' or 'c'
+#' @param units units 'F' or 'C'
 #' @param annotations may be 'None', 'btrout', or 'wtemp' to add behind plot
 
 plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
@@ -833,7 +833,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
   # handle units
   temp_col <- paste0("temp_", tolower(units))
   ytitle <- paste0("Temperature (°", units, ")")
-  default_yrange <- if (units == "FALSE") c(40, 90) else c(5, 30)
+  default_yrange <- if (units == "F") c(40, 90) else c(5, 30)
   data_yrange <- c(
     min(df_hourly[[temp_col]], na.rm = TRUE),
     max(df_hourly[[temp_col]], na.rm = TRUE)
@@ -911,7 +911,7 @@ plotly_thermistor <- function(df_hourly, df_daily, units, annotations) {
     plotly::layout(
       title = list(
         text = "Stream Temperature",
-        y = .99,
+        y = 0.99,
         yanchor = "top"
       ),
       showlegend = TRUE,
