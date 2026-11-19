@@ -3,22 +3,36 @@
 mapUI <- function() {
   ns <- NS("map")
 
-  tagList(
-    sidebarLayout(
-      # Main panel ----
-      mainPanel = mainPanel(
-        div(
-          class = "map-container",
-          id = "map",
-          leafletOutput(ns("map"), width = "100%", height = "720px") |>
-            with_spinner(hide.ui = TRUE)
-        )
-      ),
+  # NOTE: shiny::sidebarLayout() renders the sidebar as <form role="complementary">,
+  # which is an invalid ARIA role for <form>; we build the equivalent bootstrap
+  # grid by hand with a labelled region instead.
+  div(
+    class = "row",
+    # Main panel ----
+    div(
+      class = "col-sm-8",
+      div(
+        class = "map-container",
+        id = "map",
+        role = "region",
+        `aria-label` = "Station map",
+        `aria-describedby` = "map-a11y-note",
+        p(
+          id = "map-a11y-note",
+          class = "visually-hidden",
+          "Interactive map of monitoring stations. Stations on the map can only be selected with a mouse or touch; keyboard and screen reader users can select stations using the station selector or the Station Lists tab below the map. Arrow keys pan the map and plus and minus keys zoom when the map has focus."
+        ),
+        leafletOutput(ns("map"), width = "100%", height = "720px")
+      )
+    ),
 
-      position = "right",
-
-      # Sidebar ----
-      sidebarPanel = sidebarPanel(
+    # Sidebar ----
+    div(
+      class = "col-sm-4",
+      div(
+        class = "well",
+        role = "region",
+        `aria-label` = "Map options",
         ## Station data types ----
         checkboxGroupInput(
           inputId = ns("stn_types"),
@@ -27,29 +41,26 @@ mapUI <- function() {
           selected = stn_type_choices
         ),
 
-        div(
-          "Stations with data from:",
-          class = "control-label",
-          style = "margin: .5rem 0;"
-        ),
-
         ## Stations with data from ----
-        fluidRow(
-          column(
-            width = 5,
+        div(
+          class = "row",
+          style = "margin-top: .5rem;",
+          div(
+            class = "col-5",
             style = "white-space: nowrap;",
             checkboxGroupInput(
               inputId = ns("stn_years"),
-              label = NULL,
+              label = "Stations with data from:",
               choices = stn_year_choices,
               selected = stn_year_choices[1:4]
             ),
           ),
-          column(
-            width = 7,
+          div(
+            class = "col-7",
+            style = "padding-top: 1.6rem;",
             radioButtons(
               inputId = ns("year_exact_match"),
-              label = NULL,
+              label = span(class = "visually-hidden", "Year matching"),
               choices = list(
                 "ANY selected year" = FALSE,
                 "ALL selected years" = TRUE
@@ -70,14 +81,18 @@ mapUI <- function() {
             style = "margin-left: 20px;",
             selectInput(
               inputId = ns("stn_color_measure"),
-              label = NULL,
+              label = span(class = "visually-hidden", "Measured value to color markers by"),
               choices = map_measure_choices
             )
           )
         ),
 
         ## Total stations ----
-        uiOutput(ns("total_stns_text")),
+        # polite live region so filter changes are announced (WCAG 4.1.3)
+        div(
+          `aria-live` = "polite",
+          uiOutput(ns("total_stns_text"))
+        ),
 
         ## Zoom buttons ----
         div(
@@ -299,7 +314,6 @@ mapServer <- function(main_rv, main_session) {
         layers$huc8,
         layers$huc10,
         layers$huc12,
-        layers$dnr_wsheds,
         layers$pins
       )
 
@@ -377,7 +391,8 @@ mapServer <- function(main_rv, main_session) {
             weight = 1,
             options = pathOptions(pane = "counties")
           ) |>
-          # assign leaflet map object to global var 'map'
+          # assign leaflet map object to global var 'map'. (Accessible names for
+          # the icon-only map controls are added in www/scripts.js.)
           htmlwidgets::onRender("() => { map = this; }")
       })
 
@@ -580,8 +595,22 @@ mapServer <- function(main_rv, main_session) {
         )
 
         if (is.null(result$legend)) {
-          # no legend for station types
-          proxy_map |> removeControl("legend")
+          # categorical legend for station types, so the colors are explained
+          # on the map itself and not only in the text above it (WCAG 1.4.1)
+          proxy_map |>
+            addLegend(
+              layerId = "legend",
+              position = "bottomright",
+              title = "Station type",
+              colors = c(
+                stn_colors$baseline,
+                stn_colors$nutrient,
+                stn_colors$thermistor,
+                stn_colors$current
+              ),
+              labels = c("Baseline", "Nutrient", "Thermistor", "Selected station"),
+              opacity = 1
+            )
         } else {
           # add legend with reversed palette and labels
           proxy_map |>
@@ -615,7 +644,10 @@ mapServer <- function(main_rv, main_session) {
             label = ~map_label,
             popup = popups,
             layerId = ~station_id,
-            clusterOptions = markerClusterOptions()
+            clusterOptions = markerClusterOptions(),
+            # alt text for the focusable marker <img>; Enter on a focused
+            # marker opens its popup / selects it like a click
+            options = markerOptions(alt = ~ paste("Station", station_id))
           )
       })
 
@@ -639,7 +671,8 @@ mapServer <- function(main_rv, main_session) {
             label = ~map_label,
             popup = popup,
             layerId = ~station_id,
-            group = "cur_point"
+            group = "cur_point",
+            options = markerOptions(alt = ~ paste("Selected station", station_id))
           )
 
         # solid dot in the current-station color for type mode,
@@ -766,7 +799,9 @@ mapServer <- function(main_rv, main_session) {
       # center map when station changes but only if out of view
       observeEvent(rv$selected_stn, {
         stn <- req(rv$selected_stn)
-        bounds <- input$map_bounds
+        # BUG FIX: map_bounds is NULL until the map has rendered; between()
+        # then returns logical(0) and `if (!in_view)` errors
+        bounds <- req(input$map_bounds)
         in_lat <- between(stn$latitude, bounds$south, bounds$north)
         in_long <- between(stn$longitude, bounds$west, bounds$east)
         in_view <- in_lat & in_long
@@ -867,8 +902,8 @@ mapServer <- function(main_rv, main_session) {
         popup <- paste0(
           popup,
           "<br>
-          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-toggle_watersheds', false, {priority: 'event'})\">Toggle watersheds on map</a> |
-          <a style='cursor:pointer;' onclick=\"Shiny.setInputValue('map-remove_user_loc', true, {priority: 'event'})\">Hide my location</a>
+          <button type='button' class='btn btn-link btn-sm p-0' onclick=\"Shiny.setInputValue('map-toggle_watersheds', false, {priority: 'event'})\">Toggle watersheds on map</button> |
+          <button type='button' class='btn btn-link btn-sm p-0' onclick=\"Shiny.setInputValue('map-remove_user_loc', true, {priority: 'event'})\">Hide my location</button>
         "
         )
         icon <- makeAwesomeIcon(

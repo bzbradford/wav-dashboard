@@ -86,6 +86,19 @@ server <- function(input, output, session) {
       selected <- id
       stn_name <- all_stns[all_stns$station_id == selected, ]$station_name
       rv$initial_stn <- selected
+
+      # BUG FIX: if the station has no data in the default map years it isn't
+      # in the station list, so the bookmarked station silently failed to load
+      # (affected ~half of all stations). Expand the year filter to include it.
+      stn_max_yr <- all_stns[all_stns$station_id == selected, ]$max_fw_year
+      if (!(selected %in% initial_avail_stns$station_id)) {
+        new_years <- union(
+          stn_year_choices[1:4],
+          max(c(as.character(stn_max_yr), last(stn_year_choices)))
+        )
+        updateCheckboxGroupInput(inputId = "map-stn_years", selected = new_years)
+      }
+
       list(
         msg = sprintf(
           "Dashboard loaded with station '%s: %s' selected.",
@@ -99,7 +112,7 @@ server <- function(input, output, session) {
       list(
         msg = sprintf(
           "Station ID specified in URL ('?stn=%s') does not match a station in our list. Loading random station instead.",
-          query
+          id # BUG FIX: was `query`, an undefined variable, so this notice errored
         ),
         type = "error"
       )
@@ -124,6 +137,8 @@ server <- function(input, output, session) {
     # pick the initial station, either from URL or random, on load
     if (rv$init) {
       selected <- req(rv$initial_stn)
+      # wait until the map filters include the initial station (see startup)
+      req(selected %in% stations)
       rv$init <- FALSE
 
       # if current station is still in the list, keep it selected
@@ -152,6 +167,17 @@ server <- function(input, output, session) {
       inputId = "station",
       choices = stations,
       selected = selected
+    )
+  })
+
+  ## cur_stn => announce to screen readers ----
+  # visual users see the map/plots update; screen reader users get a polite
+  # status message (WCAG 4.1.3 Status Messages)
+  observeEvent(rv$cur_stn, {
+    stn <- req(rv$cur_stn)
+    session$sendCustomMessage(
+      "announce",
+      paste("Selected station", stn$label)
     )
   })
 
@@ -272,26 +298,23 @@ server <- function(input, output, session) {
   # Rendered UIs ----
 
   ## bookmark_btn ----
-  # enable/disable URL and title to show current station
-
-  output$bookmark_btn <- renderUI({
-    req(!is.null(rv$bookmarking))
-    if (rv$bookmarking) {
-      actionButton(
-        "bookmarking",
-        icon("bookmark", class = "fa-solid"),
-        class = "stn-btn",
-        style = "background: gold;",
-        title = "Disable showing station in URL and page title"
+  # enable/disable URL and title to show current station. The button is static
+  # in ui.R and only its state is toggled here, so keyboard focus is not lost
+  # by re-rendering it (WCAG 2.4.3), and aria-pressed conveys the state (4.1.2)
+  observeEvent(rv$bookmarking, {
+    on <- isTRUE(rv$bookmarking)
+    runjs(sprintf(
+      "(function(b){ b.classList.toggle('stn-btn-active', %1$s); b.setAttribute('aria-pressed', '%1$s'); b.title = %2$s; })(document.getElementById('bookmarking'))",
+      tolower(on),
+      jsonlite::toJSON(
+        if (on) {
+          "Disable showing station in URL and page title"
+        } else {
+          "Show station in URL and page title so you can share or bookmark this page"
+        },
+        auto_unbox = TRUE
       )
-    } else {
-      actionButton(
-        "bookmarking",
-        icon("bookmark"),
-        class = "stn-btn",
-        title = "Show station in URL and page title so you can share or bookmark this page"
-      )
-    }
+    ))
   })
 
   # Module servers ----

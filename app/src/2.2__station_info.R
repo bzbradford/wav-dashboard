@@ -8,14 +8,14 @@ stationInfoUI <- function() {
       class = "flex-row",
       div(
         class = "flex-col",
-        h4("Station Information"),
+        h2("Station Information", class = "h4"),
         tableOutput(ns("details_tbl")),
       ),
       div(
         class = "flex-col",
-        h4("Station Data Coverage"),
+        h2("Station Data Coverage", class = "h4"),
         tableOutput(ns("coverage_tbl")),
-        h4("View on SWIMS", style = "margin-top: 1rem;"),
+        h2("View on SWIMS", class = "h4", style = "margin-top: 1rem;"),
         p(
           "The",
           a(

@@ -70,9 +70,9 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-/* Smoother focus states */
+/* Focus state: must be clearly visible (WCAG 2.4.7). The previous
+   rgba(0,0,0,.1) shadow was nearly invisible. */
 .accordion-button:focus {
-  box-shadow: 0 0 0 0.25rem rgba(0, 0, 0, 0.1);
   border-color: var(--card-bg-color);
 }
 
@@ -133,11 +133,21 @@ header {
   color: white;
 }
 
+header nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 header a,
 header a:visited,
 header a:focus {
   color: white;
   text-decoration: none;
+}
+
+header a:hover {
+  text-decoration: underline;
 }
 
 #main-content {
@@ -238,16 +248,17 @@ a:focus :not(.btn):not(.fas) {
   padding: 10px;
 }
 
+/* text colors darkened to meet 4.5:1 contrast on the tinted backgrounds */
 .notice-ok {
-  border: 1px solid green;
-  background: rgba(0, 255, 0, 0.1);
-  color: green;
+  border: 1px solid #1e6b1e;
+  background: #e6ffe6;
+  color: #1e6b1e;
 }
 
 .notice-error {
-  border: 1px solid red;
-  background: rgba(255, 0, 0, 0.1);
-  color: red;
+  border: 1px solid #b00020;
+  background: #ffe6e6;
+  color: #b00020;
 }
 
 .notice-text {
@@ -260,6 +271,11 @@ a:focus :not(.btn):not(.fas) {
   margin-left: 10px;
   margin-bottom: 10px;
   cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  font-weight: bold;
+  padding: 0 0.25rem;
 }
 
 .note {
@@ -383,4 +399,150 @@ a:focus :not(.btn):not(.fas) {
 
 .monospace {
   font-family: monospace;
+}
+
+
+/*--- Accessibility ---*/
+
+/* Skip link: hidden until focused (WCAG 2.4.1) */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -100px;
+  z-index: 10000;
+  padding: 0.5rem 1rem;
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+/* Visible keyboard focus indicator everywhere (WCAG 2.4.7). Uses a two-tone
+   outline so it is visible on light, dark, and red (header) backgrounds. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible,
+.nav-link:focus-visible,
+.accordion-button:focus-visible,
+.leaflet-container:focus-visible,
+.selectize-input.focus {
+  outline: 3px solid #1a1a1a !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px #ffffff !important;
+}
+
+header a:focus-visible {
+  outline-color: #ffffff !important;
+  box-shadow: 0 0 0 5px #1a1a1a !important;
+}
+
+/* shinyWidgets radioGroupButtons hide the real radio input; show focus on
+   the visible label button instead */
+.btn-group-container-sw input:focus-visible + .btn,
+.btn-check:focus-visible + .btn {
+  outline: 3px solid #1a1a1a;
+  outline-offset: 2px;
+}
+
+/* Color key used in captions: swatch + text, so meaning isn't color-only */
+.color-key {
+  white-space: nowrap;
+}
+
+.color-swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.25em;
+  border: 1px solid #333333;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+/* Page title (was an h2 with align attr; now the page's single h1) */
+.page-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+/* Footer text (grey #808080 was 3.9:1; #595959 is 7:1) */
+.footer-text {
+  color: #595959;
+  font-size: smaller;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Bookmark button "on" state */
+.stn-btn-active {
+  background: gold !important;
+  color: #1a1a1a !important;
+}
+
+/* Puts an input's real <label> beside it instead of above it (used where a
+   separate unlabeled div used to act as the visual label) */
+.inline-label > .form-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.inline-label > .form-group > .control-label {
+  margin-bottom: 0;
+}
+
+/* Fieldset/legend used to group inputs without default browser styling */
+fieldset.plain-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* Respect users who ask the OS to reduce motion (WCAG 2.3.3 AAA, best
+   practice). Only transitions/smooth scrolling are disabled: shortening
+   animation-duration makes infinite loading spinners spin extremely fast. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Markdown headings were promoted one level (### -> ##) so the outline nests
+   under the page h1; keep their previous visual size */
+.tab-content h2:not([class]) {
+  font-size: 1.5rem;
+}
+
+.tab-content h3:not([class]) {
+  font-size: 1.25rem;
+}
+
+/* Flatly colors tab links with $success (#18bc9c, 2.4:1); use the accessible
+   link color, and dark text for the active tab */
+.nav-tabs .nav-link {
+  color: var(--bs-link-color);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--bs-body-color);
 }

@@ -1,6 +1,121 @@
 ## PDF reports ##
 
+# Rendering --------------------------------------------------------------------
+
+# Whether this R process can produce tagged (accessible, PDF/UA-2) PDFs. NULL =
+# not yet known. Set after the first render attempt so a server whose LaTeX
+# can't tag only pays the failed attempt once.
+report_tagging_ok <- NULL
+
+#' Render a station report PDF
+#'
+#' Tries an accessible, tagged PDF first (LuaLaTeX + LaTeX's tagging support,
+#' via pandoc's `pdfstandard` variable). Tagging needs LaTeX 2025-06 or newer
+#' with the pdfmanagement/tagpdf/latex-lab packages, and does not work with
+#' XeLaTeX. If that fails for any reason, falls back to the previous untagged
+#' XeLaTeX render, so reports always generate.
+#'
+#' @param rmd path to the copied station_report.Rmd (in a temp working dir that
+#'   also contains header.png and the .ttf font files)
+#' @param output_file path of the PDF to write
+#' @param params list(year, stn, data) passed to the Rmd
+#' @return TRUE if the PDF is tagged, FALSE if the untagged fallback was used
+render_station_report <- function(rmd, output_file, params) {
+  work_dir <- dirname(rmd)
+  tagging_yml <- file.path(work_dir, "pdf-tagging.yml")
+  writeLines(
+    c(
+      "pdfstandard:",
+      "  version: \"2.0\"",
+      "  standards: [ua-2]",
+      "  tagging: true"
+    ),
+    tagging_yml
+  )
+
+  render <- function(tagged) {
+    rmarkdown::render(
+      input = rmd,
+      output_file = output_file,
+      params = c(params, list(tagged = tagged)),
+      output_options = if (tagged) {
+        list(
+          latex_engine = "lualatex",
+          pandoc_args = paste0("--metadata-file=", tagging_yml)
+        )
+      },
+      envir = new.env(parent = globalenv()),
+      quiet = TRUE
+    )
+  }
+
+  if (!isFALSE(report_tagging_ok)) {
+    ok <- tryCatch(
+      {
+        render(tagged = TRUE)
+        TRUE
+      },
+      error = function(e) {
+        message("Tagged PDF render failed, falling back to untagged: ", conditionMessage(e))
+        FALSE
+      }
+    )
+    report_tagging_ok <<- ok
+    if (ok) return(TRUE)
+  }
+
+  render(tagged = FALSE)
+  FALSE
+}
+
+
 # Helpers ----------------------------------------------------------------------
+
+# Escape text for use inside LaTeX (e.g. in alt text)
+latex_escape <- function(x) {
+  x <- gsub("\\", "/", x, fixed = TRUE) # alt text never needs a literal backslash
+  x <- gsub("([#$%&_{}])", "\\\\\\1", x)
+  x <- gsub("~", "\\textasciitilde{}", x, fixed = TRUE)
+  x <- gsub("^", "\\textasciicircum{}", x, fixed = TRUE)
+  x <- gsub("[\r\n]+", " ", x)
+  x
+}
+
+#' Emit a figure into the report with alternative text (WCAG 1.1.1 / PDF/UA).
+#'
+#' knitr's default figure output for PDF has no way to attach alt text, so plots
+#' are saved here and included with raw LaTeX. The `alt` key is only emitted for
+#' tagged renders, since very old LaTeX (pre-2021 graphicx) rejects the key.
+#'
+#' @param plot a ggplot or grob; anything else (e.g. a "No data" string or a
+#'   try-error) is printed as text instead
+#' @param alt alternative text describing the figure
+#' @param tagged whether the report is being rendered as a tagged PDF
+report_fig <- function(plot, alt, tagged = FALSE, width = 7, height = 5) {
+  if (!inherits(plot, c("ggplot", "grob", "gtable"))) {
+    cat("\n\n", if (is.character(plot)) plot else "Unable to create this figure.", "\n\n")
+    return(invisible())
+  }
+  dir.create("figures", showWarnings = FALSE)
+  file <- file.path("figures", sprintf("fig-%s.pdf", rlang::hash(list(alt, Sys.time(), runif(1)))))
+  grDevices::cairo_pdf(file, width = width, height = height)
+  if (inherits(plot, "ggplot")) print(plot) else grid::grid.draw(plot)
+  grDevices::dev.off()
+  opts <- if (tagged) {
+    sprintf("width=%sin, alt={%s}", width, latex_escape(alt))
+  } else {
+    sprintf("width=%sin", width)
+  }
+  cat(sprintf("\n\n\\begin{center}\n\\includegraphics[%s]{%s}\n\\end{center}\n\n", opts, file))
+  invisible()
+}
+
+# formats a range of values for alt text
+fmt_range <- function(x, units = "", digits = 3) {
+  x <- na.omit(x)
+  if (length(x) == 0) return("no values")
+  sprintf("%s to %s%s", signif(min(x), digits), signif(max(x), digits), units)
+}
 
 # baseline temperature data normally stored in C, must be converted to F
 report_baseline_cols <- c(
@@ -97,13 +212,15 @@ build_report_summary <- function(params) {
       baseline_counts,
       "."
     )
-    msg <- paste0(
-      msg,
-      " Report downloaded on ",
-      format(Sys.Date(), "%b %d, %Y"),
-      "."
-    )
   }
+
+  # BUG FIX: the download date was only added when there was baseline data
+  msg <- paste0(
+    msg,
+    " Report downloaded on ",
+    format(Sys.Date(), "%b %d, %Y"),
+    "."
+  )
 
   list(counts = counts, has = has, message = msg)
 }
@@ -143,9 +260,9 @@ build_report_baseline_table <- function(baseline) {
   for (col in report_baseline_optional_cols) {
     if (all(is.na(df[[col]]))) df[[col]] <- NULL
   }
-  df <- df |> select(`Date` = formatted_date, any_of(report_baseline_cols))
-  names(df) <- gsub(" (", "\\\n(", names(df), fixed = TRUE) # add line breaks
-  df
+  # BUG FIX: newlines were inserted into the column names here, which broke
+  # the markdown pipe table so it printed as raw "|...|" text in the PDF
+  df |> select(`Date` = formatted_date, any_of(report_baseline_cols))
 }
 
 # summary table
@@ -174,7 +291,8 @@ build_report_fieldwork_comments <- function(baseline) {
     ) |>
     mutate(across(where(is.character), xtable::sanitize)) |>
     rowwise() |>
-    mutate(comments = paste(na.omit(com1, com2), collapse = ". ")) |>
+    # BUG FIX: na.omit(com1, com2) ignored com2 (additional_comments)
+    mutate(comments = paste(na.omit(c(com1, com2)), collapse = ". ")) |>
     mutate(
       fieldwork_desc = str_glue(
         "* **{format(date, '%b %d, %Y')}** - ",
@@ -186,7 +304,9 @@ build_report_fieldwork_comments <- function(baseline) {
       )
     ) |>
     pull(fieldwork_desc) |>
-    gsub("..", ".", ., fixed = TRUE)
+    # BUG FIX: was gsub(..., .) - the magrittr `.` placeholder doesn't work with
+    # the native |> pipe, so this section printed "object '.' not found"
+    gsub(pattern = "..", replacement = ".", fixed = TRUE)
 }
 
 if (FALSE) {
@@ -300,7 +420,7 @@ build_report_map <- function(stn) {
         plot.margin = margin_auto(0)
       )
 
-    gridExtra::grid.arrange(big_plt, inset_plt, nrow = 1)
+    gridExtra::arrangeGrob(big_plt, inset_plt, nrow = 1)
   })
 
   # message(as.numeric(now() - t))
@@ -522,7 +642,8 @@ report_plot_temp <- function(df) {
         geom_line(data = water, aes(color = measure), linewidth = 1.5)
       }
     } +
-    geom_point(aes(fill = measure), size = 4, shape = 21) +
+    # shape as well as color distinguishes air vs water (WCAG 1.4.1)
+    geom_point(aes(fill = measure, shape = measure), size = 4) +
     ggrepel::geom_text_repel(
       aes(label = label),
       size = 3,
@@ -539,13 +660,15 @@ report_plot_temp <- function(df) {
       expand = expansion()
     ) +
     coord_cartesian(xlim = x_lims, ylim = y_lims) +
-    scale_color_manual(values = c("orange", "lightsteelblue")) +
-    scale_fill_manual(values = c("orange", "lightsteelblue")) +
+    scale_color_manual(values = c("orange", "steelblue")) +
+    scale_fill_manual(values = c("orange", "steelblue")) +
+    scale_shape_manual(values = c(21, 24)) +
     labs(
       x = NULL,
       y = "Temperature",
       fill = "Measurement",
-      color = "Measurement"
+      color = "Measurement",
+      shape = "Measurement"
     ) +
     report_plot_theme +
     theme(legend.position = "top")

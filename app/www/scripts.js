@@ -80,3 +80,62 @@ function addTopScroll(dtInstance) {
   // Run once immediately to set initial state
   updateScrollVisibility();
 }
+
+
+// --- Accessibility helpers ---------------------------------------------------
+
+// Announce a message to screen readers via the polite live region in ui.R
+function announce(msg) {
+  var el = document.getElementById('sr-announcer');
+  if (!el) return;
+  el.textContent = '';
+  // small delay so repeated identical messages are still announced
+  setTimeout(function () { el.textContent = msg; }, 100);
+}
+
+if (window.Shiny) {
+  Shiny.addCustomMessageHandler('announce', announce);
+}
+
+// Append a visually-hidden "(opens in new tab)" to links that open a new
+// window, so screen reader users are warned (WCAG 3.2.5 / G201). Runs on
+// load and whenever Shiny inserts new content.
+function markNewTabLinks(root) {
+  (root || document).querySelectorAll('a[target="_blank"]:not([data-newtab])').forEach(function (a) {
+    a.setAttribute('data-newtab', '1');
+    if (!a.getAttribute('rel')) a.setAttribute('rel', 'noopener');
+    var s = document.createElement('span');
+    s.className = 'visually-hidden';
+    s.textContent = ' (opens in new tab)';
+    a.appendChild(s);
+  });
+}
+
+// Leaflet's icon-only controls only have a title tooltip (or nothing);
+// give them accessible names. Re-run on DOM changes because the app re-adds
+// the layers control after load.
+function labelMapControls(root) {
+  (root || document).querySelectorAll('.easy-button-button:not([aria-label])').forEach(function (b) {
+    if (b.title) b.setAttribute('aria-label', b.title);
+    if (b.id === '[object Object]') b.removeAttribute('id');
+  });
+  (root || document).querySelectorAll('.leaflet-control-layers-toggle:not([aria-label])').forEach(function (t) {
+    t.setAttribute('aria-label', 'Map layers and basemaps');
+    t.setAttribute('role', 'button');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  markNewTabLinks(document);
+  labelMapControls(document);
+  new MutationObserver(function (mutations) {
+    mutations.forEach(function (m) {
+      m.addedNodes.forEach(function (n) {
+        if (n.nodeType === 1) {
+          markNewTabLinks(n.parentNode || n);
+          labelMapControls(n.parentNode || n);
+        }
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+});

@@ -48,13 +48,13 @@ watershedInfoUI <- function() {
       "<a href='https://www.usgs.gov/centers/eros/science/national-land-cover-database' target='_blank'>2021 USGS National Land Cover Database</a>"
     ),
     nlcd_classes = HTML(
-      "<a href='https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description' target='_blank'>Click here</a>"
+      "<a href='https://www.mrlc.gov/data/legends/national-land-cover-database-class-legend-and-description' target='_blank'>NLCD land cover class legend and descriptions</a>"
     )
   )
 
   div(
     class = "data-tab",
-    h3("Watersheds"),
+    h2("Watersheds", class = "h3"),
     p(
       strong("What is a watershed?"),
       "NOAA defines a watershed as an area of land that channels rainfall, snowmelt, and runoff into a common body of water. The term \"watershed\" is often used interchangeably with \"drainage basin,\" which may make the concept easier to visualize. A watershed can encompass a small area of land that drains into a trickling creek. It can encompass multiple states in the Midwest, all draining into the Mississippi River. Or it can encompass multiple countries draining into the Atlantic Ocean. No matter where you are standing or sitting right now, you are in a watershed."
@@ -66,25 +66,24 @@ watershedInfoUI <- function() {
       strong(a(
         href = "#map",
         onclick = "Shiny.setInputValue('map-show_watersheds', true, {priority: 'event'})",
-        "click here"
+        "show watershed boundaries on the map"
       )),
-      "to enable these watershed boundaries on the map and explore them yourself."
+      "to explore them yourself."
     ),
-    uiOutput(ns("watershed_info_ui")) |> with_spinner(proxy.height = 200),
-    h4(strong("Landscape composition")),
+    uiOutput(ns("watershed_info_ui")),
+    h3("Landscape composition", class = "h4"),
     p(
       "Landscape composition, defined here as the percent of a given watershed represented by one of several different types of developed, cultivated, or natural landcover classes, can have a significant impact on water quality. Water quality may be impaired in landscapes with high fractions of cultivated crops or developed land, while water quality may be improved where wetlands or forests dominate. Landcover data displayed below is derived from the ",
       links$nlcd,
-      ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). ",
+      ". The watershed is automatically determined based on the current WAV station selected above. Use the buttons below to change the watershed scale from smaller (HUC12) to larger (HUC8). See the ",
       links$nlcd_classes,
-      " for more information and specific definitions of each land cover class."
+      " for specific definitions of each land cover class."
     ),
     div(
-      class = "well flex-row year-btns",
-      div(class = "year-btn-text", em("Landscape scale:")),
+      class = "well year-btns inline-label",
       radioGroupButtons(
         inputId = ns("scale"),
-        label = NULL,
+        label = "Landscape scale:",
         choices = list(
           "Sub-watershed (HUC12)" = 12,
           "Watershed (HUC10)" = 10,
@@ -147,7 +146,7 @@ watershedInfoServer <- function(main_rv) {
       ## selected_name ----
       selected_name <- reactive({
         stn <- cur_stn()
-        case_match(
+        recode_values(
           huc_scale(),
           8 ~ paste(stn$sub_basin, "sub-basin"),
           10 ~ paste(stn$watershed, "watershed"),
@@ -157,7 +156,7 @@ watershedInfoServer <- function(main_rv) {
 
       ## mean_name ----
       mean_name <- reactive({
-        case_match(
+        recode_values(
           huc_scale(),
           8 ~ "All Wisconsin sub-basins",
           10 ~ "All Wisconsin watersheds",
@@ -170,8 +169,9 @@ watershedInfoServer <- function(main_rv) {
       ## watershed_info_ui ----
       output$watershed_info_ui <- renderUI({
         wellPanel(
-          h4(
+          h3(
             "Location and watershed details for selected station:",
+            class = "h4",
             style = "margin-top: 0px;"
           ),
           div(
@@ -188,7 +188,7 @@ watershedInfoServer <- function(main_rv) {
             class = "flex-row",
             div(
               class = "pie-container well",
-              h5(align = "center", strong(selected_name())),
+              h4(class = "h5", align = "center", strong(selected_name())),
               plotlyOutput(ns("cur_ws_plot"), height = "300px"),
               div(
                 class = "plot-caption",
@@ -198,7 +198,7 @@ watershedInfoServer <- function(main_rv) {
             ),
             div(
               class = "pie-container well",
-              h5(align = "center", strong(mean_name())),
+              h4(class = "h5", align = "center", strong(mean_name())),
               plotlyOutput(ns("all_ws_plot"), height = "300px"),
               div(
                 class = "plot-caption",
@@ -215,7 +215,7 @@ watershedInfoServer <- function(main_rv) {
         tagList(
           wellPanel(
             style = "margin-top: 10px;",
-            h5(align = "center", strong("Difference in landscape composition")),
+            h4(class = "h5", align = "center", strong("Difference in landscape composition")),
             div(
               align = "center",
               class = "note",
@@ -240,18 +240,35 @@ watershedInfoServer <- function(main_rv) {
 
       ## cur_ws_plot ----
       output$cur_ws_plot <- renderPlotly({
-        plotly_landscape_pie(selected_data())
+        df <- selected_data()
+        plotly_landscape_pie(df) |>
+          plotly_a11y(paste0(
+            "Pie chart of land cover in the ", selected_name(), ": ",
+            paste0(df$class_name, " ", scales::percent(df$pct_area, .1), collapse = ", "),
+            "."
+          ))
       })
 
       ## all_ws_plot ----
       output$all_ws_plot <- renderPlotly({
-        plotly_landscape_pie(mean_data())
+        df <- mean_data()
+        plotly_landscape_pie(df) |>
+          plotly_a11y(paste0(
+            "Pie chart of average land cover across ", tolower(mean_name()), ": ",
+            paste0(df$class_name, " ", scales::percent(df$pct_area, .1), collapse = ", "),
+            "."
+          ))
       })
 
       ## ws_diff_plot ----
       # shows a barplot of the difference between the current watershed and the state average
       output$ws_diff_plot <- renderPlotly({
-        plotly_landscape_diff(mean_data(), selected_data())
+        plotly_landscape_diff(mean_data(), selected_data()) |>
+          plotly_a11y(paste(
+            "Bar chart of how land cover in the",
+            selected_name(),
+            "differs from the statewide average. The same percentages are given in the two pie charts above."
+          ))
       })
     }
   )

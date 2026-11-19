@@ -28,7 +28,7 @@ stationListUI <- function() {
     div(
       id = "resize_wrapper",
       style = "margin: 1em 0px; padding: 10px; border: 1px solid grey; border-radius: 5px; background: white; min-height: 550px;",
-      dataTableOutput(ns("stn_tbl")) |> with_spinner(proxy.height = 530)
+      dataTableOutput(ns("stn_tbl"))
     ),
     p(uiOutput(ns("dl_btns"))),
     em(
@@ -75,10 +75,7 @@ stationListServer <- function(main_rv) {
           mutate(
             action = if_else(
               station_id %in% stn_list(),
-              sprintf(
-                "<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>",
-                station_id
-              ),
+              map2_chr(station_id, station_name, build_stn_select_btn),
               ""
             ),
             .before = 1
@@ -171,9 +168,11 @@ stationListServer <- function(main_rv) {
         paste0(filename(), ".kml"),
         function(file) {
           cur_stns() |>
-            mutate(Name = paste(StationId, StationName), .before = 1) |>
+            # BUG FIX: columns are snake_case (the clean_names() call that
+            # produced StationId etc. is commented out), so this errored
+            mutate(Name = paste(station_id, station_name), .before = 1) |>
             st_as_sf(
-              coords = c("Longitude", "Latitude"),
+              coords = c("longitude", "latitude"),
               crs = 4326,
               remove = FALSE
             ) |>
@@ -186,9 +185,11 @@ stationListServer <- function(main_rv) {
         paste0(filename(), ".geojson"),
         function(file) {
           cur_stns() |>
-            mutate(Name = paste(StationId, StationName), .before = 1) |>
+            # BUG FIX: columns are snake_case (the clean_names() call that
+            # produced StationId etc. is commented out), so this errored
+            mutate(Name = paste(station_id, station_name), .before = 1) |>
             st_as_sf(
-              coords = c("Longitude", "Latitude"),
+              coords = c("longitude", "latitude"),
               crs = 4326,
               remove = FALSE
             ) |>

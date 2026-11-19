@@ -5,7 +5,7 @@ baselineDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("main_ui_wrapper")) |> with_spinner(),
+    uiOutput(ns("main_ui_wrapper")),
   )
 }
 
@@ -323,7 +323,7 @@ baselineDataServer <- function(main_rv) {
       output$stn_title_ui <- renderUI({
         stn <- cur_stn()
         title <- str_to_title(stn$label)
-        h3(title, align = "center")
+        h2(title, class = "h3", align = "center")
       })
 
       # Plots ----
@@ -331,7 +331,12 @@ baselineDataServer <- function(main_rv) {
       ## annual_plot ----
       output$annual_plot <- renderPlotly({
         df <- annual_stn_data()
-        plotly_baseline(df)
+        plotly_baseline(df) |>
+          plotly_a11y(sprintf(
+            "Chart of baseline measurements (dissolved oxygen, water and air temperature, transparency, and streamflow) for %s in %s. Values are listed in the 'Selected data summary' and 'View/download baseline data' sections below the chart.",
+            cur_stn()$label,
+            input$plot_year
+          ))
       })
 
       ## trend_plot ----
@@ -340,7 +345,15 @@ baselineDataServer <- function(main_rv) {
         type <- req(input$trend_type)
         df <- req(rv$stn_data)
 
-        plotly_baseline_trend(df, value_col, type)
+        param_name <- names(parameter_choices())[parameter_choices() == value_col]
+        plotly_baseline_trend(df, value_col, type) |>
+          plotly_a11y(sprintf(
+            "%s chart of %s over time for %s%s. Individual values are listed in the 'View/download baseline data' section below the chart.",
+            switch(type, scatter = "Line", "Box plot"),
+            param_name,
+            cur_stn()$label,
+            switch(type, month = ", grouped by month", year = ", grouped by year", "")
+          ))
       })
 
       ## macro_plot ----
@@ -348,7 +361,12 @@ baselineDataServer <- function(main_rv) {
         stn <- cur_stn()
         type <- req(input$macro_type)
 
-        plotly_macros(stn$station_id, type)
+        plotly_macros(stn$station_id, type) |>
+          plotly_a11y(sprintf(
+            "Heatmap showing which macroinvertebrate species groups were present or absent at %s on each %s sampled.",
+            stn$label,
+            if (type == "annual") "year" else "date"
+          ))
       })
 
       ## ribbon_plot_ui ----
@@ -363,7 +381,10 @@ baselineDataServer <- function(main_rv) {
       output$ribbon_plot <- renderPlotly({
         df <- req(rv$stn_data)
 
-        plotly_baseline_ribbon(df)
+        plotly_baseline_ribbon(df) |>
+          plotly_a11y(
+            "Heatmap showing which baseline parameters were measured in each month, with darker shading for higher values. Values are listed in the 'View/download baseline data' section."
+          )
       })
 
       # Plot download button ----
@@ -415,13 +436,11 @@ baselineDataServer <- function(main_rv) {
             div(
               class = "flex-row align-center",
               uiOutput(ns("dt_year_ui")),
-              uiOutput(ns("dt_transpose_ui")),
               div(
-                class = "flex-row align-center",
-                div(class = "control-label", "Show observations in:"),
+                class = "inline-label",
                 radioGroupButtons(
                   inputId = ns("dt_transpose"),
-                  label = NULL,
+                  label = "Show observations in:",
                   size = "sm",
                   choices = c("Columns", "Rows")
                 )
@@ -462,11 +481,10 @@ baselineDataServer <- function(main_rv) {
           last(yr_choices)
         }
         div(
-          class = "flex-row align-center",
-          div(class = "control-label", "Show data for:"),
+          class = "inline-label",
           radioGroupButtons(
             inputId = ns("dt_year"),
-            label = NULL,
+            label = "Show data for:",
             size = "sm",
             choices = yr_choices,
             selected = selected

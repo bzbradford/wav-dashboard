@@ -6,7 +6,7 @@ stnReportUI <- function() {
   tagList(
     div(
       class = "data-tab",
-      uiOutput(ns("main_ui")) |> with_spinner()
+      uiOutput(ns("main_ui"))
     )
   )
 }
@@ -81,10 +81,12 @@ stnReportServer <- function(main_rv) {
           mutate(
             `Download<br>report` = lapply(Year, function(yr) {
               tags$button(
-                HTML("<i class='fas fa-download'></i>"),
+                HTML("<i class='fas fa-download' aria-hidden='true'></i>"),
                 "Download PDF",
+                type = "button",
                 id = paste0("report-btn-", yr),
                 class = "btn btn-default btn-sm",
+                `aria-label` = paste("Download", yr, "PDF report"),
                 onclick = sprintf(
                   "Shiny.setInputValue('%s', %s, {priority: 'event'});",
                   ns("year"),
@@ -101,25 +103,36 @@ stnReportServer <- function(main_rv) {
       ## mainUI ----
       output$main_ui <- renderUI({
         tagList(
-          h4("Station", cur_stn()$label, align = "center"),
-          tags$span(em("Station data summary:")),
+          h2("Station", cur_stn()$label, class = "h4", align = "center"),
+          p(
+            id = "report-tbl-caption",
+            em("Station data summary: number of observations of each type by year, with a button to download each year's PDF report.")
+          ),
           div(
             align = "center",
             class = "report-tbl",
             style = "overflow: auto;",
-            dataTableOutput(ns("avail_reports_tbl")) |> with_spinner(),
+            dataTableOutput(ns("avail_reports_tbl")),
           ),
+          # hidden download link triggered by the per-year buttons; removed
+          # from the accessibility tree and tab order
           div(
             style = "visibility: hidden; height: 0px;",
-            downloadButton(ns("download")),
+            `aria-hidden` = "true",
+            downloadButton(ns("download"), tabindex = "-1"),
           ),
+          # announces report progress to screen readers (WCAG 4.1.3)
+          div(id = "report-status", class = "visually-hidden", role = "status", `aria-live` = "polite"),
           div(
             id = "report-msg-container",
             class = "notice notice-error",
+            role = "alert",
             style = "margin-top: 1em; display: none;",
-            div(
-              HTML("&#10006;"),
-              style = "float: right; cursor: pointer;",
+            tags$button(
+              type = "button",
+              class = "notice-close",
+              `aria-label` = "Dismiss error message",
+              HTML("&#x2715;"),
               onclick = "this.parentElement.style.display = 'none';"
             ),
             div(id = "report-msg")
@@ -141,6 +154,9 @@ stnReportServer <- function(main_rv) {
         rownames = FALSE,
         filter = "none",
         extensions = "FixedColumns",
+        callback = JS(
+          "table.table().node().setAttribute('aria-describedby', 'report-tbl-caption');"
+        ),
         options = list(
           paging = FALSE,
           searching = FALSE,
@@ -201,12 +217,19 @@ stnReportServer <- function(main_rv) {
         runjs(
           "document.querySelectorAll('[id^=report-btn-]').forEach((btn) => {btn.disabled = true;})"
         )
+        status <- function(msg) {
+          runjs(sprintf(
+            "document.querySelector('#report-status').textContent = %s;",
+            jsonlite::toJSON(msg, auto_unbox = TRUE)
+          ))
+        }
         tryCatch(
           {
             runjs(sprintf(
               "document.querySelector('#report-btn-%s').innerHTML = 'Please wait...';",
               yr
             ))
+            status(sprintf("Creating the %s PDF report. This may take up to a minute.", yr))
             temp_rmd <- file.path(temp_dir, "report.Rmd")
             file.copy("report/station_report.Rmd", temp_rmd, overwrite = TRUE)
             file.copy("report/header.png", temp_dir, overwrite = TRUE)
@@ -216,8 +239,9 @@ stnReportServer <- function(main_rv) {
                 file.copy(f, temp_dir)
               }
             )
-            rmarkdown::render(
-              input = temp_rmd,
+            # tries an accessible tagged PDF, falls back to untagged
+            render_station_report(
+              rmd = temp_rmd,
               output_file = temp_out,
               params = list(
                 year = yr,
@@ -230,17 +254,25 @@ stnReportServer <- function(main_rv) {
               "document.querySelector('#report-btn-%s').innerHTML = 'Downloaded!';",
               yr
             ))
+            status(sprintf("The %s PDF report has been downloaded.", yr))
           },
           error = function(e) {
             runjs(sprintf(
               "document.querySelector('#report-btn-%s').innerHTML = 'Error';",
               yr
             ))
-            runjs(sprintf(
-              "document.querySelector('#report-msg').innerHTML = 'Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s';",
+            # BUG FIX: message was interpolated into a single-quoted JS string
+            # and assigned to innerHTML, so station names or error messages
+            # containing quotes broke the script (and allowed HTML injection)
+            msg <- sprintf(
+              "Failed to create the %s report for %s. Please email WAV staff and we will get it fixed. Error: %s",
               yr,
               report$stn$label,
-              e$message
+              conditionMessage(e)
+            )
+            runjs(sprintf(
+              "document.querySelector('#report-msg').textContent = %s;",
+              jsonlite::toJSON(msg, auto_unbox = TRUE)
             ))
             runjs(
               "document.querySelector('#report-msg-container').style.display = null;"

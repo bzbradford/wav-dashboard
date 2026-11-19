@@ -56,10 +56,13 @@ recentStationsServer <- function(main_rv) {
 
       # Recents table ----------------------------------------------------------
 
-      btn_for_stn <- function(id) {
+      # icon is decorative; screen readers get the text instead (emoji
+      # check/cross marks are announced inconsistently)
+      sr_icon <- function(icon, text) {
         sprintf(
-          "<a class='btn btn-default btn-sm' style='cursor: pointer; text-decoration: none;' id=%s onclick=\"Shiny.setInputValue('recent_stn', this.id, {priority: 'event'}); Shiny.setInputValue('station', this.id);\">Select</a>",
-          id
+          "<span aria-hidden='true'>%s</span><span class='visually-hidden'>%s</span>",
+          icon,
+          text
         )
       }
 
@@ -71,15 +74,19 @@ recentStationsServer <- function(main_rv) {
         tibble(station_id = ids) |>
           left_join(all_stns, join_by(station_id)) |>
           mutate(
-            arrow = if_else(station_id == stn$station_id, "\u27a4", ""),
-            action = btn_for_stn(station_id),
+            arrow = if_else(
+              station_id == stn$station_id,
+              sr_icon("\u27a4", "Current station"),
+              ""
+            ),
+            action = map2_chr(station_id, station_name, build_stn_select_btn),
             across(
               c(baseline_stn, nutrient_stn, therm_stn),
-              ~ if_else(.x, "\u2705", "\u274c")
+              ~ if_else(.x, sr_icon("\u2705", "Yes"), sr_icon("\u274c", "No"))
             ),
           ) |>
           select(
-            ` ` = arrow,
+            Current = arrow,
             Action = action,
             ID = station_id,
             Name = station_name,
@@ -93,7 +100,8 @@ recentStationsServer <- function(main_rv) {
       output$table <- renderDataTable(
         recent_stns_table(),
         server = FALSE,
-        rownames = TRUE,
+        # row numbers removed: they rendered as an unlabeled, empty column header
+        rownames = FALSE,
         selection = "none",
         escape = FALSE,
         options = list(
@@ -104,9 +112,9 @@ recentStationsServer <- function(main_rv) {
           bSort = FALSE,
           bInfo = FALSE,
           columnDefs = list(
-            list(targets = 0:7, className = "align-middle"),
-            list(targets = c(1, 3), className = "dt-right"),
-            list(targets = c(0, 2, 5, 6, 7), className = "dt-center")
+            list(targets = 0:6, className = "align-middle"),
+            list(targets = 2, className = "dt-right"),
+            list(targets = c(0, 1, 4, 5, 6), className = "dt-center")
           )
         )
       )

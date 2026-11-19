@@ -538,7 +538,9 @@ macro_colorscale <- local({
 })
 
 macro_add_missing_years <- function(df) {
-  missing_yrs <- setdiff(2015:2025, unique(df$year))
+  # BUG FIX: was hard-coded to 2015:2025
+  last_yr <- max(c(df$year, as.numeric(stn_data_years)), na.rm = TRUE)
+  missing_yrs <- setdiff(2015:last_yr, unique(df$year))
   if (length(missing_yrs) > 0) {
     df <- df |>
       bind_rows(tibble(
@@ -735,7 +737,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       add_lines(
         x = ~date,
         y = ~lower,
-        name = "Lower 90% CI",
+        name = "Lower 80% CI",
         opacity = 0.5,
         line = list(color = ci_color, width = 0.5)
       ) |>
@@ -749,7 +751,7 @@ plotly_nutrient <- function(df, phoslimit, phos_estimate) {
       add_lines(
         x = ~date,
         y = ~upper,
-        name = "Upper 90% CI",
+        name = "Upper 80% CI",
         opacity = 0.5,
         line = list(color = ci_color, width = 0.5)
       )

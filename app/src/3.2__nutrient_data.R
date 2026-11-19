@@ -5,7 +5,7 @@ nutrientDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("main_ui_wrapper")) |> with_spinner(),
+    uiOutput(ns("main_ui_wrapper")),
   )
 }
 
@@ -91,13 +91,13 @@ nutrientDataServer <- function(main_rv) {
           uiOutput(ns("year_select_ui")),
           div(
             id = "nutrient-plot-container",
-            h3(textOutput(ns("stn_title_text")), align = "center"),
+            h2(textOutput(ns("stn_title_text"), inline = TRUE), class = "h3", align = "center"),
             plotlyOutput(ns("plot")),
             div(
               class = "plot-caption",
               "The dashed line on this plot indicates the total phosphorus state exceedance level of 0.075 mg/L (ppm). If more than one month of data was collected, the median and 80% confidence interval for the true total phosphorus level are displayed as a horizontal band. A zero value indicates the submitted sample was below the limit of detection.",
               br(),
-              strong(uiOutput(ns("phos_text")))
+              strong(textOutput(ns("phos_text"), inline = TRUE))
             ),
           ),
           div(
@@ -123,12 +123,11 @@ nutrientDataServer <- function(main_rv) {
       output$year_select_ui <- renderUI({
         yrs <- stn_years()
         div(
-          class = "well flex-row year-btns",
+          class = "well year-btns inline-label",
           style = "margin-bottom: 1rem;",
-          div(class = "control-label", "Choose year:"),
           radioGroupButtons(
             inputId = ns("year"),
-            label = NULL,
+            label = "Choose year:",
             choices = year_choices(yrs),
             selected = first_truthy(
               intersect(isolate(input$year), yrs),
@@ -151,11 +150,30 @@ nutrientDataServer <- function(main_rv) {
 
       ## plot ----
       output$plot <- renderPlotly({
+        est <- phos_estimate()
         plotly_nutrient(
           df = selected_data(),
           phoslimit = phoslimit,
-          phos_estimate = phos_estimate()
-        )
+          phos_estimate = est
+        ) |>
+          plotly_a11y(sprintf(
+            "Bar chart of %s total phosphorus samples for %s (%s), compared with the state criterion of %s mg/L%s. %s Individual values are listed in the 'View/download nutrient data' section.",
+            est$n,
+            cur_stn()$label,
+            input$year,
+            phoslimit,
+            if (est$n > 1) {
+              sprintf(
+                "; median %s mg/L, confidence interval %s to %s mg/L",
+                est$median,
+                est$lower,
+                est$upper
+              )
+            } else {
+              ""
+            },
+            get_phos_exceedance_text(est)
+          ))
       })
 
       ## plot_dl_btn ----
@@ -194,22 +212,20 @@ nutrientDataServer <- function(main_rv) {
             div(
               class = "flex-row align-center",
               div(
-                class = "flex-row align-center",
-                div(class = "control-label", "Show data for:"),
+                class = "inline-label",
                 radioGroupButtons(
                   inputId = ns("dt_year"),
-                  label = NULL,
+                  label = "Show data for:",
                   size = "sm",
                   choices = yr_choices,
                   selected = last(yr_choices)
                 )
               ),
               div(
-                class = "flex-row align-center",
-                div(class = "control-label", "Show observations in:"),
+                class = "inline-label",
                 radioGroupButtons(
                   inputId = ns("dt_transpose"),
-                  label = NULL,
+                  label = "Show observations in:",
                   size = "sm",
                   choices = c("Columns", "Rows")
                 )
@@ -267,12 +283,16 @@ nutrientDataServer <- function(main_rv) {
       )
 
       ## dl_cur_yr ----
+      # BUG FIX: filename must be a function; as a plain value it is a promise
+      # forced once on the first download and then reused for every station
       output$dl_cur_data <- downloadHandler(
-        filename = sprintf(
-          "WAV Stn %s Phosphorus Data (%s).csv",
-          cur_stn()$station_id,
-          req(input$dt_year)
-        ),
+        filename = function() {
+          sprintf(
+            "WAV Stn %s Phosphorus Data (%s).csv",
+            cur_stn()$station_id,
+            req(input$dt_year)
+          )
+        },
         content = function(file) {
           write_csv(stn_dl_data(), file, na = "")
         }

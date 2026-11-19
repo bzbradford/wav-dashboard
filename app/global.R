@@ -210,13 +210,17 @@ year_choices <- function(years) {
 }
 
 
+# Shows a color swatch followed by the (bold, normal-colored) text label. The
+# text itself is not colored: many of the plot/map colors (orange, lightsteelblue,
+# deepskyblue, etc.) fail WCAG 1.4.3 text contrast on a white background, and
+# the color name in the text means meaning is not conveyed by color alone (1.4.1).
 colorize <- function(text, color = tolower(text)) {
   HTML(paste0(
-    "<span style='font-weight:bold; color:",
+    "<span class='color-key'><span class='color-swatch' aria-hidden='true' style='background-color:",
     color,
-    "'>",
+    "'></span><strong>",
     text,
-    "</span>"
+    "</strong></span>"
   ))
 }
 
@@ -237,29 +241,32 @@ set_page_url <- function(id) {
 set_page_title <- function(label) {
   if (!is.null(label)) {
     title <- sprintf("Station %s - WAV Dashboard", str_trunc(label, 40))
-    shinyjs::runjs(sprintf("document.title = '%s'", title))
+    # JSON-encode so names containing quotes/apostrophes don't break the JS
+    shinyjs::runjs(sprintf(
+      "document.title = %s",
+      jsonlite::toJSON(title, auto_unbox = TRUE)
+    ))
   } else {
     shinyjs::runjs("document.title = 'WAV Data Dashboard'")
   }
 }
 
-with_spinner <- function(ui, ...) {
-  shinycssloaders::withSpinner(ui, type = 8, color = "#30a67d", ...)
-}
-
+# A real <button> (not <a onclick> with no href) so it is keyboard focusable
+# and announced as a button (WCAG 2.1.1, 4.1.2)
 build_plot_download_btn <- function(id, filename, text = "Download plot") {
-  a(
+  tags$button(
+    type = "button",
     class = "btn btn-default btn-sm",
-    style = "cursor: pointer;",
     title = paste0("Save a copy of this plot as '", filename, "'"),
     onclick = sprintf(
-      "html2canvas(document.querySelector('%s'), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), '%s')})",
-      id,
-      filename
+      "html2canvas(document.querySelector(%s), {scale: 3}).then(canvas => {saveAs(canvas.toDataURL(), %s)})",
+      jsonlite::toJSON(id, auto_unbox = TRUE),
+      jsonlite::toJSON(filename, auto_unbox = TRUE)
     ),
-    icon("save"),
+    icon("save", `aria-hidden` = "true"),
     " ",
-    text
+    text,
+    span(class = "visually-hidden", "as a PNG image")
   )
 }
 
@@ -269,9 +276,12 @@ build_notice_ui <- function(content, type = c("ok", "error")) {
   renderUI({
     div(
       class = class,
-      div(
+      role = if (type == "error") "alert" else "status",
+      tags$button(
+        type = "button",
         class = "notice-close",
-        "✕",
+        `aria-label` = "Dismiss notice",
+        HTML("&#x2715;"),
         onclick = "document.querySelector('#notice').remove()"
       ),
       div(class = "notice-text", content)
@@ -279,14 +289,43 @@ build_notice_ui <- function(content, type = c("ok", "error")) {
   })
 }
 
-build_link <- function(text, href, title = text, ...) {
+# External link that opens in a new tab. A visually-hidden "(opens in new tab)"
+# is appended client-side to all target=_blank links by www/scripts.js.
+build_link <- function(text, href, title = NULL, ...) {
   a(
     text,
     href = href,
-    title = href,
+    title = title,
     .noWS = "outside",
     target = "_blank",
+    rel = "noopener",
     ...
+  )
+}
+
+# A visible "Select" button for a station row in a DT table. Uses <button> so
+# it is keyboard operable, with a unique accessible name per row.
+build_stn_select_btn <- function(id, name = NULL) {
+  label <- if (is.null(name)) {
+    paste("Select station", id)
+  } else {
+    paste0("Select station ", id, ": ", htmltools::htmlEscape(name, attribute = TRUE))
+  }
+  sprintf(
+    "<button type='button' class='btn btn-default btn-sm' data-stn='%s' aria-label='%s' onclick=\"Shiny.setInputValue('recent_stn', this.dataset.stn, {priority: 'event'}); Shiny.setInputValue('station', this.dataset.stn);\">Select</button>",
+    id,
+    label
+  )
+}
+
+# Adds role="img" and an accessible name/description to an htmlwidget (plotly)
+# container. Plotly SVG output is not exposed to screen readers in a useful way,
+# so we describe the chart and point to the equivalent data table (WCAG 1.1.1).
+plotly_a11y <- function(plt, label) {
+  htmlwidgets::onRender(
+    plt,
+    "function(el, x, label) { el.setAttribute('role', 'img'); el.setAttribute('aria-label', label); }",
+    data = label
   )
 }
 
@@ -558,7 +597,9 @@ get_phos_estimate <- function(vals) {
     log_vals <- log(vals + .001)
     log_mean <- mean(log_vals)
     se <- sd(log_vals) / sqrt(n)
-    tval <- qt(p = 0.80, df = n - 1)
+    # two-sided 80% confidence interval -> 90th percentile of t (10% in each
+    # tail). Was qt(0.80), which produced a 60% interval.
+    tval <- qt(p = 0.90, df = n - 1)
   })
   params <- list(
     mean = log_mean,
@@ -609,6 +650,10 @@ get_phos_exceedance_text <- function(vals, limit = phoslimit) {
       "However, less than the required 6 monthly measurements were taken at this station."
     )
   }
+
+  # BUG FIX: previously the function ended on the `if` above, so it returned
+  # NULL (no text at all) whenever 6 or more samples were collected
+  msg
 }
 
 

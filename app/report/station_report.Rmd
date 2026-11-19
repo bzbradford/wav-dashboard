@@ -2,6 +2,13 @@
 output:
   pdf_document:
     latex_engine: xelatex
+# Accessibility metadata: document title shown by PDF readers/screen readers
+# (instead of the file name), document language, author and subject.
+# Values are sanitized so quotes in station names can't break the YAML.
+title-meta: "`r gsub('[^A-Za-z0-9 :,.()-]', '', paste0('WAV ', params$year, ' Fieldwork Report - Station ', params$stn$station_id, ' ', params$stn$station_name))`"
+author-meta: "Water Action Volunteers, UW-Madison Division of Extension"
+subject: "Stream monitoring data summary"
+lang: en-US
 fontsize: 11pt
 geometry: left=.75in, right=.75in, top=1in, bottom=1in
 header-includes:
@@ -13,10 +20,14 @@ header-includes:
   - \usepackage{enumitem} # list spacing
   - \usepackage{fontspec} # set font
   - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
+  # tagged PDFs: treat the first row of each table as header cells (TH)
+  - \ifdefined\tagpdfsetup\tagpdfsetup{table/header-rows={1}}\fi
 params:
   year: NA
   stn: NA
   data: NA
+  # set by render_station_report(): TRUE when rendering an accessible tagged PDF
+  tagged: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -37,13 +48,15 @@ safe_label <- gsub("[^A-Za-z0-9: ]", "", stn$label) |>
 
 # convert temperatures from C to F
 baseline <- params$data$baseline |>
-  mutate(formatted_date = format(date, "%b %d")) |> # nbsp = alt+255
+  mutate(formatted_date = format(date, "%b %d")) |> # non-breaking space keeps "May 25" on one line
   mutate(across(where(is.character), ~ gsub("\\\\r\\\\n", " ", .x)))
 nutrient <- params$data$nutrient
 thermistor <- params$data$thermistor
 
 report_summary <- build_report_summary(params)
 has <- report_summary$has
+tagged <- isTRUE(params$tagged)
+fig <- function(plot, alt, ...) report_fig(plot, alt, tagged = tagged, ...)
 ```
 
 ```{r interp, include=FALSE}
@@ -156,16 +169,27 @@ if (has$streamflow) {
 
 
 
-```{r}
-knitr::include_graphics("header.png", error = FALSE, dpi = 300)
+```{r header}
+cat(sprintf(
+  "\\begin{center}\\includegraphics[width=\\linewidth%s]{header.png}\\end{center}\n\n",
+  if (tagged) ", alt={Water Action Volunteers}" else ""
+))
 ```
 
 \begin{center}
 \Large{\textbf{`r params$year` WAV Fieldwork Report - `r stn$station_name`}}
 \end{center}
 
-```{r stn-map, fig.width=7, fig.height=3.5}
-build_report_map(stn)
+```{r stn-map}
+fig(
+  build_report_map(stn),
+  alt = sprintf(
+    "Location map. Left: map of Wisconsin with a red triangle marking the station in %s County. Right: close-up of the surrounding streams, waterbodies, and watershed boundaries.",
+    stn$county_name
+  ),
+  width = 7,
+  height = 3.5
+)
 ```
 
 ## Station information
@@ -299,7 +323,11 @@ if (has$air_temp || has$water_temp) {
   p("# Baseline Temperature Measurements")
   baseline |>
     build_report_plot("temp") |>
-    print()
+    fig(alt = sprintf(
+      "Line chart of air and water temperature on each sampling date, over shaded bands for the Natural Community temperature classes. Air temperature ranged %s and water temperature %s. Values are summarized in the table below.",
+      fmt_range(c_to_f(baseline$air_temp), " F"),
+      fmt_range(c_to_f(baseline$water_temp), " F")
+    ))
   baseline |>
     mutate(across(c(air_temp, water_temp), c_to_f)) |>
     summarize_report_cols(c(
@@ -322,7 +350,12 @@ if (has$thermistor) {
   p("# Hourly Temperature Logger Measurements")
   thermistor |>
     build_report_plot(type = "thermistor") |>
-    print()
+    fig(alt = sprintf(
+      "Line chart of hourly water temperature from a continuous temperature logger, %s to %s, with the daily mean and daily range, over shaded bands for the Natural Community temperature classes. Hourly temperatures ranged %s.",
+      format(min(thermistor$date), "%B %d"),
+      format(max(thermistor$date), "%B %d"),
+      fmt_range(thermistor$temp_f, " F")
+    ))
   p(
     "_On the chart above, Natural Community temperature classifications are shown as shaded bands._"
   )
@@ -343,7 +376,10 @@ if (has$d_o) {
   p("# Baseline Dissolved Oxygen Measurements")
   baseline |>
     build_report_plot(type = "d_o") |>
-    print()
+    fig(alt = sprintf(
+      "Bar chart of dissolved oxygen on each sampling date, over shaded bands showing the levels needed by different aquatic life. Dissolved oxygen ranged %s. Values are summarized in the table below.",
+      fmt_range(baseline$d_o, " mg/L")
+    ))
   baseline |>
     summarize_report_cols(c(
       `DO (mg/L)` = "d_o",
@@ -366,7 +402,10 @@ if (has$ph) {
   p("# Baseline pH Measurements")
   baseline |>
     build_report_plot(type = "ph") |>
-    print()
+    fig(alt = sprintf(
+      "Chart of pH on each sampling date, with the water quality standard range of 6 to 9 shaded and the optimal value of 7.5 marked. pH ranged %s.",
+      fmt_range(baseline$ph)
+    ))
   baseline |>
     summarize_report_cols(c(
       `pH` = "ph"
@@ -394,7 +433,10 @@ if (has$specific_cond) {
   p("# Baseline Conductivity Measurements")
   baseline |>
     build_report_plot(type = "cond") |>
-    print()
+    fig(alt = sprintf(
+      "Line chart of specific conductance on each sampling date, over shaded bands for high and potentially toxic chloride levels. Specific conductance ranged %s.",
+      fmt_range(baseline$specific_cond, " microsiemens per cm")
+    ))
   baseline |>
     summarize_report_cols(c(
       `Specific conductance (μS/cm)` = "specific_cond"
@@ -416,7 +458,10 @@ if (has$transparency) {
   p("# Baseline Transparency / Water Clarity Measurements")
   baseline |>
     build_report_plot(type = "trans") |>
-    print()
+    fig(alt = sprintf(
+      "Bar chart of water transparency on each sampling date, shown against the length of the transparency tube. Transparency ranged %s.",
+      fmt_range(baseline$transparency, " cm")
+    ))
   baseline |>
     summarize_report_cols(c(
       `Transparency (cm)` = "transparency"
@@ -440,7 +485,10 @@ if (has$streamflow) {
   p("# Baseline Streamflow Measurements")
   baseline |>
     build_report_plot(type = "flow") |>
-    print()
+    fig(alt = sprintf(
+      "Line chart of streamflow on each sampling date, over shaded bands for stream size classes. Streamflow ranged %s.",
+      fmt_range(baseline$streamflow, " cubic feet per second")
+    ))
   baseline |>
     summarize_report_cols(c(
       `Streamflow (cfs)` = "streamflow"
@@ -468,7 +516,24 @@ if (has$nutrient) {
   p("# Total Phosphorus Measurements")
   nutrient |>
     build_report_plot(type = "nutrient") |>
-    print()
+    fig(alt = paste(
+      sprintf(
+        "Bar chart of %s total phosphorus samples compared with the state criterion of %s mg/L (red line). Samples ranged %s; bars above the criterion are orange.",
+        phos_estimate$n,
+        phoslimit,
+        fmt_range(nutrient$tp, " mg/L")
+      ),
+      if (phos_estimate$n > 1) {
+        sprintf(
+          "The shaded band shows the median (%s mg/L) and its confidence interval (%s to %s mg/L).",
+          phos_estimate$median,
+          phos_estimate$lower,
+          phos_estimate$upper
+        )
+      } else {
+        ""
+      }
+    ))
   nutrient |>
     summarize_report_cols(c(
       `Total phosphorus (mg/L)` = "tp"

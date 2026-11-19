@@ -5,7 +5,7 @@ thermistorDataUI <- function() {
 
   div(
     class = "data-tab",
-    uiOutput(ns("ui")) |> with_spinner(),
+    uiOutput(ns("ui")),
   )
 }
 
@@ -103,8 +103,8 @@ thermistorDataServer <- function(main_rv) {
           uiOutput(ns("plot_opts_ui")),
           div(
             id = "therm-plot-container",
-            h3(textOutput(ns("stn_title")), align = "center"),
-            plotlyOutput(ns("plot")) |> with_spinner(hide.ui = FALSE),
+            h2(textOutput(ns("stn_title"), inline = TRUE), class = "h3", align = "center"),
+            plotlyOutput(ns("plot")),
             uiOutput(ns("plot_caption_ui")),
             uiOutput(ns("natural_community_ui"))
           ),
@@ -116,7 +116,7 @@ thermistorDataServer <- function(main_rv) {
             style = "margin-top: 1em; margin-bottom: 2em;",
             includeMarkdown("md/thermistor_info.md")
           ),
-          h3("Station data summary and downloads"),
+          h2("Station data summary and downloads", class = "h3"),
           uiOutput(ns("stn_data_ui"))
         )
       })
@@ -131,11 +131,10 @@ thermistorDataServer <- function(main_rv) {
         req(nrow(df) > 0)
         yrs <- sort(unique(df$year))
         div(
-          class = "well flex-row year-btns",
-          div(class = "year-btn-text", em("Choose year:")),
+          class = "well year-btns inline-label",
           radioGroupButtons(
             inputId = ns("year"),
-            label = NULL,
+            label = "Choose year:",
             choices = year_choices(yrs),
             selected = first_truthy(
               intersect(isolate(input$year), yrs),
@@ -150,26 +149,21 @@ thermistorDataServer <- function(main_rv) {
       ## plot_opts_ui----
       output$plot_opts_ui <- renderUI({
         tagList(
-          p(
-            div(
-              style = "float: left; margin-right: 1em;",
-              strong("Temperature units:")
-            ),
+          # real input labels instead of floated <strong> text (WCAG 1.3.1)
+          div(
+            class = "inline-label",
             radioButtons(
               inputId = ns("units"),
-              label = NULL,
+              label = "Temperature units:",
               inline = TRUE,
               choices = list("Fahrenheit" = "F", "Celsius" = "C")
             )
           ),
-          p(
-            div(
-              style = "float: left; margin-right: 1em;",
-              strong("Optional plot annotations:")
-            ),
+          div(
+            class = "inline-label",
             radioButtons(
               inputId = ns("annotations"),
-              label = NULL,
+              label = "Optional plot annotations:",
               inline = TRUE,
               choices = list(
                 "Warm/cool/coldwater classification" = "wtemp",
@@ -209,7 +203,15 @@ thermistorDataServer <- function(main_rv) {
             arrange(date)
         }
 
-        plotly_thermistor(df_hourly, df_daily, units, annot)
+        plotly_thermistor(df_hourly, df_daily, units, annot) |>
+          plotly_a11y(sprintf(
+            "Line chart of hourly and daily mean water temperature (degrees %s) from a temperature logger at %s, %s. Temperatures ranged from %s to %s degrees. Monthly, daily, and hourly values are listed in the tables under 'Station data summary and downloads'.",
+            if (units == "F") "Fahrenheit" else "Celsius",
+            cur_stn()$label,
+            if (input$year == "All") "all years" else input$year,
+            round(min(daily_data()$min), 1),
+            round(max(daily_data()$max), 1)
+          ))
       })
 
       ## plot_caption_ui ----
@@ -453,12 +455,15 @@ thermistorDataServer <- function(main_rv) {
       )
 
       ## dl_daily ----
+      # BUG FIX: filename must be a function (see nutrient tab)
       output$dl_daily <- downloadHandler(
-        filename = sprintf(
-          "WAV Stn %s Daily Temperature Data (%s).csv",
-          cur_stn()$station_id,
-          req(input$year)
-        ),
+        filename = function() {
+          sprintf(
+            "WAV Stn %s Daily Temperature Data (%s).csv",
+            cur_stn()$station_id,
+            req(input$year)
+          )
+        },
         content = function(file) {
           write_csv(daily_data(), file, na = "")
         }
@@ -466,11 +471,13 @@ thermistorDataServer <- function(main_rv) {
 
       ## dl_hourly ----
       output$dl_hourly <- downloadHandler(
-        sprintf(
-          "WAV Stn %s Hourly Temperature Data (%s).csv",
-          cur_stn()$station_id,
-          input$year
-        ),
+        function() {
+          sprintf(
+            "WAV Stn %s Hourly Temperature Data (%s).csv",
+            cur_stn()$station_id,
+            req(input$year)
+          )
+        },
         function(file) {
           write_csv(selected_data(), file, na = "")
         }

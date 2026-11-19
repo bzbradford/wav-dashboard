@@ -3,9 +3,16 @@
 ui <- fluidPage(
   # Settings ----
   title = "WAV Data Dashboard",
+  lang = "en",
   theme = bs_theme(
     version = 5,
-    bootswatch = "flatly"
+    bootswatch = "flatly",
+    # Accessibility: Flatly's default link color (#18bc9c, 2.4:1) and secondary
+    # button color (#95a5a6, 2.6:1 with white text) fail WCAG 1.4.3 contrast.
+    # These darker values keep the palette but pass AA (>= 4.5:1).
+    secondary = "#5d6d6e",
+    "link-color" = "#11745a",
+    "link-hover-color" = "#0b5240"
   ),
 
   # Head ----
@@ -27,15 +34,27 @@ ui <- fluidPage(
     useShinyjs(),
   ),
 
+  # Native Shiny busy indicators (replaces shinycssloaders): a spinner on
+  # each output while it recalculates, plus a page-level pulse bar
+  useBusyIndicators(spinners = TRUE, pulse = TRUE),
+  busyIndicatorOptions(spinner_color = "#30a67d"),
+
   # Body ----
+  # skip link lets keyboard users bypass the header (WCAG 2.4.1)
+  a(class = "skip-link", href = "#main-content", "Skip to main content"),
+
+  # screen-reader announcements (station changes etc), see scripts.js
+  div(id = "sr-announcer", class = "visually-hidden", `aria-live` = "polite", role = "status"),
+
   tags$header(
-    div(
+    tags$nav(
+      `aria-label` = "UW-Madison Extension and WAV websites",
       style = "display: inline-flex; gap: 1rem;",
       build_link(
         "University of Wisconsin-Madison Extension",
         href = "https://extension.wisc.edu/"
       ),
-      "|",
+      span("|", `aria-hidden` = "true"),
       build_link(
         "Water Action Volunteers Program",
         href = "https://www.wateractionvolunteers.org"
@@ -43,8 +62,9 @@ ui <- fluidPage(
     ),
   ),
 
-  div(
+  tags$main(
     id = "main-content",
+    tabindex = "-1",
 
     div(
       div(
@@ -54,7 +74,7 @@ ui <- fluidPage(
           img(
             src = "wav-logo-round.png",
             height = "150px",
-            title = "Visit the Water Action Volunteers website"
+            alt = "Water Action Volunteers logo. Visit the WAV website."
           ),
           href = "https://www.wateractionvolunteers.org"
         )
@@ -62,7 +82,7 @@ ui <- fluidPage(
     ),
 
     ## Page heading ----
-    h2("Stream Monitoring Data Dashboard", align = "center"),
+    h1("Stream Monitoring Data Dashboard", class = "page-title"),
 
     ## Notices on load ----
     uiOutput("notice"),
@@ -80,7 +100,8 @@ ui <- fluidPage(
         colorize(stn_colors$thermistor),
         " (stations may have more than one type of data). Currently selected station is shown in ",
         colorize("blue", stn_colors$current),
-        ". Click on any station to select it, or choose from the list below the map."
+        ". Click on any station to select it, or choose from the list below the map. ",
+        "Keyboard and screen reader users can select stations with the station selector and station lists below the map; the map is not required to use the dashboard."
       ))))
     ),
 
@@ -92,8 +113,9 @@ ui <- fluidPage(
     ),
 
     ## Station tabs ----
-    div(
+    tags$section(
       id = "stn-selector-content",
+      `aria-label` = "Station selection",
       div(
         class = "well",
         style = "padding: 15px;",
@@ -105,10 +127,9 @@ ui <- fluidPage(
               class = "flex-row stn-select",
               div(
                 class = "flex-col",
-                title = "Currently selected station",
                 selectInput(
                   inputId = "station",
-                  label = NULL,
+                  label = span(class = "visually-hidden", "Currently selected station"),
                   choices = list()
                 ),
               ),
@@ -116,23 +137,33 @@ ui <- fluidPage(
                 class = "stn-btns",
                 actionButton(
                   "prev_stn",
-                  icon("arrow-left"),
+                  icon("arrow-left", `aria-hidden` = "true"),
                   class = "stn-btn",
-                  title = "Next closest station West"
+                  title = "Next closest station west",
+                  `aria-label` = "Next closest station west"
                 ),
                 actionButton(
                   "next_stn",
-                  icon("arrow-right"),
+                  icon("arrow-right", `aria-hidden` = "true"),
                   class = "stn-btn",
-                  title = "Next closes station East"
+                  title = "Next closest station east",
+                  `aria-label` = "Next closest station east"
                 ),
                 actionButton(
                   "rnd_stn",
-                  icon("random"),
+                  icon("random", `aria-hidden` = "true"),
                   class = "stn-btn",
-                  title = "Random station"
+                  title = "Random station",
+                  `aria-label` = "Random station"
                 ),
-                uiOutput("bookmark_btn", inline = TRUE)
+                actionButton(
+                  "bookmarking",
+                  icon("bookmark", `aria-hidden` = "true"),
+                  class = "stn-btn",
+                  title = "Show station in URL and page title so you can share or bookmark this page",
+                  `aria-label` = "Show station in URL and page title",
+                  `aria-pressed` = "false"
+                )
               )
             ),
             div(
@@ -149,8 +180,9 @@ ui <- fluidPage(
     ),
 
     ## Data tabs ----
-    div(
+    tags$section(
       id = "data-tab-content",
+      `aria-label` = "Station data",
       style = "margin-top: 30px;",
       tabsetPanel(
         id = "data_tabs",
@@ -181,8 +213,7 @@ ui <- fluidPage(
     br(),
     hr(),
     p(
-      style = "color: grey; font-size: smaller; font-style: italic;",
-      align = "center",
+      class = "footer-text",
       "Dashboard developed by ",
       build_link(
         "Ben Bradford",
