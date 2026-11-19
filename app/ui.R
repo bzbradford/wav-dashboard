@@ -44,7 +44,12 @@ ui <- fluidPage(
   a(class = "skip-link", href = "#main-content", "Skip to main content"),
 
   # screen-reader announcements (station changes etc), see scripts.js
-  div(id = "sr-announcer", class = "visually-hidden", `aria-live` = "polite", role = "status"),
+  div(
+    id = "sr-announcer",
+    class = "visually-hidden",
+    `aria-live` = "polite",
+    role = "status"
+  ),
 
   tags$header(
     tags$nav(
@@ -91,18 +96,9 @@ ui <- fluidPage(
     div(
       style = "margin: 0.5em 1em;",
       align = "center",
-      p(em(HTML(paste0(
-        "Baseline stations are shown in ",
-        colorize(stn_colors$baseline),
-        ", total phosphorus monitoring stations in ",
-        colorize(stn_colors$nutrient),
-        ", and temperature logging stations in ",
-        colorize(stn_colors$thermistor),
-        " (stations may have more than one type of data). Currently selected station is shown in ",
-        colorize("blue", stn_colors$current),
-        ". Click on any station to select it, or choose from the list below the map. ",
-        "Keyboard and screen reader users can select stations with the station selector and station lists below the map; the map is not required to use the dashboard."
-      ))))
+      p(em(
+        "Welcome to the WAV Dashboard! Click on any station on the map to select it, or choose from the list below the map. "
+      ))
     ),
 
     ## Map and sidebar ----
@@ -129,7 +125,10 @@ ui <- fluidPage(
                 class = "flex-col",
                 selectInput(
                   inputId = "station",
-                  label = span(class = "visually-hidden", "Currently selected station"),
+                  label = span(
+                    class = "visually-hidden",
+                    "Currently selected station"
+                  ),
                   choices = list()
                 ),
               ),
