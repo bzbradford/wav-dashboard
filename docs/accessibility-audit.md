@@ -130,6 +130,15 @@ Tagged: no      Metadata Stream: no     PDF version: 1.7    (no Title / Author /
 - *History:* MiKTeX 25.4 had a 2025-11 kernel but no `pdfmanagement`. I installed it with the owner's approval. The tagged build then failed with `\__tag_AssignStructureRole … Undefined control sequence` because the existing `tagpdf`/`latex-lab` are older than the new `pdfmanagement`. The generated `.tex` was checked and is correct (`\DocumentMetadata` present, 9 `alt=` figures). **Next step for the owner:** update MiKTeX (MiKTeX Console → Updates, or `miktex packages update`), then run `Rscript test/render_test_report.R` and confirm `Tagged PDF: TRUE` and `pdfinfo` → `Tagged: yes`.
 - **Production (connect.doit.wisc.edu):** the server's TeX installation is managed by DoIT. Ask DoIT which TeX Live version is installed and whether it can be TeX Live 2025+ (with `latex-lab`, `pdfmanagement-testphase`/`pdfmanagement`, and `tagpdf`). Until then the fallback keeps reports working, untagged.
 - **Cosmetic follow-up:** under LuaLaTeX the header logo PNG shows a faint gray background box (probably how its alpha channel is handled). Flattening `header.png` onto white would fix it.
+- **Kill switch:** set the environment variable **`WAV_PDF_TAGGING=false`** in Posit Connect (content → Vars) to skip the tagged attempt and render untagged directly. It also accepts `0`, `no`, or `off`. Unset or `true` means try tagged first. Don't put it in `app/.Renviron`, because that file is deployed.
+- **Server request (DoIT), sent 2026-11-19.** Specifics:
+  - **TeX Live 2025 or newer** (LaTeX kernel ≥ 2025-06-01; TL 2026 preferred), kept current with `tlmgr update --self --all`.
+  - **LuaLaTeX** (`luahbtex` + `luaotfload`). Tagging does not support XeLaTeX.
+  - Tagging packages at **matching versions**: `latex-lab`, `tagpdf`, `pdfmanagement-testphase`, `l3kernel`, `l3backend`.
+  - `babel` + **`babel-english`**. The current server is missing this; its absence caused the production error *"Package babel Error: You haven't specified a language option"*.
+  - Packages the report loads: amsmath amssymb array bookmark booktabs calc enumitem etoolbox fancyhdr fontspec footnotehyper geometry graphicx hyperref iftex lastpage lmodern longtable microtype parskip selnolig titlesec unicode-math upquote xcolor xurl.
+  - The simplest way to get all of the above: TeX Live **scheme-full**, or at least `collection-latexrecommended`, `collection-luatex`, `collection-fontsrecommended`, and `collection-langenglish`.
+  - On a tagged-render failure the app now logs a `LaTeX setup:` line (lualatex version, LaTeX format date, and whether `tagpdf.sty`, `pdfmanagement-init.sty`, `latex-lab-testphase-table.sty`, and `american.ldf` are found) to confirm the server state.
 - **Validate** tagged output with [veraPDF](https://verapdf.org/) (PDF/UA-2 profile; needs Java) or PAC (PDF Accessibility Checker, Windows), and spot-check with a screen reader. Neither was available in this session.
 - **Fallback cost:** when tagging is unsupported, the first report in each R process takes about 30 s longer (one failed LuaLaTeX attempt). Set `report_tagging_ok <- FALSE` in `global.R` to skip the attempt entirely if needed.
 - **Alternative if server LaTeX can't be upgraded:** offer an accessible HTML version of the report (`rmarkdown::html_document`), which is far easier to make WCAG-conformant, next to the PDF.
@@ -211,3 +220,12 @@ Tagged: no      Metadata Stream: no     PDF version: 1.7    (no Title / Author /
 **2026-11-19 (round 3)**
 - Owner updated MiKTeX, and tagged PDF rendering now works locally. Independently re-rendered station 413814 / 2025 and verified the structure tree (see P1 notes).
 - Committed on `accessibility-audit` and merged to `main` (owner request). **Before deploying:** ask DoIT about TeX Live on connect.doit.wisc.edu. Until it supports tagging, production reports use the untagged fallback.
+
+**2026-11-19 (round 4: production failure)**
+- **R3 (regression, fixed):** report downloads failed on Connect. Both attempts errored with `Package babel Error: You haven't specified a language option`.
+  - Cause: I had put `lang: en-US` in the Rmd YAML, which makes pandoc load `babel` in *both* the tagged and the untagged render. The server's TeX lacks `babel-english`, so the "safety net" had a new dependency. MiKTeX's auto-install hid this locally.
+  - Fix: `lang` now goes only into the tagged-mode metadata file. The untagged render is back to the original package set. The PDF language for untagged renders is set with `\AddToHook{package/hyperref/after}{\hypersetup{pdflang=en-US}}`, guarded by `\ifdefined\AddToHook` so very old LaTeX ignores it. (An `\AtBeginDocument` version ran too late for hyperref to write `/Lang`.)
+  - Verified: the untagged `.tex` contains no babel and no `\DocumentMetadata`, and the PDF has `/Lang(en-US)` plus title metadata. The tagged render still works (`Tagged: yes`, PDF 2.0, `/Lang (en-US)`).
+- Added the `WAV_PDF_TAGGING` env var kill switch and the `LaTeX setup:` diagnostic log line.
+- Hardened `report_fig()` to use `pdf()` when R lacks cairo support.
+- **Lesson:** anything the fallback depends on must be tested on the target server's TeX (or a minimal TinyTeX), not only on a machine that auto-installs packages.

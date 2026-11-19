@@ -5,7 +5,41 @@
 # Whether this R process can produce tagged (accessible, PDF/UA-2) PDFs. NULL =
 # not yet known. Set after the first render attempt so a server whose LaTeX
 # can't tag only pays the failed attempt once.
+#
+# Set the environment variable WAV_PDF_TAGGING=false (e.g. in Posit Connect's
+# Vars panel) to skip the tagged attempt entirely.
 report_tagging_ok <- NULL
+
+pdf_tagging_enabled <- function() {
+  !(tolower(Sys.getenv("WAV_PDF_TAGGING", "true")) %in% c("false", "0", "no", "off"))
+}
+
+# logs the LaTeX setup once, to help diagnose servers that can't tag PDFs
+log_latex_version <- function() {
+  info <- tryCatch(
+    {
+      lua <- system2("lualatex", "--version", stdout = TRUE, stderr = TRUE)[1]
+      ltx <- system2("kpsewhich", "latex.ltx", stdout = TRUE, stderr = TRUE)[1]
+      # first {YYYY-MM-DD} in latex.ltx is the kernel's \fmtversion
+      fmt <- "unknown"
+      if (!is.na(ltx) && file.exists(ltx)) {
+        src <- paste(readLines(ltx, n = 2000, warn = FALSE), collapse = "\n")
+        m <- regmatches(src, regexpr("20[0-9]{2}-[0-9]{2}-[0-9]{2}", src))
+        if (length(m)) fmt <- m
+      }
+      pkgs <- c("tagpdf.sty", "pdfmanagement-init.sty", "latex-lab-testphase-table.sty", "american.ldf")
+      found <- vapply(pkgs, function(f) nzchar(suppressWarnings(system2("kpsewhich", f, stdout = TRUE, stderr = FALSE))[1] %||% ""), logical(1))
+      sprintf(
+        "%s | LaTeX format %s | %s",
+        lua,
+        fmt,
+        paste0(pkgs, ": ", ifelse(found, "found", "MISSING"), collapse = ", ")
+      )
+    },
+    error = function(e) paste("could not query LaTeX:", conditionMessage(e))
+  )
+  message("LaTeX setup: ", info)
+}
 
 #' Render a station report PDF
 #'
@@ -15,6 +49,10 @@ report_tagging_ok <- NULL
 #' XeLaTeX. If that fails for any reason, falls back to the previous untagged
 #' XeLaTeX render, so reports always generate.
 #'
+#' The untagged render must stay identical to the pre-accessibility setup
+#' (no `lang`, which makes pandoc load babel and needs babel-english), since
+#' it is the safety net.
+#'
 #' @param rmd path to the copied station_report.Rmd (in a temp working dir that
 #'   also contains header.png and the .ttf font files)
 #' @param output_file path of the PDF to write
@@ -23,12 +61,15 @@ report_tagging_ok <- NULL
 render_station_report <- function(rmd, output_file, params) {
   work_dir <- dirname(rmd)
   tagging_yml <- file.path(work_dir, "pdf-tagging.yml")
+  # `lang` is only set for tagged renders: \DocumentMetadata needs it, but it
+  # also makes pandoc load babel, which the untagged fallback must not depend on
   writeLines(
     c(
       "pdfstandard:",
       "  version: \"2.0\"",
       "  standards: [ua-2]",
-      "  tagging: true"
+      "  tagging: true",
+      "lang: en-US"
     ),
     tagging_yml
   )
@@ -49,7 +90,7 @@ render_station_report <- function(rmd, output_file, params) {
     )
   }
 
-  if (!isFALSE(report_tagging_ok)) {
+  if (pdf_tagging_enabled() && !isFALSE(report_tagging_ok)) {
     ok <- tryCatch(
       {
         render(tagged = TRUE)
@@ -57,6 +98,7 @@ render_station_report <- function(rmd, output_file, params) {
       },
       error = function(e) {
         message("Tagged PDF render failed, falling back to untagged: ", conditionMessage(e))
+        log_latex_version()
         FALSE
       }
     )
@@ -98,7 +140,13 @@ report_fig <- function(plot, alt, tagged = FALSE, width = 7, height = 5) {
   }
   dir.create("figures", showWarnings = FALSE)
   file <- file.path("figures", sprintf("fig-%s.pdf", rlang::hash(list(alt, Sys.time(), runif(1)))))
-  grDevices::cairo_pdf(file, width = width, height = height)
+  # cairo handles the unicode in labels (°, µ) best; fall back to pdf() on
+  # servers built without cairo support
+  if (isTRUE(capabilities("cairo"))) {
+    grDevices::cairo_pdf(file, width = width, height = height)
+  } else {
+    grDevices::pdf(file, width = width, height = height)
+  }
   if (inherits(plot, "ggplot")) print(plot) else grid::grid.draw(plot)
   grDevices::dev.off()
   opts <- if (tagged) {

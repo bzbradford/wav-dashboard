@@ -8,7 +8,6 @@ output:
 title-meta: "`r gsub('[^A-Za-z0-9 :,.()-]', '', paste0('WAV ', params$year, ' Fieldwork Report - Station ', params$stn$station_id, ' ', params$stn$station_name))`"
 author-meta: "Water Action Volunteers, UW-Madison Division of Extension"
 subject: "Stream monitoring data summary"
-lang: en-US
 fontsize: 11pt
 geometry: left=.75in, right=.75in, top=1in, bottom=1in
 header-includes:
@@ -20,6 +19,9 @@ header-includes:
   - \usepackage{enumitem} # list spacing
   - \usepackage{fontspec} # set font
   - \setmainfont[BoldFont={timesbd.ttf}, ItalicFont={timesi.ttf}, BoldItalicFont={timesbi.ttf}]{times.ttf}
+  # PDF document language without babel (lang: is only set for tagged renders,
+  # see render_station_report()), so the untagged fallback needs no extra packages
+  - \ifdefined\AddToHook\AddToHook{package/hyperref/after}{\hypersetup{pdflang=en-US}}\fi
   # tagged PDFs: treat the first row of each table as header cells (TH)
   - \ifdefined\tagpdfsetup\tagpdfsetup{table/header-rows={1}}\fi
 params:
