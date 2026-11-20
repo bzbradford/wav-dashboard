@@ -605,10 +605,9 @@ mapServer <- function(main_rv, main_session) {
               colors = c(
                 stn_colors$baseline,
                 stn_colors$nutrient,
-                stn_colors$thermistor,
-                stn_colors$current
+                stn_colors$thermistor
               ),
-              labels = c("Baseline", "Nutrient", "Thermistor", "Selected station"),
+              labels = c("Baseline", "Nutrient", "Thermistor"),
               opacity = 1
             )
         } else {

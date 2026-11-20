@@ -168,7 +168,7 @@ ui <- fluidPage(
             div(
               class = "note",
               style = "margin-top: 5px;",
-              "To search for a station by name or ID, delete the text above and start typing. Click the bookmark icon above to show the station ID in the browser URL and page title (for sharing a site or bookmarking the page to easily return to it). You can also search for stations in the Station Lists tab."
+              "To search for a station by name or ID, click the box above and start typing. Click the bookmark icon above to show the station ID in the browser URL and page title (for sharing a site or bookmarking the page to easily return to it). You can also search for stations in the Station Lists tab."
             )
           ),
           tabPanel("Recently Viewed Stations", recentStationsUI()),

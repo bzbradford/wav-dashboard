@@ -340,12 +340,66 @@ a:focus :not(.btn):not(.fas) {
   flex: 1;
 }
 
+/* station selector: dropdown on the left, buttons on the right, one line */
+.stn-select {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+/* the selectInput label only holds a visually-hidden span, but the label
+   element itself still renders as an empty line above the dropdown; hide the
+   whole label visually while keeping it available to screen readers */
+.stn-select .control-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.stn-select .selectize-control {
+  margin-bottom: 0;
+}
+
+/* focused single-select: hide the selected item and show its label as
+   placeholder text so typing starts a search (see ghostSelectize in
+   scripts.js). #6c757d on white is 4.7:1, passing WCAG AA contrast. */
+.selectize-input.wav-ghost > .item {
+  display: none !important;
+}
+
+.selectize-input.wav-ghost > input {
+  max-width: 100% !important;
+  text-overflow: ellipsis;
+}
+
+/* just picked an option: keep focus but hide the caret so it doesn't sit on
+   top of the end of the selected label */
+.selectize-input.wav-settled > input {
+  caret-color: transparent;
+}
+
+.selectize-input.wav-ghost > input::placeholder {
+  color: #6c757d;
+  opacity: 1;
+}
+
+.stn-btns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
 .stn-btn {
   width: 34px;
   height: 34px;
   padding: 0;
   font-weight: bold;
-  margin-left: 4px;
 }
 
 .year-btns {
@@ -389,11 +443,12 @@ a:focus :not(.btn):not(.fas) {
 @media screen and (max-width: 600px) {
   .stn-select {
     flex-direction: column;
+    align-items: stretch;
     margin-bottom: 1em;
   }
 
   .stn-btns {
-    text-align: center;
+    justify-content: center;
   }
 }
 
@@ -443,6 +498,14 @@ summary:focus-visible,
   outline: 3px solid #1a1a1a !important;
   outline-offset: 2px;
   box-shadow: 0 0 0 5px #ffffff !important;
+}
+
+/* selectize's inner text input sits inside .selectize-input, which already
+   gets the focus ring above; a second ring on the tiny inner input paints a
+   white box over the end of the selected label */
+.selectize-input > input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 header a:focus-visible {
