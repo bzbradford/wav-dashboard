@@ -79,6 +79,7 @@ if (FALSE) {
 tic("Loading .RData")
 
 load(".RData") # created in setup.R
+set.seed(NULL) # discard the random seed restored from .RData
 
 toc()
 
@@ -309,7 +310,12 @@ build_stn_select_btn <- function(id, name = NULL) {
   label <- if (is.null(name)) {
     paste("Select station", id)
   } else {
-    paste0("Select station ", id, ": ", htmltools::htmlEscape(name, attribute = TRUE))
+    paste0(
+      "Select station ",
+      id,
+      ": ",
+      htmltools::htmlEscape(name, attribute = TRUE)
+    )
   }
   sprintf(
     "<button type='button' class='btn btn-default btn-sm' data-stn='%s' aria-label='%s' onclick=\"Shiny.setInputValue('recent_stn', this.dataset.stn, {priority: 'event'}); Shiny.setInputValue('station', this.dataset.stn);\">Select</button>",
