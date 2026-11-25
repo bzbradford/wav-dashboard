@@ -588,11 +588,11 @@ validation_rules <- tribble(
   "water_temp"                 ,   -1 ,   30 , TRUE     ,        -2 ,        40 , "f_to_c"   ,
   "d_o"                        ,    0 ,   25 , FALSE    ,         0 , Inf       , NA         ,
   "d_o_saturation"             ,    0 ,  180 , FALSE    ,         0 , Inf       , NA         ,
-  "ph"                         ,    4 ,   11 , TRUE     ,         1 ,        14 , NA         ,
+  "ph"                         ,    6 ,    9 , TRUE     ,         1 ,        14 , NA         ,
   "specific_cond"              ,    5 , 5000 , FALSE    ,         0 , Inf       , "ms_to_us" ,
   "transparency"               ,    0 ,  120 , TRUE     ,         0 , Inf       , "cap_tube" ,
   "stream_width"               ,    0 ,  150 , TRUE     ,         0 , Inf       , NA         ,
-  "average_stream_depth"       ,    0 ,   20 , TRUE     ,         0 , Inf       , NA         ,
+  "average_stream_depth"       ,    0 ,    6 , TRUE     ,         0 , Inf       , NA         ,
   "length_assessed"            ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
   "cross_sectional_area"       ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
   "average_surface_velocity"   ,    0 ,    6 , TRUE     ,         0 , Inf       , NA         ,
@@ -860,7 +860,7 @@ flow_calc_fsn <- issues_all |>
 issues_flow_calc <- baseline_clean |>
   filter(fsn %in% flow_calc_fsn$fsn) |>
   mutate(
-    missing = pmap_chr(
+    reason = pmap_chr(
       list(
         velocity_correction_factor,
         stream_width,
@@ -870,34 +870,39 @@ issues_flow_calc <- baseline_clean |>
       ),
       \(vcf, w, d, l, v) {
         m <- c(
-          "the velocity correction factor (0.8 for a rocky bottom or 0.9 for a muddy/sandy bottom)"[
-            is.na(vcf)
-          ],
           "stream width"[is.na(w) || w == 0],
           "stream depths"[is.na(d) || d == 0],
           "length assessed"[is.na(l) || l == 0],
           "float times"[is.na(v) || v == 0]
         )
-        if (length(m) == 0) {
-          return(NA_character_)
+        zero_part <- if (length(m) > 0) {
+          paste0(
+            if (length(m) == 1) {
+              m
+            } else {
+              paste(paste(m[-length(m)], collapse = ", "), "and", last(m))
+            },
+            if (length(m) > 1 || str_detect(m, "s$")) " are" else " is",
+            " missing or zero"
+          )
         }
-        if (length(m) == 1) {
-          m
-        } else {
-          paste(paste(m[-length(m)], collapse = ", "), "and", last(m))
+        # VCF is a SWIMS drop-down (blank, 0.8 or 0.9), so it can only be unset
+        vcf_part <- if (is.na(vcf)) {
+          "no velocity correction factor was selected (0.8 for a rocky bottom or 0.9 for a muddy/sandy bottom)"
         }
+        parts <- c(zero_part, vcf_part)
+        if (length(parts) == 0) NA_character_ else paste(parts, collapse = " and ")
       }
     ),
     measure = "flow_calculation",
     status = "incomplete",
     problem = if_else(
-      is.na(missing),
+      is.na(reason),
       "SWIMS couldn't calculate streamflow from the measurements entered. Please check the flow measurements.",
       paste0(
         "SWIMS couldn't calculate streamflow because ",
-        missing,
-        if_else(str_detect(missing, " and |depths$|times$"), " are", " is"),
-        " missing or zero. Please fill in the missing values."
+        reason,
+        ". Please fill in the missing values."
       )
     )
   ) |>
@@ -943,7 +948,11 @@ issues_simple <- issues_all |>
   filter(
     !str_starts(measure, "calc_"),
     !swims_calc_failed,
-    !(measure == "streamflow" & fsn %in% flow_flagged_fsn$fsn)
+    !(measure == "streamflow" & fsn %in% flow_flagged_fsn$fsn),
+    # TODO: SWIMS lets volunteers pick mS/cm or µS/cm, but the export doesn't
+    # include the units column yet, so skip conductivity issues until the
+    # queries are updated
+    measure != "specific_cond"
   ) |>
   left_join(measure_labels, by = "measure") |>
   mutate(
@@ -956,33 +965,35 @@ issues_simple <- issues_all |>
         ),
       status == "not_a_number" & !is.na(entered) ~
         str_glue(
-          "Entered \"{entered}\", which isn't a number, so it isn't shown on the dashboard. Please enter a number only (no units or other text), or leave it blank if it wasn't measured."
+          "Entered \"{entered}\", which isn't a number. Please enter a number only (no units or other text), or leave it blank if it wasn't measured."
         ),
       status == "not_a_number" ~
-        "This value isn't a number, so it isn't shown on the dashboard.",
+        "This value isn't a number. Please enter a number only, or leave it blank if it wasn't measured.",
       status == "removed" & value == 0 ~
         str_glue(
-          "A value of 0 isn't possible, so it isn't shown on the dashboard. If this wasn't measured, please leave it blank; otherwise please correct it."
+          "A value of 0 isn't possible. If this wasn't measured, please leave it blank; otherwise please correct it."
         ),
       status == "removed" & fix %in% "f_to_c" ~
         str_glue(
-          "{val} isn't possible, even if it was recorded in °F, so it isn't shown on the dashboard. Please check the value."
+          "{val} isn't possible, even if it was recorded in °F. Please check the value."
         ),
       status == "removed" ~
         str_glue(
-          "{val} isn't possible (expected {range_text(hard_min, hard_max, units)}), so it isn't shown on the dashboard. Please check the value, or delete it if it wasn't measured."
+          "{val} isn't possible (expected {range_text(hard_min, hard_max, units)}). Please check the value, or delete it if it wasn't measured."
         ),
       status == "converted" & fix %in% "f_to_c" ~
         str_glue(
-          "{fmt_num(value)} looks like it was recorded in °F, so the dashboard shows it as {new_val}. Please change it to °C in SWIMS."
+          "{fmt_num(value)} looks like it was recorded in °F, but SWIMS expects °C. Did you mean to enter {new_val}?"
         ),
-      status == "converted" & fix %in% "ms_to_us" ~
-        str_glue(
-          "{fmt_num(value)} looks like it was entered in mS/cm, so the dashboard shows it as {new_val}. Please enter specific conductance in µS/cm."
-        ),
+      # conductivity issues are filtered out above until the SWIMS export
+      # includes the units column
+      # status == "converted" & fix %in% "ms_to_us" ~
+      #   str_glue(
+      #     "{fmt_num(value)} looks like it was entered in mS/cm, but SWIMS expects µS/cm. Did you mean to enter {new_val}?"
+      #   ),
       status == "capped" ~
         str_glue(
-          "{val} is more than the {fmt_num(tube_length)} cm tube length, so the dashboard shows {new_val}. Please check the transparency reading and tube length."
+          "{val} is more than the {fmt_num(tube_length)} cm tube length. Please check the transparency reading and tube length."
         ),
       status == "flagged" & value == 0 ~
         str_glue(
