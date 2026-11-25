@@ -21,6 +21,33 @@ MAX_DATE <- as_date("2026-12-31") # SET THIS
 # load functions
 source("functions.R")
 
+
+# SWIMS link builders ----
+
+# (the app has its own copy of the *_link functions in app/global.R)
+
+swims_fw_url <- function(seq_no) {
+  str_glue(
+    "https://apps.dnr.wi.gov/swims/Fieldwork/FieldworkDetails?id={seq_no}"
+  )
+}
+
+swims_stn_url <- function(seq_no) {
+  str_glue("https://apps.dnr.wi.gov/swims/Stations/StationDetails?id={seq_no}")
+}
+
+swims_fw_link <- function(seq_no, link_text = seq_no) {
+  str_glue(
+    "<a title='View on SWIMS' href='{swims_fw_url(seq_no)}' target='_blank'>{link_text}</a>"
+  )
+}
+
+swims_stn_link <- function(seq_no, link_text = seq_no) {
+  str_glue(
+    "<a title='View on SWIMS' href='{swims_stn_url(seq_no)}' target='_blank'>{link_text}</a>"
+  )
+}
+
 # SHAPEFILES ===================================================================
 
 # update and export shapefiles if needed. Will take a few min
@@ -197,7 +224,7 @@ baseline_raw <- baseline_xl |>
   mutate(date = as_date(datetime), .after = datetime) |>
   mutate(suppressWarnings(across(c(fsn, station_id), as.integer))) |>
   distinct(fsn, station_id, date, .keep_all = T) |>
-  filter(date >= "2015-1-1")
+  filter(between(date, as_date("2015-1-1"), MAX_DATE))
 
 # collect and record non-numeric entries
 baseline_nan <- baseline_raw |>
@@ -285,7 +312,7 @@ flow_raw <- flow_xl |>
   mutate(date = as_date(datetime), .after = datetime) |>
   mutate(across(c(fsn, station_id), as.integer)) |>
   distinct(fsn, station_id, date, .keep_all = T) |>
-  filter(date >= "2015-1-1")
+  filter(between(date, as_date("2015-1-1"), MAX_DATE))
 
 # identify bad values
 flow_nan <- flow_raw |>
@@ -383,6 +410,7 @@ macro_raw <- macro_xl |>
   arrange(datetime)
 
 macro_obs <- macro_raw |>
+  filter(date <= MAX_DATE) |>
   drop_na(biotic_index_score) |>
   mutate(across(ends_with("_animals"), as.integer)) |>
   mutate(across(biotic_index_score, to_numeric)) |>
@@ -546,28 +574,61 @@ if (FALSE) {
   validate(bd$biotic_index_score)
 }
 
-# apply validation to select columns
-validation_actions <- tribble(
-  ~measure                     , ~min , ~max , ~action  ,
-  "air_temp"                   ,  -40 ,   40 , "f_to_c" ,
-  "water_temp"                 ,  -40 ,   40 , "f_to_c" ,
-  "d_o"                        ,    0 ,   25 , "keep"   ,
-  "d_o_saturation"             ,    0 ,  180 , "keep"   ,
-  "calc_do_sat_conc"           ,    0 ,   25 , "keep"   ,
-  "calc_do_sat"                ,    0 ,  180 , "keep"   ,
-  "calc_do_sat_diff"           ,  -20 ,   20 , "keep"   ,
-  "ph"                         ,    4 ,   11 , "keep"   ,
-  "specific_cond"              ,    5 , 5000 , "keep"   ,
-  "transparency"               ,    0 ,  120 , "cap"    ,
-  "stream_width"               ,    0 ,  150 , "keep"   ,
-  "average_stream_depth"       ,    0 ,   20 , "keep"   ,
-  "average_surface_velocity"   ,    0 ,    6 , "keep"   ,
-  "entered_streamflow"         ,    0 , 2000 , "keep"   ,
-  # "calculated_streamflow", 0, 300, "keep",
-  "corrected_streamflow"       ,    0 ,  250 , "keep"   ,
-  "streamflow"                 ,    0 ,  300 , "keep"   ,
-  "biotic_index_total_animals" ,    1 ,   22 , "keep"   ,
-  "biotic_index_score"         ,    1 ,    4 , "keep"
+# Validation rules, applied by validate_measures() in functions.R
+#   min/max:   expected range. Values outside are KEPT but flagged as suspect
+#   zero_ok:   whether exactly 0 is acceptable (if not, 0 is flagged)
+#   hard_min/hard_max: physically impossible outside this range -> value REMOVED
+#   fix:       automatic correction tried first, result is then re-checked
+#     f_to_c   values above hard_max are assumed °F and converted to °C
+#     ms_to_us values between 0 and min are assumed mS/cm -> µS/cm (0 removed)
+#     cap_tube transparency capped at the tube length (replaces max per row)
+validation_rules <- tribble(
+  ~measure                     , ~min , ~max , ~zero_ok , ~hard_min , ~hard_max , ~fix       ,
+  "air_temp"                   ,  -40 ,   40 , TRUE     ,       -50 ,        40 , "f_to_c"   ,
+  "water_temp"                 ,   -1 ,   30 , TRUE     ,        -2 ,        40 , "f_to_c"   ,
+  "d_o"                        ,    0 ,   25 , FALSE    ,         0 , Inf       , NA         ,
+  "d_o_saturation"             ,    0 ,  180 , FALSE    ,         0 , Inf       , NA         ,
+  "ph"                         ,    4 ,   11 , TRUE     ,         1 ,        14 , NA         ,
+  "specific_cond"              ,    5 , 5000 , FALSE    ,         0 , Inf       , "ms_to_us" ,
+  "transparency"               ,    0 ,  120 , TRUE     ,         0 , Inf       , "cap_tube" ,
+  "stream_width"               ,    0 ,  150 , TRUE     ,         0 , Inf       , NA         ,
+  "average_stream_depth"       ,    0 ,   20 , TRUE     ,         0 , Inf       , NA         ,
+  "length_assessed"            ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
+  "cross_sectional_area"       ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
+  "average_surface_velocity"   ,    0 ,    6 , TRUE     ,         0 , Inf       , NA         ,
+  "corrected_surface_velocity" ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
+  "entered_streamflow"         ,    0 , 2000 , TRUE     ,         0 , Inf       , NA         ,
+  "calculated_streamflow"      ,    0 , Inf  , TRUE     ,         0 , Inf       , NA         ,
+  "corrected_streamflow"       ,    0 ,  250 , TRUE     ,         0 , Inf       , NA         ,
+  "streamflow"                 ,    0 ,  300 , TRUE     ,         0 , Inf       , NA         ,
+  "biotic_index_total_animals" ,    1 ,   22 , FALSE    ,         0 , Inf       , NA         ,
+  "biotic_index_score"         ,    1 ,    4 , FALSE    ,         0 , Inf       , NA         ,
+  # derived DO checks, computed after the values above are cleaned (2nd pass)
+  "calc_do_sat_conc"           ,    0 ,   25 , FALSE    , -Inf      , Inf       , NA         ,
+  "calc_do_sat"                ,    0 ,  180 , FALSE    , -Inf      , Inf       , NA         ,
+  "calc_do_sat_diff"           ,  -20 ,   20 , TRUE     , -Inf      , Inf       , NA
+)
+
+# a fieldwork event "has baseline data" if any of these have a value
+key_measures <- c(
+  "air_temp",
+  "water_temp",
+  "d_o",
+  "d_o_saturation",
+  "calc_do_sat_conc",
+  "calc_do_sat",
+  "calc_do_sat_diff",
+  "ph",
+  "specific_cond",
+  "transparency",
+  "stream_width",
+  "average_stream_depth",
+  "average_surface_velocity",
+  "entered_streamflow",
+  "corrected_streamflow",
+  "streamflow",
+  "biotic_index_total_animals",
+  "biotic_index_score"
 )
 
 # calculate saturated DO mg/L at a given water temp (C) using APHA equation
@@ -606,82 +667,54 @@ if (FALSE) {
     geom_histogram()
 }
 
-baseline_data_modified <- baseline_data |>
+calc_rules <- validation_rules |> filter(str_starts(measure, "calc_"))
+measured_rules <- validation_rules |> filter(!str_starts(measure, "calc_"))
+
+# pass 1: validate the measured values (converts °F, removes impossible values)
+validation_measured <- validate_measures(baseline_data, measured_rules)
+
+baseline_validated <- baseline_data |>
+  select(-all_of(measured_rules$measure)) |>
+  left_join(
+    validation_measured |>
+      select(fsn, measure, new_value) |>
+      pivot_wider(names_from = measure, values_from = new_value),
+    by = "fsn"
+  ) |>
+  select(all_of(names(baseline_data))) |>
+  # pass 2: DO consistency, calculated from the *cleaned* temps and DO so that
+  # temps entered in °F still get checked
   mutate(
     calc_do_sat_conc = calc_do_full_sat(
       water_temp,
       coalesce(elevation_ft, 700) # sub in for missing elevations probably just outside the DEM
     ),
     calc_do_sat = round(100 * d_o / calc_do_sat_conc),
-    calc_do_sat_diff = round(d_o_saturation - calc_do_sat, 2),
-    .after = d_o_saturation
+    calc_do_sat_diff = round(d_o_saturation - calc_do_sat, 2)
   )
 
-# apply action to out of range values
-baseline_validation <- baseline_data_modified |>
-  select(fsn, all_of(validation_actions$measure)) |>
-  pivot_longer(cols = -fsn, names_to = "measure") |>
-  left_join(validation_actions) |>
-  mutate(
-    valid = if_else(
-      min == 0,
-      value > 0 & value <= max,
-      between(value, min, max)
-    ),
-    new_value = case_when(
-      valid ~ value,
-      is.nan(value) | is.infinite(value) ~ NA,
-      # convert specific_cond when likely using incorrect units
-      measure == "specific_cond" ~ case_when(
-        value == 0 ~ NA,
-        value < 5 ~ value * 1000,
-        TRUE ~ value
-      ),
-      action == "f_to_c" ~ f_to_c(value),
-      action == "cap" ~ clamp(value, min, max),
-      action == "remove" ~ NA,
-      action == "keep" ~ value
-    ),
-    msg = case_when(
-      valid ~ NA,
-      is.nan(value) ~ "was not a number",
-      is.na(value) ~ NA,
-      action == "f_to_c" ~ str_glue("converted from {value} to {new_value}"),
-      measure == "specific_cond" ~ case_when(
-        value == 0 ~ "bad value 0 removed",
-        value < 5 ~ str_glue("value {value} converted to {new_value}"),
-        !valid ~ str_glue("value {value} suspect")
-      ),
-      action == "cap" ~ str_glue("value {value} clamped to {new_value}"),
-      action == "remove" ~ str_glue("bad value {value} removed"),
-      action == "keep" ~ str_glue("value {value} suspect")
-    ),
-    msg = if_else(is.na(msg), NA, paste(measure, msg))
-  )
+validation_calc <- validate_measures(baseline_validated, calc_rules)
 
-# put it back together and swap in validated values
-baseline_clean <- baseline_data_modified |>
-  select(-all_of(validation_actions$measure)) |>
-  left_join({
-    baseline_validation |>
-      select(fsn, measure, new_value) |>
-      pivot_wider(names_from = measure, values_from = new_value)
-  }) |>
-  left_join({
+# one row per fsn x measure, with status and message for anything not OK
+baseline_validation <- bind_rows(validation_measured, validation_calc)
+
+# calc_do_* values are only flagged, never changed, so just add the messages
+baseline_clean <- baseline_validated |>
+  left_join(
     baseline_validation |>
       summarize(
         data_validation = paste(na.omit(msg), collapse = "; "),
         .by = fsn
       ) |>
-      mutate(across(data_validation, ~ if_else(.x == "", "OK", .x)))
-  }) |>
-  select(all_of(names(baseline_data)), everything())
+      mutate(across(data_validation, ~ if_else(.x == "", "OK", .x))),
+    by = "fsn"
+  )
 
 # data check
 if (FALSE) {
-  baseline_validation |> filter(str_detect(msg, "not a number"))
-  baseline_validation |> filter(str_detect(msg, "bad value"))
-  baseline_validation |> filter(str_detect(msg, "suspect"))
+  baseline_validation |> count(measure, status)
+  baseline_validation |> filter(status == "removed")
+  baseline_validation |> filter(status == "flagged")
 
   baseline_clean |>
     filter(str_detect(data_validation, "specific_cond")) |>
@@ -717,8 +750,8 @@ if (nrow(baseline_stns_invalid) > 0) {
 
 # find stations where all FSNs in a year have no baseline data and drop them
 has_key_baseline_data <- baseline_clean |>
-  select(station_id, year, fsn, all_of(validation_actions$measure)) |>
-  pivot_longer(all_of(validation_actions$measure)) |>
+  select(station_id, year, fsn, all_of(key_measures)) |>
+  pivot_longer(all_of(key_measures)) |>
   summarize(
     has_baseline = sum(!is.na(value)) > 0,
     .by = c(station_id, year, fsn)
@@ -750,6 +783,305 @@ baseline_final |>
 
 macro_species_counts |>
   write_csv(data_dir("macro_species_counts.csv"), na = "")
+
+
+## Validation report ----
+# One row per problem a volunteer can fix in SWIMS, used to email volunteers
+# (see data-validation/volunteer_emails.R). Built from baseline_validation, not
+# baseline_final, so problems in fieldwork that was later dropped still show up.
+
+measure_labels <- tribble(
+  ~measure                     , ~label                       , ~units  ,
+  "air_temp"                   , "Air temperature"            , "°C"    ,
+  "water_temp"                 , "Water temperature"          , "°C"    ,
+  "d_o"                        , "Dissolved oxygen"           , "mg/L"  ,
+  "d_o_saturation"             , "DO saturation"              , "%"     ,
+  "ph"                         , "pH"                         , ""      ,
+  "specific_cond"              , "Specific conductance"       , "µS/cm" ,
+  "transparency"               , "Transparency"               , "cm"    ,
+  "stream_width"               , "Stream width"               , "ft"    ,
+  "average_stream_depth"       , "Average stream depth"       , "ft"    ,
+  "length_assessed"            , "Length assessed"            , "ft"    ,
+  "cross_sectional_area"       , "Cross-sectional area"       , "sq ft" ,
+  "average_surface_velocity"   , "Average surface velocity"   , "ft/s"  ,
+  "corrected_surface_velocity" , "Corrected surface velocity" , "ft/s"  ,
+  "entered_streamflow"         , "Streamflow (entered)"       , "cfs"   ,
+  "calculated_streamflow"      , "Streamflow (calculated)"    , "cfs"   ,
+  "corrected_streamflow"       , "Streamflow (calculated)"    , "cfs"   ,
+  "streamflow"                 , "Streamflow"                 , "cfs"   ,
+  "biotic_index_total_animals" , "Biotic index total animals" , ""      ,
+  "biotic_index_score"         , "Biotic index score"         , ""      ,
+  "do_consistency"             , "Dissolved oxygen"           , ""      ,
+  "flow_calculation"           , "Streamflow"                 , ""
+)
+
+# SWIMS-calculated flow fields; "NaN"/"Infinity" there means missing inputs
+swims_flow_calcs <- c(
+  "calculated_streamflow",
+  "corrected_streamflow",
+  "corrected_surface_velocity",
+  "cross_sectional_area",
+  "average_surface_velocity"
+)
+flow_input_measures <- c(
+  "stream_width",
+  "average_stream_depth",
+  "length_assessed",
+  "average_surface_velocity"
+)
+swims_calc_text <- c("NaN", "Infinity", "-Infinity")
+
+# what was actually typed into SWIMS for non-numeric entries
+entered_text <- bind_rows(baseline_nan, flow_nan) |>
+  distinct(fsn, measure = parameter, .keep_all = TRUE) |>
+  select(fsn, measure, entered)
+
+issues_all <- baseline_validation |>
+  filter(!is.na(status)) |>
+  left_join(entered_text, by = c("fsn", "measure")) |>
+  mutate(
+    swims_calc_failed = measure %in%
+      swims_flow_calcs &
+      status == "not_a_number" &
+      (entered %in% swims_calc_text | measure != "average_surface_velocity")
+  )
+
+# SWIMS couldn't calculate flow: one issue per fieldwork, and only when the
+# volunteer entered at least some flow inputs (otherwise flow just wasn't done)
+flow_calc_fsn <- issues_all |>
+  filter(swims_calc_failed) |>
+  distinct(fsn) |>
+  semi_join(
+    baseline_clean |>
+      filter(if_any(all_of(flow_input_measures), ~ !is.na(.x))),
+    by = "fsn"
+  )
+
+issues_flow_calc <- baseline_clean |>
+  filter(fsn %in% flow_calc_fsn$fsn) |>
+  mutate(
+    missing = pmap_chr(
+      list(
+        velocity_correction_factor,
+        stream_width,
+        average_stream_depth,
+        length_assessed,
+        average_surface_velocity
+      ),
+      \(vcf, w, d, l, v) {
+        m <- c(
+          "the velocity correction factor (0.8 for a rocky bottom or 0.9 for a muddy/sandy bottom)"[
+            is.na(vcf)
+          ],
+          "stream width"[is.na(w) || w == 0],
+          "stream depths"[is.na(d) || d == 0],
+          "length assessed"[is.na(l) || l == 0],
+          "float times"[is.na(v) || v == 0]
+        )
+        if (length(m) == 0) {
+          return(NA_character_)
+        }
+        if (length(m) == 1) {
+          m
+        } else {
+          paste(paste(m[-length(m)], collapse = ", "), "and", last(m))
+        }
+      }
+    ),
+    measure = "flow_calculation",
+    status = "incomplete",
+    problem = if_else(
+      is.na(missing),
+      "SWIMS couldn't calculate streamflow from the measurements entered. Please check the flow measurements.",
+      paste0(
+        "SWIMS couldn't calculate streamflow because ",
+        missing,
+        if_else(str_detect(missing, " and |depths$|times$"), " are", " is"),
+        " missing or zero. Please fill in the missing values."
+      )
+    )
+  ) |>
+  select(fsn, measure, status, problem)
+
+# DO % saturation doesn't match DO mg/L and water temp: one issue per fieldwork
+issues_do <- issues_all |>
+  filter(measure %in% c("calc_do_sat", "calc_do_sat_diff")) |>
+  distinct(fsn) |>
+  left_join(
+    baseline_clean |>
+      select(fsn, d_o, d_o_saturation, water_temp, calc_do_sat),
+    by = "fsn"
+  ) |>
+  mutate(
+    measure = "do_consistency",
+    status = "flagged",
+    problem = if_else(
+      is.na(d_o_saturation),
+      str_glue(
+        "DO of {fmt_num(d_o)} mg/L at {fmt_num(water_temp)} °C works out to {fmt_num(calc_do_sat)}% saturation, which is unusual. Please double-check DO and water temperature."
+      ),
+      str_glue(
+        "DO of {fmt_num(d_o)} mg/L at {fmt_num(water_temp)} °C works out to about {fmt_num(calc_do_sat)}% saturation, but {fmt_num(d_o_saturation)}% was entered. Please double-check DO (mg/L), DO saturation (%) and water temperature."
+      )
+    ),
+    entered = str_glue(
+      "{fmt_num(d_o)} mg/L, {coalesce(fmt_num(d_o_saturation), '-')}%, {fmt_num(water_temp)} °C"
+    )
+  ) |>
+  select(fsn, measure, status, problem, entered)
+
+# streamflow is derived from entered/corrected flow, so skip it if those are flagged
+flow_flagged_fsn <- issues_all |>
+  filter(
+    measure %in%
+      c("entered_streamflow", "corrected_streamflow") |
+      fsn %in% flow_calc_fsn$fsn
+  ) |>
+  distinct(fsn)
+
+issues_simple <- issues_all |>
+  filter(
+    !str_starts(measure, "calc_"),
+    !swims_calc_failed,
+    !(measure == "streamflow" & fsn %in% flow_flagged_fsn$fsn)
+  ) |>
+  left_join(measure_labels, by = "measure") |>
+  mutate(
+    val = str_squish(paste(fmt_num(value), units)),
+    new_val = str_squish(paste(fmt_num(new_value), units)),
+    problem = case_when(
+      status == "not_a_number" & entered %in% swims_calc_text ~
+        str_glue(
+          "SWIMS couldn't calculate the {str_to_lower(label)} from the readings entered. Please check that all readings are filled in."
+        ),
+      status == "not_a_number" & !is.na(entered) ~
+        str_glue(
+          "Entered \"{entered}\", which isn't a number, so it isn't shown on the dashboard. Please enter a number only (no units or other text), or leave it blank if it wasn't measured."
+        ),
+      status == "not_a_number" ~
+        "This value isn't a number, so it isn't shown on the dashboard.",
+      status == "removed" & value == 0 ~
+        str_glue(
+          "A value of 0 isn't possible, so it isn't shown on the dashboard. If this wasn't measured, please leave it blank; otherwise please correct it."
+        ),
+      status == "removed" & fix %in% "f_to_c" ~
+        str_glue(
+          "{val} isn't possible, even if it was recorded in °F, so it isn't shown on the dashboard. Please check the value."
+        ),
+      status == "removed" ~
+        str_glue(
+          "{val} isn't possible (expected {range_text(hard_min, hard_max, units)}), so it isn't shown on the dashboard. Please check the value, or delete it if it wasn't measured."
+        ),
+      status == "converted" & fix %in% "f_to_c" ~
+        str_glue(
+          "{fmt_num(value)} looks like it was recorded in °F, so the dashboard shows it as {new_val}. Please change it to °C in SWIMS."
+        ),
+      status == "converted" & fix %in% "ms_to_us" ~
+        str_glue(
+          "{fmt_num(value)} looks like it was entered in mS/cm, so the dashboard shows it as {new_val}. Please enter specific conductance in µS/cm."
+        ),
+      status == "capped" ~
+        str_glue(
+          "{val} is more than the {fmt_num(tube_length)} cm tube length, so the dashboard shows {new_val}. Please check the transparency reading and tube length."
+        ),
+      status == "flagged" & value == 0 ~
+        str_glue(
+          "A value of 0 is unusual. If this wasn't measured, please leave it blank; otherwise please double-check it."
+        ),
+      status == "flagged" ~
+        str_glue(
+          "{val} is outside the usual range ({range_text(min, max, units)}). Please double-check it."
+        )
+    ),
+    entered = coalesce(entered, val)
+  ) |>
+  select(fsn, measure, status, problem, entered, new_value)
+
+validation_issues <- bind_rows(issues_simple, issues_do, issues_flow_calc) |>
+  left_join(
+    baseline_clean |>
+      select(fsn, date, year, station_id, group_seq_no, group_desc),
+    by = "fsn"
+  ) |>
+  left_join(
+    stn_list |> select(station_id, station_name, station_seq_no),
+    by = "station_id"
+  ) |>
+  left_join(
+    measure_labels |> select(measure, parameter = label),
+    by = "measure"
+  ) |>
+  mutate(
+    problem = as.character(problem),
+    entered = as.character(entered),
+    dashboard_value = fmt_num(new_value),
+    issue_id = paste(fsn, measure, entered, sep = "|"),
+    fieldwork_url = as.character(swims_fw_url(fsn)),
+    station_url = if_else(
+      is.na(station_seq_no),
+      NA,
+      as.character(swims_stn_url(station_seq_no))
+    ),
+    in_dashboard = fsn %in% baseline_final$fsn
+  ) |>
+  select(
+    issue_id,
+    year,
+    date,
+    fsn,
+    station_id,
+    station_name,
+    station_seq_no,
+    group_seq_no,
+    group_desc,
+    measure,
+    parameter,
+    entered,
+    dashboard_value,
+    status,
+    problem,
+    fieldwork_url,
+    station_url,
+    in_dashboard
+  ) |>
+  arrange(desc(year), group_desc, date, station_id, parameter)
+
+validation_issues |>
+  write_excel_csv("data-validation/validation_issues.csv", na = "")
+
+message(
+  "Validation issues: ",
+  nrow(validation_issues),
+  " in ",
+  n_distinct(validation_issues$fsn),
+  " fieldwork events (",
+  sum(validation_issues$year == year(MAX_DATE), na.rm = TRUE),
+  " in ",
+  year(MAX_DATE),
+  ")"
+)
+
+# fieldwork that never makes it to the dashboard, for staff (not volunteers)
+dropped_fieldwork <- bind_rows(
+  baseline_clean |>
+    filter(!(fsn %in% valid_fsn)) |>
+    mutate(reason = "no baseline values at this station in this year"),
+  baseline_clean |>
+    filter(fsn %in% valid_fsn, is.na(latitude) | is.na(longitude)) |>
+    mutate(reason = "station has no coordinates")
+) |>
+  select(fsn, date, station_id, station_name, group_desc, reason) |>
+  arrange(desc(date))
+
+dropped_fieldwork |>
+  write_excel_csv("data-validation/dropped_fieldwork.csv", na = "")
+
+# data check
+if (FALSE) {
+  validation_issues |> count(year, measure, status) |> print(n = 100)
+  validation_issues |> filter(year == 2026) |> view()
+  dropped_fieldwork |> count(reason)
+}
 
 
 # PEOPLE =======================================================================
@@ -813,7 +1145,7 @@ nutrient_raw <- nutrient_xl |>
 
 nutrient_obs <- nutrient_raw |>
   merge_by("fsn") |>
-  filter(month %in% 5:10) |>
+  filter(month %in% 5:10, date <= MAX_DATE) |>
   left_join_at(stn_list, "station_id") |>
   drop_na(latitude, longitude, tp)
 

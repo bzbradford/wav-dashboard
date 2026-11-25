@@ -8,3 +8,4 @@
 !*.Rproj
 !*.R
 !docs/*.md
+!CLAUDE.md

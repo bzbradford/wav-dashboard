@@ -10,9 +10,9 @@ id = "5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 dashboard_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39"
 direct_url = "https://connect.doit.wisc.edu/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/"
 logs_url = "https://connect.doit.wisc.edu/connect/#/apps/5d2be5ab-04ef-402c-a608-151a7dcf8a39/logs"
-deployed_at = "2026-11-20T00:13:05.309Z"
-bundle_id = "5398"
-bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/5398/download"
+deployed_at = "2026-11-20T02:30:53.192Z"
+bundle_id = "5399"
+bundle_url = "https://connect.doit.wisc.edu/__api__/v1/content/5d2be5ab-04ef-402c-a608-151a7dcf8a39/bundles/5399/download"
 files = [
     ".RData",
     ".Renviron",
